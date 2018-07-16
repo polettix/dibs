@@ -1,0 +1,99 @@
+---
+name: whatever
+
+env:
+   alpine: 'alpine:3.6'
+   bundle_alpine_base: 'perl-run-alpine:latest'
+
+   debian: 'debian:9.4-slim'
+   bundle_debian_base: 'perl-run-debian:latest'
+
+operations:
+
+   
+
+
+
+
+
+   bundle-alpine-base:
+      handler: dockerfile
+      tags:
+         - '[% bundle_alpine_base %]'
+      contents: |
+         FROM [% alpine %]
+         RUN  apk update \
+           && apk add --update perl \
+           && rm -rf /var/cache/apk/* /core
+         ENTRYPOINT /driver/run
+         ADD  something.tar.gz /driver/
+
+   bundle-debian-base:
+      handler: bundle-debian # debian-specific bundler, makes sure prereqs are installed
+      tags:
+         - '[% bundle_debian_base %]'
+      from: '[% debian %]'         # basic starting point
+      add:
+         source: something.tar.gz
+         destination: /driver/
+      entrypoint: '/driver/run'    # entrypoint to set
+      prereqs:                     # list of packages for apt
+         - perl                    # others might come from installed thing itself
+
+   fetch:
+      # handler: fetch # git
+      origin: 'https://github.com/polettix/heroku-buildpack-perl-procfile.git#v0.3'
+      reset: false
+
+   build:
+      handler: build-alpine
+      from: '[% alpine_base %]'
+      prereqs:
+         - build-base
+         - git
+         - openssh-client
+         - perl
+         - perl-dev
+
+   bundle:
+      # handler: bundle # defaults to "just" install stuff in /app
+      from: '[% bundle_alpine_base %]'
+      tags:
+         - '[% name %]-alpine:[% id %]'
+         - '[% name %]-alpine:latest'
+
+   build-debian:
+      # handler: build-debian # deduced from operation's name
+      from: '[% debian %]'
+      prereqs:
+         - build-essentials
+         - git
+         - openssh-client
+         - perl
+
+   bundle-debian:
+      handler: bundle # defaults to "just" install stuff in /app
+      from: '[% bundle_debian_base %]'
+      tags:
+         - '[% name %]-deb:[% id %]'
+         - '[% name %]-deb:latest'
+
+   deliver:
+      # handler: deliver # docker delivery
+      registries: []
+
+   alpine:
+      handler: pipeline
+      operations:
+         - fetch
+         - build
+         - bundle
+
+   debian:
+      handler: pipeline
+      operations:
+         - fetch
+         - build-debian:
+            output: debian.tar.gz
+         - bundle-debian:
+            input:  debian.tar.gz

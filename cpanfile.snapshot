@@ -1,0 +1,209 @@
+# carton snapshot format: version 1.0
+DISTRIBUTIONS
+  Class-Method-Modifiers-2.12
+    pathname: E/ET/ETHER/Class-Method-Modifiers-2.12.tar.gz
+    provides:
+      Class::Method::Modifiers 2.12
+    requirements:
+      B 0
+      Carp 0
+      Exporter 0
+      ExtUtils::MakeMaker 0
+      base 0
+      perl 5.006
+      strict 0
+      warnings 0
+  Devel-GlobalDestruction-0.14
+    pathname: H/HA/HAARG/Devel-GlobalDestruction-0.14.tar.gz
+    provides:
+      Devel::GlobalDestruction 0.14
+    requirements:
+      ExtUtils::MakeMaker 0
+      Sub::Exporter::Progressive 0.001011
+      perl 5.006
+  Log-Any-1.706
+    pathname: P/PR/PREACTION/Log-Any-1.706.tar.gz
+    provides:
+      Log::Any 1.706
+      Log::Any::Adapter 1.706
+      Log::Any::Adapter::Base 1.706
+      Log::Any::Adapter::File 1.706
+      Log::Any::Adapter::Null 1.706
+      Log::Any::Adapter::Stderr 1.706
+      Log::Any::Adapter::Stdout 1.706
+      Log::Any::Adapter::Syslog 1.706
+      Log::Any::Adapter::Test 1.706
+      Log::Any::Adapter::Util 1.706
+      Log::Any::Manager 1.706
+      Log::Any::Proxy 1.706
+      Log::Any::Proxy::Null 1.706
+      Log::Any::Proxy::Test 1.706
+      Log::Any::Test 1.706
+    requirements:
+      B 0
+      Carp 0
+      Data::Dumper 0
+      Exporter 0
+      ExtUtils::MakeMaker 0
+      Fcntl 0
+      File::Basename 0
+      FindBin 0
+      IO::File 0
+      Storable 0
+      Sys::Syslog 0
+      Test::Builder 0
+      constant 0
+      strict 0
+      warnings 0
+  Module-Build-0.4224
+    pathname: L/LE/LEONT/Module-Build-0.4224.tar.gz
+    provides:
+      Module::Build 0.4224
+      Module::Build::Base 0.4224
+      Module::Build::Compat 0.4224
+      Module::Build::Config 0.4224
+      Module::Build::Cookbook 0.4224
+      Module::Build::Dumper 0.4224
+      Module::Build::Notes 0.4224
+      Module::Build::PPMMaker 0.4224
+      Module::Build::Platform::Default 0.4224
+      Module::Build::Platform::MacOS 0.4224
+      Module::Build::Platform::Unix 0.4224
+      Module::Build::Platform::VMS 0.4224
+      Module::Build::Platform::VOS 0.4224
+      Module::Build::Platform::Windows 0.4224
+      Module::Build::Platform::aix 0.4224
+      Module::Build::Platform::cygwin 0.4224
+      Module::Build::Platform::darwin 0.4224
+      Module::Build::Platform::os2 0.4224
+      Module::Build::PodParser 0.4224
+    requirements:
+      CPAN::Meta 2.142060
+      CPAN::Meta::YAML 0.003
+      Cwd 0
+      Data::Dumper 0
+      ExtUtils::CBuilder 0.27
+      ExtUtils::Install 0
+      ExtUtils::Manifest 0
+      ExtUtils::Mkbootstrap 0
+      ExtUtils::ParseXS 2.21
+      File::Basename 0
+      File::Compare 0
+      File::Copy 0
+      File::Find 0
+      File::Path 0
+      File::Spec 0.82
+      File::Temp 0.15
+      Getopt::Long 0
+      Module::Metadata 1.000002
+      Parse::CPAN::Meta 1.4401
+      Perl::OSType 1
+      Pod::Man 2.17
+      TAP::Harness 3.29
+      Test::More 0.49
+      Text::Abbrev 0
+      Text::ParseWords 0
+      perl 5.006001
+      version 0.87
+  Module-Runtime-0.016
+    pathname: Z/ZE/ZEFRAM/Module-Runtime-0.016.tar.gz
+    provides:
+      Module::Runtime 0.016
+    requirements:
+      Module::Build 0
+      Test::More 0.41
+      perl 5.006
+      strict 0
+      warnings 0
+  Moo-2.003004
+    pathname: H/HA/HAARG/Moo-2.003004.tar.gz
+    provides:
+      Method::Generate::Accessor undef
+      Method::Generate::BuildAll undef
+      Method::Generate::Constructor undef
+      Method::Generate::DemolishAll undef
+      Moo 2.003004
+      Moo::HandleMoose undef
+      Moo::HandleMoose::FakeConstructor undef
+      Moo::HandleMoose::FakeMetaClass undef
+      Moo::HandleMoose::_TypeMap undef
+      Moo::Object undef
+      Moo::Role 2.003004
+      Moo::_Utils undef
+      Moo::_mro undef
+      Moo::_strictures undef
+      Moo::sification undef
+      oo undef
+    requirements:
+      Class::Method::Modifiers 1.1
+      Devel::GlobalDestruction 0.11
+      Exporter 5.57
+      ExtUtils::MakeMaker 0
+      Module::Runtime 0.014
+      Role::Tiny 2.000004
+      Scalar::Util 0
+      Sub::Defer 2.003001
+      Sub::Quote 2.003001
+      perl 5.006
+  Path-Tiny-0.106
+    pathname: D/DA/DAGOLDEN/Path-Tiny-0.106.tar.gz
+    provides:
+      Path::Tiny 0.106
+      Path::Tiny::Error 0.106
+    requirements:
+      Carp 0
+      Cwd 0
+      Digest 1.03
+      Digest::SHA 5.45
+      Exporter 5.57
+      ExtUtils::MakeMaker 6.17
+      Fcntl 0
+      File::Copy 0
+      File::Glob 0
+      File::Path 2.07
+      File::Spec 0.86
+      File::Temp 0.19
+      File::stat 0
+      constant 0
+      overload 0
+      perl 5.008001
+      strict 0
+      warnings 0
+      warnings::register 0
+  Role-Tiny-2.000006
+    pathname: H/HA/HAARG/Role-Tiny-2.000006.tar.gz
+    provides:
+      Role::Tiny 2.000006
+      Role::Tiny::With 2.000006
+    requirements:
+      Exporter 5.57
+      perl 5.006
+  Sub-Exporter-Progressive-0.001013
+    pathname: F/FR/FREW/Sub-Exporter-Progressive-0.001013.tar.gz
+    provides:
+      Sub::Exporter::Progressive 0.001013
+    requirements:
+      ExtUtils::MakeMaker 0
+  Sub-Quote-2.005001
+    pathname: H/HA/HAARG/Sub-Quote-2.005001.tar.gz
+    provides:
+      Sub::Defer 2.005001
+      Sub::Quote 2.005001
+    requirements:
+      ExtUtils::MakeMaker 0
+      Scalar::Util 0
+      perl 5.006
+  YAML-Tiny-1.73
+    pathname: E/ET/ETHER/YAML-Tiny-1.73.tar.gz
+    provides:
+      YAML::Tiny 1.73
+    requirements:
+      B 0
+      Carp 0
+      Exporter 0
+      ExtUtils::MakeMaker 0
+      Fcntl 0
+      Scalar::Util 0
+      perl 5.008001
+      strict 0
+      warnings 0
