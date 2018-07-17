@@ -20,18 +20,29 @@ our $VERSION = '0.001';
 use Dibs::PacksList;
 use Dibs::Docker;
 
+use constant CACHE     => 'cache';
+use constant DIBSPACKS => 'dibspacks';
+use constant ENV       => 'env';
+use constant SRC       => 'src';
+
 use constant DEFAULTS => {
-   project_dibspacks_dir   => 'dibspacks',
-   project_src_dir         => 'src',
-   project_cache_dir       => 'cache',
-   project_env_dir         => 'env',
-   container_dibspacks_dir => '/tmp/dibspacks',
-   container_src_dir       => '/tmp/src',
-   container_cache_dir     => '/tmp/cache',
-   container_env_dir       => '/tmp/env',
-   detect_volumes          => [qw< dibspacks:ro src:ro cache:ro env:ro >],
-   operate_volumes         => [qw< dibspacks:ro src    cache    env:ro >],
-   dibspack_dirs           => [qw< src cache env >],
+   project_dirs => {
+      CACHE     , 'cache',
+      DIBSPACKS , 'dibspacks',
+      ENV       , 'env',
+      SRC       , 'src',
+   },
+   container_dirs => {
+      CACHE     , '/tmp/cache',
+      DIBSPACKS , '/tmp/dibspacks',
+      ENV       , '/tmp/env',
+      SRC       , '/tmp/src',
+   },
+   volumes => {
+      detect  => [[CACHE, 'ro'], [ENV, 'ro'], [DIBSPACKS, 'ro'], [SRC, 'ro']],
+      operate => [ CACHE       , [ENV, 'ro'], [DIBSPACKS, 'ro'],  SRC       ],
+   },
+   dibspack_dirs => [SRC, CACHE, ENV],
 };
 use constant OPTIONS => [
    ['build-dibspacks|build-dibspack=s@',  help => 'list of dibspack for building'],
@@ -147,9 +158,9 @@ sub _merge { return {map {$_->%*} grep {defined} reverse @_} } # first wins
 
 sub ensure_host_directories ($config) {
    my $pd = path($config->{project_dir});
-   for my $name (qw< dibspacks src cache env >) {
-      my $sd = $pd->child($config->{"project_${name}_dir"});
-      $sd->mkpath;
+   for my $name (CACHE, DIBSPACKS, ENV, SRC) {
+      my $subdir_name = $config->{project_dirs}{$name};
+      $pd->child($subdir_name)->mkpath;
    }
 }
 
@@ -162,7 +173,7 @@ sub fetch ($config) {
    } if ! ref($fc) && $fc =~ m{\A(?: http s? | git | ssh )}mxs;
    ouch 500, 'most probably unimplemented'
       unless ref($fc) && $fc->{type} eq 'git';
-   my $target = path($config->{project_dir})->child($config->{project_src_dir});
+   my $target = project_dir($config, $config->{project_dirs}{&SRC});
    require Dibs::Git;
    Dibs::Git::fetch($fc->{origin}, $target->stringify);
 }
@@ -330,24 +341,26 @@ sub merge_envs (@envs) {
 }
 
 sub list_dirs ($config) {
-   map { $config->{"container_${_}_dir"} } $config->{dibspack_dirs}->@*;
+   map { $config->{container_dirs}{$_} } $config->{dibspack_dirs}->@*;
 }
 
 sub list_volumes ($config, $step) {
    my $pd = project_dir($config);
+   my ($pds, $cds) = $config->@{qw< project_dirs container_dirs >};
    return map {
-      my ($name, @mode)    = split /:/, $_, 2;
-      my $dir_in_project   = $config->{"project_${name}_dir"};
-      my $dir_in_container = $config->{"container_${name}_dir"};
+      my ($name, @mode) = ref($_) ? $_->@* : $_;
       [
-         $pd->child($dir_in_project)->stringify,
-         $dir_in_container,
+         $pd->child($pds->{$name})->stringify,
+         $cds->{$name},
          @mode
       ];
-   } $config->{"${step}_volumes"}->@*;
+   } $config->{volumes}{$step}->@*;
 }
 
-sub project_dir ($c) { path($c->{project_dir})->absolute }
+sub project_dir ($config, @subdirs) {
+   my $pd = path($c->{project_dir})->absolute;
+   return(@subdirs ? $pd->child(@subdirs) : $pd);
+}
 
 1;
 __END__
