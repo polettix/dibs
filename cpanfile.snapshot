@@ -13,6 +13,20 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       warnings 0
+  Data-Dump-1.23
+    pathname: G/GA/GAAS/Data-Dump-1.23.tar.gz
+    provides:
+      Data::Dump 1.23
+      Data::Dump::FilterContext undef
+      Data::Dump::Filtered undef
+      Data::Dump::Trace 0.02
+      Data::Dump::Trace::Call 0.02
+      Data::Dump::Trace::Wrapper 0.02
+    requirements:
+      ExtUtils::MakeMaker 0
+      Symbol 0
+      Test 0
+      perl 5.006
   Devel-GlobalDestruction-0.14
     pathname: H/HA/HAARG/Devel-GlobalDestruction-0.14.tar.gz
     provides:
@@ -21,6 +35,34 @@ DISTRIBUTIONS
       ExtUtils::MakeMaker 0
       Sub::Exporter::Progressive 0.001011
       perl 5.006
+  File-chdir-0.1010
+    pathname: D/DA/DAGOLDEN/File-chdir-0.1010.tar.gz
+    provides:
+      File::chdir 0.1010
+      File::chdir::ARRAY 0.1010
+      File::chdir::SCALAR 0.1010
+    requirements:
+      Carp 0
+      Cwd 3.16
+      Exporter 0
+      ExtUtils::MakeMaker 6.17
+      File::Spec::Functions 3.27
+      perl 5.006
+      strict 0
+      vars 0
+  IPC-Run-20180523.0
+    pathname: T/TO/TODDR/IPC-Run-20180523.0.tar.gz
+    provides:
+      IPC::Run 20180523.0
+      IPC::Run::Debug 20180523.0
+      IPC::Run::IO 20180523.0
+      IPC::Run::Timer 20180523.0
+      IPC::Run::Win32Helper 20180523.0
+      IPC::Run::Win32IO 20180523.0
+      IPC::Run::Win32Pump 20180523.0
+    requirements:
+      ExtUtils::MakeMaker 0
+      Test::More 0.47
   Log-Any-1.706
     pathname: P/PR/PREACTION/Log-Any-1.706.tar.gz
     provides:
@@ -145,6 +187,17 @@ DISTRIBUTIONS
       Sub::Defer 2.003001
       Sub::Quote 2.003001
       perl 5.006
+  Ouch-0.0500
+    pathname: R/RI/RIZEN/Ouch-0.0500.tar.gz
+    provides:
+      Ouch 0.0500
+    requirements:
+      Carp 0
+      ExtUtils::MakeMaker 0
+      Test::More 0
+      Test::Trap 0
+      overload 0
+      parent 0
   Path-Tiny-0.106
     pathname: D/DA/DAGOLDEN/Path-Tiny-0.106.tar.gz
     provides:
@@ -193,6 +246,95 @@ DISTRIBUTIONS
       ExtUtils::MakeMaker 0
       Scalar::Util 0
       perl 5.006
+  Test-Trap-v0.3.3
+    pathname: E/EB/EBHANSSEN/Test-Trap-v0.3.3.tar.gz
+    provides:
+      Test::Trap v0.3.3
+      Test::Trap::Builder v0.3.3
+      Test::Trap::Builder::PerlIO v0.3.3
+      Test::Trap::Builder::SystemSafe v0.3.3
+      Test::Trap::Builder::TempFile v0.3.3
+    requirements:
+      Carp 0
+      Data::Dump 0
+      Exporter 0
+      File::Temp 0
+      IO::Handle 0
+      Module::Build 0
+      Test::Builder 0
+      Test::More 0
+      Test::Tester 0.107
+      base 0
+      constant 0
+      lib 0
+      perl v5.6.2
+      strict 0
+      version 0
+      warnings 0
+  URI-1.74
+    pathname: E/ET/ETHER/URI-1.74.tar.gz
+    provides:
+      URI 1.74
+      URI::Escape 3.31
+      URI::Heuristic 4.20
+      URI::IRI 1.74
+      URI::QueryParam 1.74
+      URI::Split 1.74
+      URI::URL 5.04
+      URI::WithBase 2.20
+      URI::data 1.74
+      URI::file 4.21
+      URI::file::Base 1.74
+      URI::file::FAT 1.74
+      URI::file::Mac 1.74
+      URI::file::OS2 1.74
+      URI::file::QNX 1.74
+      URI::file::Unix 1.74
+      URI::file::Win32 1.74
+      URI::ftp 1.74
+      URI::gopher 1.74
+      URI::http 1.74
+      URI::https 1.74
+      URI::ldap 1.74
+      URI::ldapi 1.74
+      URI::ldaps 1.74
+      URI::mailto 1.74
+      URI::mms 1.74
+      URI::news 1.74
+      URI::nntp 1.74
+      URI::pop 1.74
+      URI::rlogin 1.74
+      URI::rsync 1.74
+      URI::rtsp 1.74
+      URI::rtspu 1.74
+      URI::sftp 1.74
+      URI::sip 1.74
+      URI::sips 1.74
+      URI::snews 1.74
+      URI::ssh 1.74
+      URI::telnet 1.74
+      URI::tn3270 1.74
+      URI::urn 1.74
+      URI::urn::isbn 1.74
+      URI::urn::oid 1.74
+    requirements:
+      Carp 0
+      Cwd 0
+      Data::Dumper 0
+      Encode 0
+      Exporter 5.57
+      ExtUtils::MakeMaker 0
+      MIME::Base64 2
+      Net::Domain 0
+      Scalar::Util 0
+      constant 0
+      integer 0
+      overload 0
+      parent 0
+      perl 5.008001
+      strict 0
+      utf8 0
+      warnings 0
   YAML-Tiny-1.73
     pathname: E/ET/ETHER/YAML-Tiny-1.73.tar.gz
     provides:
