@@ -149,7 +149,7 @@ sub ensure_host_directories ($config) {
 
 sub fetch ($config) {
    my $fc = $config->{fetch};
-   return unless defined $fc; # undef -> use src directly
+   return unless defined $fc; # undef -> use src directly, or nothing at all
    $fc = {
       type => 'git',
       origin => $fc,
