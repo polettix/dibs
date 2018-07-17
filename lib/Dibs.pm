@@ -29,6 +29,9 @@ use constant DEFAULTS => {
    container_src_dir       => '/tmp/src',
    container_cache_dir     => '/tmp/cache',
    container_env_dir       => '/tmp/env',
+   detect_volumes          => [qw< dibspacks:ro src:ro cache:ro env:ro >],
+   operate_volumes         => [qw< dibspacks:ro src    cache    env:ro >],
+   dibspack_dirs           => [qw< src cache env >],
 };
 use constant OPTIONS => [
    ['build-dibspacks|build-dibspack=s@',  help => 'list of dibspack for building'],
@@ -95,7 +98,6 @@ sub get_config ($args, $defaults = undef) {
       next unless exists $overall->{$cename};
       $overall->{$name}{dibspacks} = delete $overall->{$cename};
    }
-   $overall->{dibspacks} = Dibs::PacksList->create($overall);
 
    return {
       $overall->%*,
@@ -131,10 +133,14 @@ sub main (@args) {
    local $Data::Dumper::Indent = 1;
    $log->debug(Dumper $config);
    ensure_host_directories($config);
-   fetch($config);
-   build($config);
-   my @tags = bundle($config);
-   say for @tags;
+
+   for my $step ($config->{steps}->@*) {
+      $log->info("step $step");
+      my @tags = run_step($config, $step);
+      say "$step @tags" if @tags;
+   }
+
+   return 0;
 }
 
 sub _merge { return {map {$_->%*} grep {defined} reverse @_} } # first wins
@@ -171,28 +177,26 @@ sub target_name ($config) {
    return join ':', $config->{name}, $config->{run}{metadata}{DIBS_ID};
 }
 
-sub _detect ($config, $dp, $args, $opts) {
-   my $bin_dir = path($dp->container_path)->child('bin');
+sub call_detect ($config, $dp, $op, $args) {
+   my $p = path($dp->container_path)->child('bin', "$op-detect");
    my ($exitcode) = Dibs::Docker::docker_run(
       $args->%*,
       keep    => 0,
-      volumes => [ list_volumes($config, $opts->{detect_volumes}->@*) ],
-      command => [ $bin_dir->child("$opts->{operation}-detect")->stringify,
-         list_dirs($config, $opts->{detect_dirs}->@*) ],
+      volumes => [ list_volumes($config, 'detect') ],
+      command => [ $p->stringify, list_dirs($config) ],
    );
    return $exitcode == 0;
 }
 
-sub _operate ($config, $dp, $args, $opts) {
-   my $bin_dir = path($dp->container_path)->child('bin');
+sub call_operate ($config, $dp, $op, $args) {
+   my $p = path($dp->container_path)->child('bin', $op);
    my ($exitcode, $cid, $out);
    try {
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
          $args->%*,
          keep    => 1,
-         volumes => [ list_volumes($config, $opts->{op_volumes}->@*) ],
-         command => [ $bin_dir->child($opts->{operation})->stringify,
-            list_dirs($config, $opts->{op_dirs}->@*) ],
+         volumes => [ list_volumes($config, 'operate') ],
+         command => [ $p->stringify, list_dirs($config) ],
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
@@ -207,8 +211,8 @@ sub _operate ($config, $dp, $args, $opts) {
    return;
 }
 
-sub _docker_commit_changes ($config, $opts) {
-   my $cfg = $config->{$opts->{operation}};
+sub _docker_commit_changes ($config, $op) {
+   my $cfg = $config->{definitions}{$op};
    my %changes;
    for my $key (qw< entrypoint cmd >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
@@ -216,21 +220,21 @@ sub _docker_commit_changes ($config, $opts) {
    return \%changes;
 }
 
-sub _prepare_args ($config, $opts) {
-   my $from = $config->{$opts->{operation}}{from};
+sub _prepare_args ($config, $op) {
+   my $opc = $config->{definitions}{$op};
+   my $from = $opc->{from};
    my $image = Dibs::Docker::docker_tag($from, target_name($config));
    return {
       env => merge_envs(
-         $config->{$opts->{operation}}{env},
+         $opc->{env},
          $config->{run}{metadata},
-         ($opts->{env} // {}),
          {
             DIBS_FROM_IMAGE => $from,
             DIBS_WORK_IMAGE => $image,
          },
       ),
       image => $image,
-      changes => _docker_commit_changes($config, $opts),
+      changes => _docker_commit_changes($config, $op),
       project_dir => $config->{project_dir},
    };
 }
@@ -243,25 +247,30 @@ sub cleanup_tags (@tags) {
    return;
 }
 
-sub iterate_buildpacks ($config, $opts) {
-   my $op = $opts->{operation};
-   my $args = _prepare_args($config, $opts);
+sub iterate_buildpacks ($config, $op) {
+   # continue only if it makes sense...
+   ouch 400, "no definitions for $op"
+      unless exists $config->{definitions}{$op};
+   $config->{dibspacks}{$op} //= Dibs::PacksList->new($op, $config);
+   my @dibspacks = $config->{dibspacks}{$op}->list or return;
+
+   my $args = _prepare_args($config, $op);
    my $exception;
    try {
       DIBSPACK:
-      for my $dp ($config->{dibspacks}->list_for($op)) {
-         my $spec = $dp->specification;
+      for my $dp (@dibspacks) {
          $dp->fetch;
 
-         $log->info("$op-detect $spec");
-         if (! _detect($config, $dp, $args, $opts)) {
-            $log->info("skipping dibspack $spec");
+         my $spec = $dp->specification;
+         $log->info("    detect   $spec");
+         if (! call_detect($config, $dp, $op, $args)) {
+            $log->info("    skip     $spec");
             next DIBSPACK;
          }
 
-         $log->info("$op        $spec");
-         _operate($config, $dp, $args, $opts);
-         $log->info("$op        $spec completed successfully");
+         $log->info("    operate  $spec");
+         call_operate($config, $dp, $op, $args);
+         $log->info("    complete $spec");
       }
    }
    catch {
@@ -289,34 +298,15 @@ sub additional_tags ($config, $image, $new_tags) {
    return @tags;
 }
 
-sub build ($config) {
-   my $bc = $config->{build};
-   my $image = iterate_buildpacks($config,
-      {
-         operation      => 'build',
-         detect_volumes => [qw< dibspacks:ro src:ro cache:ro env:ro >],
-         detect_dirs    => [qw< src cache env >],
-         op_volumes     => [qw< dibspacks:ro src    cache    env:ro >],
-         op_dirs        => [qw< src cache env >],
-         env            => {},
-      },
-   );
-   return cleanup_tags($image);
-}
+sub build ($config) { run_step($config, 'build') }
+sub bundle ($config) { run_step($config, 'bundle') }
 
-sub bundle ($config) {
-   my $bc = $config->{bundle};
-   my $image = iterate_buildpacks($config,
-      {
-         operation      => 'bundle',
-         detect_volumes => [qw< dibspacks:ro src:ro cache:ro env:ro >],
-         detect_dirs    => [qw< src cache env >],
-         op_volumes     => [qw< dibspacks:ro src:ro cache    env:ro >],
-         op_dirs        => [qw< src cache env >],
-         env            => {},
-      },
-   );
-   return additional_tags($config, $image, $bc->{tags});
+sub run_step ($config, $name) {
+   my $image = iterate_buildpacks($config, $name);
+   my $pc = $config->{definitions}{$name};
+   return $pc->{keep}
+      ? additional_tags($config, $image, $pc->{tags})
+      : cleanup_tags($image);
 }
 
 sub merge_envs (@envs) {
@@ -339,21 +329,25 @@ sub merge_envs (@envs) {
    return \%all;
 }
 
-sub list_dirs ($config, @names) {
-   return map { $config->{'container_' . $_ . '_dir'} } @names;
+sub list_dirs ($config) {
+   map { $config->{"container_${_}_dir"} } $config->{dibspack_dirs}->@*;
 }
 
-sub list_volumes ($config, @specs) {
-   my $pd = path($config->{project_dir})->absolute;
+sub list_volumes ($config, $step) {
+   my $pd = project_dir($config);
    return map {
-      my ($name, @mode) = split /:/, $_, 2;
+      my ($name, @mode)    = split /:/, $_, 2;
+      my $dir_in_project   = $config->{"project_${name}_dir"};
+      my $dir_in_container = $config->{"container_${name}_dir"};
       [
-         $pd->child($config->{'project_' . $name . '_dir'})->stringify,
-         $config->{'container_' . $name . '_dir'},
+         $pd->child($dir_in_project)->stringify,
+         $dir_in_container,
          @mode
       ];
-   } @specs;
+   } $config->{"${step}_volumes"}->@*;
 }
+
+sub project_dir ($c) { path($c->{project_dir})->absolute }
 
 1;
 __END__
