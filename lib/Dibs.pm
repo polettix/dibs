@@ -30,10 +30,10 @@ use constant DEFAULTS => {
    container_cache_dir     => '/tmp/cache',
    container_env_dir       => '/tmp/env',
 };
-use constant DIBS_CONFIG => 'dibs.yml';
 use constant OPTIONS => [
    ['build-dibspacks|build-dibspack=s@',  help => 'list of dibspack for building'],
    ['bundle-dibspacks|bundle-dibspack=s@', help => 'list of dibspacks for bundling'],
+   ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
    ['project-dir|p=s', default => '.', help => 'project base directory'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
@@ -85,7 +85,7 @@ sub get_config ($args, $defaults = undef) {
    my $cmdline = get_cmdline(OPTIONS, $args);
    my $sofar = _merge($cmdline, $env, $defaults);
    my $project_dir = path($sofar->{project_dir});
-   my $cnffile = LoadFile($project_dir->child(DIBS_CONFIG)->stringify);
+   my $cnffile = LoadFile($project_dir->child($sofar->{config_file}));
    my $overall = _merge($cmdline, $env, $cnffile, $defaults);
    $overall->{project_dir} = $project_dir;
 
