@@ -4,8 +4,6 @@
 flexibility as to the base images used (mainly to enable building on top
 of Alpine Linux).
 
-The assumption is that there is a project directory with a file
-`dibs.yml` inside, with relevant configurations.
 
 The process goes along some stages:
 
@@ -16,31 +14,91 @@ The process goes along some stages:
 
 ## Directories
 
-There are some "reference" directories that will be passed to the
-different scripts via positional parameters:
+There is a project directory with a file `dibs.yml` inside, with
+relevant configurations and sub-directories to perform the different
+stages. Each project has the following structure:
 
+    <PROJECT_DIR>
+        - dibs.yml
+        - dibspacks
+        - cache
+        - env
+        - src
+
+The only necessary file that has to be there is `dibs.yml`, the rest
+will be created.
+
+## Resolving *dibspack*s
+
+On the command line you can set option `--dibspack` (aliased `-D`),
+possibly multiple times:
+
+    $ dibs -D "$URL1" -D "$URL2" ...
+
+If absent, environment variable `DIBS_DIBSPACK` is inspected. It can
+only carry one single `dibspack` though:
+
+    $ DIBS_DIBSPACK="$URL1" dibs ...
+
+If none of the above are present, a file `.dibspacks` in the source root
+is looked for, with a list of one URI per line.
+
+URIs can be... also not strict URIs:
+
+- `http`/`https`/`git` URIs do what you think
+- paths starting with `dibspacks` are relative to the `dibspacks`
+directory, where you can put your project-specific dibspacks
+- paths starting with `src` are relative to the `src` directory, where
+you can put source-specific dibspacks
+- absolute paths are intended with respect to the container, so most of
+the times it will be addressing something that you expect to be already
+in the base image.
+
+If `.dibspacks` is a directory, each sub-directory is a candidate
+dibspack and will be used.
+
+Otherwise... it's an error!
+
+## Using *dibspack*s
+
+The build/bundle phases are driven by one or more *dibspack*s, an idea
+that is drawn directly from Heroku's buildpacks.
+
+The *dibspack* is supposed to have the following structure:
+
+    <DIBSPACK_DIR>
+        - bin
+            - build-detect
+            - build
+            - bundle-detect
+            - bundle
+
+There are some "reference" directories that will be passed to the
+different scripts via positional parameters, in the following way:
+
+    build-detect  "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
+    build         "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
+    bundle-detect "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
+    bundle        "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
 
 - `SRC_DIR` is where the originally checked out code will be available.
-It is the only directory that is passed to all commands, and it always
-comes first
+It is set read-only for all except `bin/build`.
 
 - `CACHE_DIR` is where you can put stuff that you want to preserve,
 possibly across different build/bundle phases to improve your
-build/bundle overall time. When present, it always comes second
+build/bundle overall time. For detect scripts it is read-only, otherwise
+it is read-write.
 
-- `ENV_DIR` is where some environment variables will be put, it will be
-up to you to import or ignore them. When present, it always comes third.
-The environment variables SHOULD be the ones that will eventually be
-used for running, so a really clean build/bundle is expected to ignore
-them! Variables meant to influence the build/bundle process itself will
-be passed in the environment, directly.
-
+- `ENV_DIR` is where some environment variables of the *run* phase will
+be put, if any. It is up to `bin/build` or `bin/bundle` to import them
+if needed, although this is discouraged because they belong to the *run*
+phase. It is always passed read-only.
 
 ## Fetch
 
 Code ends up in the `src` subdirectory of the project directory.
 
-This can be done in different ways:
+This can be done in different ways (not all supported initially):
 
     - git: either local repo or remote
     - tar: either local file or remote
