@@ -9,10 +9,7 @@ use Moo;
 use Path::Tiny qw< path >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-use constant INSIDE  => 'inside';
-use constant GIT     => 'git';
-use constant PROJECT => 'project';
-use constant SRC     => 'src';
+use Dibs::Config qw< DIBSPACKS GIT INSIDE PROJECT SRC >;
 
 has specification  => (is => 'ro', required => 1);
 has host_path      => (is => 'ro', required => 1);
@@ -43,12 +40,13 @@ sub create ($package, $config, $specification) {
    ouch 400, "unsupported dibspack $specification";
 }
 
-sub __resolve_paths ($config, $path, $bh, $bc) {
+sub __resolve_paths ($config, $path, $zone_name) {
    $log->debug("__resolve_paths(@_)");
-   my $hp = path($config->{project_dir})->child($config->{$bh}, $path);
-   my $cp = path($config->{$bc}, $path);
+   my $pd = path($config->{project_dir})->absolute;
+   my $hp = $pd->child($config->{project_dirs}{$zone_name}, $path);
+   my $cp = path($config->{container_dirs}{$zone_name}, $path);
    return (
-      host_path => $hp->stringify,
+      host_path      => $hp->stringify,
       container_path => $cp->stringify,
    );
 }
@@ -57,8 +55,7 @@ sub _create_project ($package, $config, $spec, $subpath) {
    return $package->new(
       type => PROJECT,
       specification => $spec,
-      __resolve_paths($config, $subpath, 
-         qw< project_dibspacks_dir container_dibspacks_dir >),
+      __resolve_paths($config, $subpath, DIBSPACKS),
    );
 }
 
@@ -66,8 +63,7 @@ sub _create_src ($package, $config, $spec, $subpath) {
    return $package->new(
       type => SRC,
       specification => $spec,
-      __resolve_paths($config, $subpath, 
-         qw< project_src_dir container_src_dir >),
+      __resolve_paths($config, $subpath, SRC),
    );
 }
 
@@ -88,8 +84,7 @@ sub _create_git ($package, $config, $uri) {
    return $package->new(
       type => GIT,
       specification => $uri,
-      __resolve_paths($config, path(GIT, $name)->stringify,
-         qw< project_dibspacks_dir container_dibspacks_dir >),
+      __resolve_paths($config, path(GIT, $name)->stringify, DIBSPACKS),
    );
 }
 

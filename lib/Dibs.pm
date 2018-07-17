@@ -2,270 +2,96 @@ package Dibs;
 use 5.024;
 use Carp;
 use English qw< -no_match_vars >;
-use Pod::Find qw< pod_where >;
-use Pod::Usage qw< pod2usage >;
-use Getopt::Long qw< GetOptionsFromArray :config gnu_getopt >;
 use Log::Any qw< $log >;
 use Log::Any::Adapter;
 use YAML::Tiny qw< LoadFile >;
 use Path::Tiny qw< path cwd >;
-use Data::Dumper;
 use Ouch qw< :trytiny_var >;
 use Try::Catch;
 use POSIX qw< strftime >;
 use experimental qw< postderef signatures >;
+use Moo;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
+use Dibs::Config qw< get_config BIN CACHE DIBSPACKS ENVIRON SRC >;
 use Dibs::PacksList;
 use Dibs::Docker;
-
-use constant CACHE     => 'cache';
-use constant DIBSPACKS => 'dibspacks';
-use constant ENV       => 'env';
-use constant SRC       => 'src';
-
-use constant DEFAULTS => {
-   project_dirs => {
-      CACHE     , 'cache',
-      DIBSPACKS , 'dibspacks',
-      ENV       , 'env',
-      SRC       , 'src',
-   },
-   container_dirs => {
-      CACHE     , '/tmp/cache',
-      DIBSPACKS , '/tmp/dibspacks',
-      ENV       , '/tmp/env',
-      SRC       , '/tmp/src',
-   },
-   volumes => {
-      detect  => [[CACHE, 'ro'], [ENV, 'ro'], [DIBSPACKS, 'ro'], [SRC, 'ro']],
-      operate => [ CACHE       , [ENV, 'ro'], [DIBSPACKS, 'ro'],  SRC       ],
-   },
-   dibspack_dirs => [SRC, CACHE, ENV],
-};
-use constant OPTIONS => [
-   ['build-dibspacks|build-dibspack=s@',  help => 'list of dibspack for building'],
-   ['bundle-dibspacks|bundle-dibspack=s@', help => 'list of dibspacks for bundling'],
-   ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
-   ['project-dir|p=s', default => '.', help => 'project base directory'],
-];
-use constant ENV_PREFIX => 'DIBS_';
 
 use Exporter qw< import >;
 our @EXPORT_OK = qw< main >;
 our @EXPORT = ();
 
-sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
-   my %p2u = (
-      -exitval => 0,
-      -input => pod_where({-inc => 1}, __PACKAGE__),
-      -sections => 'USAGE',
-      -verbose => 99,
-   );
-   my %config;
-   GetOptionsFromArray(
-      $cmdline,
-      \%config,
-      qw< usage! help! man! version!  >,
-      map { $_->[0] } $optspecs->@*,
-   ) or pod2usage(%p2u, -exitval => 1);
-   pod2usage(%p2u, -message => $VERSION, -sections => ' ')
-     if $config{version};
-   pod2usage(%p2u) if $config{usage};
-   pod2usage(%p2u, -sections => 'USAGE|EXAMPLES|OPTIONS')
-     if $config{help};
-   pod2usage(%p2u, -verbose => 2) if $config{man};
-   #pod2usage(%p2u, -message => 'Error: missing command', -exitval => 1)
-   #  unless @ARGV;
-   $config{optname($_)} = delete $config{$_} for keys %config;
-   $config{args} = [$cmdline->@*];
-   return \%config;
+has _config => (is => 'ro', required => 1);
+has _project_dir => (is => 'lazy');
+has _dibspacks_for => (is => 'ro', default => sub { return {} });
+has name => (
+   is => 'ro',
+   lazy => 1,
+   default => sub ($s) {$s->config('name')}
+);
+
+sub config ($self, @path) {
+   my $c = $self->_config;
+   $c = $c->{shift @path} while defined($c) && @path;
+   return $c;
 }
 
-sub optname ($specish) { ($specish =~ s{[^-\w].*}{}rmxs) =~ s{-}{_}rgmxs }
-
-sub get_config ($args, $defaults = undef) {
-   $defaults //= {
-      DEFAULTS->%*,
-      map {
-         my ($name, %opts) = $_->@*;
-         $name =~ s{[^-\w].*}{}mxs;
-         $name =~ s{-}{_}gmxs;
-         exists($opts{default}) ? ($name => $opts{default}) : ();
-      } OPTIONS->@*
-   };
-   my $env = get_environment(OPTIONS, {%ENV});
-   my $cmdline = get_cmdline(OPTIONS, $args);
-   my $sofar = _merge($cmdline, $env, $defaults);
-   my $project_dir = path($sofar->{project_dir});
-   my $cnffile = LoadFile($project_dir->child($sofar->{config_file}));
-   my $overall = _merge($cmdline, $env, $cnffile, $defaults);
-   $overall->{project_dir} = $project_dir;
-
-   # adjust buildpacks
-   for my $name (qw< build bundle >) {
-      my $cename = $name . '_dibspacks';
-      next unless exists $overall->{$cename};
-      $overall->{$name}{dibspacks} = delete $overall->{$cename};
-   }
-
-   return {
-      $overall->%*,
-      _sources => {
-         overall     => $overall,
-         cmdline     => $cmdline,
-         environment => $env,
-         cnffile     => $cnffile,
-         defaults    => $defaults,
-      },
-   };
+sub _build__project_dir ($self) {
+   return path($self->config('project_dir'))->absolute;
 }
 
-sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
-   my %config;
-   for my $option ($optspecs->@*) {
-      my $name = optname($option->[0]);
-      my $env_name = ENV_PREFIX . uc $name;
-      $config{$name} = $env->{$env_name} if exists $env->{$env_name};
-   }
-   return \%config;
-}
+sub steps ($self) {$self->config('steps')->@*}
 
-sub set_logger($logger) {
+sub set_logger($self) {
+   my $logger = $self->config('logger') // 'Sderr';
    my @logger = ref($logger) ? $logger->@* : $logger;
    Log::Any::Adapter->set(@logger);
 }
 
-sub main (@args) {
-   my $config = get_config(\@args);
-   set_logger($config->{logger} // 'Stderr');
-   set_run_metadata($config);
-   local $Data::Dumper::Indent = 1;
-   $log->debug(Dumper $config);
-   ensure_host_directories($config);
-
-   for my $step ($config->{steps}->@*) {
-      $log->info("step $step");
-      my @tags = run_step($config, $step);
-      say "$step @tags" if @tags;
-   }
-
-   return 0;
-}
-
-sub _merge { return {map {$_->%*} grep {defined} reverse @_} } # first wins
-
-sub ensure_host_directories ($config) {
-   my $pd = path($config->{project_dir});
-   for my $name (CACHE, DIBSPACKS, ENV, SRC) {
-      my $subdir_name = $config->{project_dirs}{$name};
-      $pd->child($subdir_name)->mkpath;
-   }
-}
-
-sub fetch ($config) {
-   my $fc = $config->{fetch};
-   return unless defined $fc; # undef -> use src directly, or nothing at all
-   $fc = {
-      type => 'git',
-      origin => $fc,
-   } if ! ref($fc) && $fc =~ m{\A(?: http s? | git | ssh )}mxs;
-   ouch 500, 'most probably unimplemented'
-      unless ref($fc) && $fc->{type} eq 'git';
-   my $target = project_dir($config, $config->{project_dirs}{&SRC});
-   require Dibs::Git;
-   Dibs::Git::fetch($fc->{origin}, $target->stringify);
-}
-
-sub set_run_metadata ($config) {
-   $config->{run}{metadata} = {
+sub set_run_metadata ($self) {
+   $self->config->{run}{metadata} = {
       DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime),
    };
 }
 
-sub target_name ($config) {
-   return join ':', $config->{name}, $config->{run}{metadata}{DIBS_ID};
-}
-
-sub call_detect ($config, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child('bin', "$op-detect");
-   my ($exitcode) = Dibs::Docker::docker_run(
-      $args->%*,
-      keep    => 0,
-      volumes => [ list_volumes($config, 'detect') ],
-      command => [ $p->stringify, list_dirs($config) ],
-   );
-   return $exitcode == 0;
-}
-
-sub call_operate ($config, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child('bin', $op);
-   my ($exitcode, $cid, $out);
-   try {
-      ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
-         $args->%*,
-         keep    => 1,
-         volumes => [ list_volumes($config, 'operate') ],
-         command => [ $p->stringify, list_dirs($config) ],
-      );
-      ouch 500, "failure ($exitcode)" if $exitcode;
-
-      Dibs::Docker::docker_commit($cid, $args->@{qw< image changes >});
-      (my $__cid, $cid) = ($cid, undef);
-      Dibs::Docker::docker_rm($__cid);
-   }
-   catch {
-      Dibs::Docker::docker_rm($cid) if defined $cid;
-      die $_; # rethrow
-   };
+sub dump_configuration ($self) {
+   require Data::Dumper;
+   local $Data::Dumper::Indent = 1;
+   $log->debug(Data::Dumper::Dumper($self->config));
    return;
 }
 
-sub _docker_commit_changes ($config, $op) {
-   my $cfg = $config->{definitions}{$op};
-   my %changes;
-   for my $key (qw< entrypoint cmd >) {
-      $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
-   }
-   return \%changes;
+sub project_dir ($self, @subdirs) {
+   my $pd = $self->_project_dir;
+   return(@subdirs ? $pd->child(@subdirs) : $pd);
 }
 
-sub _prepare_args ($config, $op) {
-   my $opc = $config->{definitions}{$op};
-   my $from = $opc->{from};
-   my $image = Dibs::Docker::docker_tag($from, target_name($config));
-   return {
-      env => merge_envs(
-         $opc->{env},
-         $config->{run}{metadata},
-         {
-            DIBS_FROM_IMAGE => $from,
-            DIBS_WORK_IMAGE => $image,
-         },
-      ),
-      image => $image,
-      changes => _docker_commit_changes($config, $op),
-      project_dir => $config->{project_dir},
-   };
-}
-
-sub cleanup_tags (@tags) {
-   for my $tag (@tags) {
-      try { Dibs::Docker::docker_rmi($tag) }
-      catch { $log->error("failed to remove $tag") };
+sub ensure_host_directories ($self) {
+   my $pd = $self->project_dir;
+   my $pds = $self->config('project_dirs');
+   for my $name (CACHE, DIBSPACKS, ENVIRON, SRC) {
+      my $subdir_name = $pds->{$name};
+      $pd->child($subdir_name)->mkpath;
    }
    return;
 }
 
-sub iterate_buildpacks ($config, $op) {
+sub definition_for ($self, $x) { $self->config(definitions => $x) }
+
+sub dibspacks_for ($self, $x) {
+   my $dfor = $self->_dibspacks_for;
+   $dfor->{$x} //= Dibs::PacksList->new($x, $self->config);
+   return $dfor->{$x}->list;
+}
+
+sub iterate_buildpacks ($self, $op) {
    # continue only if it makes sense...
    ouch 400, "no definitions for $op"
-      unless exists $config->{definitions}{$op};
-   $config->{dibspacks}{$op} //= Dibs::PacksList->new($op, $config);
-   my @dibspacks = $config->{dibspacks}{$op}->list or return;
+      unless defined $self->config(definitions => $op);
+   my @dibspacks = $self->dibspacks_for($op) or return;
 
-   my $args = _prepare_args($config, $op);
+   my $args = $self->prepare_args($op);
    my $exception;
    try {
       DIBSPACK:
@@ -274,28 +100,64 @@ sub iterate_buildpacks ($config, $op) {
 
          my $spec = $dp->specification;
          $log->info("    detect   $spec");
-         if (! call_detect($config, $dp, $op, $args)) {
+         if (! $self->call_detect($dp, $op, $args)) {
             $log->info("    skip     $spec");
             next DIBSPACK;
          }
 
          $log->info("    operate  $spec");
-         call_operate($config, $dp, $op, $args);
+         $self->call_operate($dp, $op, $args);
          $log->info("    complete $spec");
       }
    }
    catch {
-      cleanup_tags($args->{image});
+      $self->cleanup_tags($args->{image});
       die $_; # rethrow
    };
    return $args->{image};
 }
 
-sub additional_tags ($config, $image, $new_tags) {
+sub prepare_args ($self, $op) {
+   my $opc = $self->definition_for($op);
+   my $from = $opc->{from};
+   my $image = Dibs::Docker::docker_tag($from, $self->target_name);
+   return {
+      env => __merge_envs(
+         $opc->{env},
+         $self->config(qw< run metadata >),
+         {
+            DIBS_FROM_IMAGE => $from,
+            DIBS_WORK_IMAGE => $image,
+         },
+      ),
+      image => $image,
+      changes => $self->changes_for_commit($op),
+      project_dir => $self->project_dir,
+   };
+}
+
+sub changes_for_commit ($self, $op) {
+   my $cfg = $self->definition_for($op);
+   my %changes;
+   for my $key (qw< entrypoint cmd >) {
+      $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
+   }
+   return \%changes;
+}
+
+sub cleanup_tags ($self, @tags) {
+   for my $tag (@tags) {
+      try { Dibs::Docker::docker_rmi($tag) }
+      catch { $log->error("failed to remove $tag") };
+   }
+   return;
+}
+
+sub additional_tags ($self, $image, $new_tags) {
    return ($image) unless $new_tags;
    my @tags = $image;
    try {
-      my $name = $config->{name};
+      my $name = $self->name;
       for my $tag ($new_tags->@*) {
          my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
          Dibs::Docker::docker_tag($image, $dst);
@@ -303,24 +165,13 @@ sub additional_tags ($config, $image, $new_tags) {
       }
    }
    catch {
-      cleanup_tags(@tags);
+      $self->cleanup_tags(@tags);
       die $_; # rethrow
    };
    return @tags;
 }
 
-sub build ($config) { run_step($config, 'build') }
-sub bundle ($config) { run_step($config, 'bundle') }
-
-sub run_step ($config, $name) {
-   my $image = iterate_buildpacks($config, $name);
-   my $pc = $config->{definitions}{$name};
-   return $pc->{keep}
-      ? additional_tags($config, $image, $pc->{tags})
-      : cleanup_tags($image);
-}
-
-sub merge_envs (@envs) {
+sub __merge_envs (@envs) {
    my %all;
    while (@envs) {
       my $env = shift @envs;
@@ -340,13 +191,16 @@ sub merge_envs (@envs) {
    return \%all;
 }
 
-sub list_dirs ($config) {
-   map { $config->{container_dirs}{$_} } $config->{dibspack_dirs}->@*;
+sub list_dirs ($self) {
+   my $cds = $self->config('container_dirs');
+   my $dds = $self->config('dibspack_dirs');
+   map { $cds->{$_} } $dds->@*;
 }
 
-sub list_volumes ($config, $step) {
-   my $pd = project_dir($config);
-   my ($pds, $cds) = $config->@{qw< project_dirs container_dirs >};
+sub list_volumes ($self, $step) {
+   my $pd = $self->project_dir;
+   my $pds = $self->config('project_dirs');
+   my $cds = $self->config('container_dirs');
    return map {
       my ($name, @mode) = ref($_) ? $_->@* : $_;
       [
@@ -354,12 +208,83 @@ sub list_volumes ($config, $step) {
          $cds->{$name},
          @mode
       ];
-   } $config->{volumes}{$step}->@*;
+   } $self->config(volumes => $step)->@*;
 }
 
-sub project_dir ($config, @subdirs) {
-   my $pd = path($c->{project_dir})->absolute;
-   return(@subdirs ? $pd->child(@subdirs) : $pd);
+sub call_detect ($self, $dp, $op, $args) {
+   my $p = path($dp->container_path)->child(BIN, "$op-detect");
+   my ($exitcode) = Dibs::Docker::docker_run(
+      $args->%*,
+      keep    => 0,
+      volumes => [ $self->list_volumes('detect') ],
+      command => [ $p->stringify, $self->list_dirs ],
+   );
+   return $exitcode == 0;
+}
+
+sub call_operate ($self, $dp, $op, $args) {
+   my $p = path($dp->container_path)->child(BIN, $op);
+   my ($exitcode, $cid, $out);
+   try {
+      ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
+         $args->%*,
+         keep    => 1,
+         volumes => [ $self->list_volumes('operate') ],
+         command => [ $p->stringify, $self->list_dirs ],
+      );
+      ouch 500, "failure ($exitcode)" if $exitcode;
+
+      Dibs::Docker::docker_commit($cid, $args->@{qw< image changes >});
+      (my $__cid, $cid) = ($cid, undef);
+      Dibs::Docker::docker_rm($__cid);
+   }
+   catch {
+      Dibs::Docker::docker_rm($cid) if defined $cid;
+      die $_; # rethrow
+   };
+   return;
+}
+
+sub target_name ($s) {
+   return join ':', $s->name, $s->config(qw< run metadata DIBS_ID >);
+}
+
+sub run_step ($self, $name) {
+   my $image = $self->iterate_buildpacks($name);
+   my $pc = $self->definition_for($name);
+   return $pc->{keep}
+      ? $self->additional_tags($image, $pc->{tags})
+      : $self->cleanup_tags($image);
+}
+
+sub run ($self) {
+   $self->set_logger;
+   $self->set_run_metadata;
+   $self->dump_configuration;
+   $self->ensure_host_directories;
+
+   for my $step ($self->steps) {
+      $log->info("step $step");
+      my @tags = $self->run_step($step);
+      say "$step @tags" if @tags;
+   }
+   return 0;
+}
+
+sub main (@as) { __PACKAGE__->new(_config => get_config(\@as))->run }
+
+sub fetch ($config) {
+   my $fc = $config->{fetch};
+   return unless defined $fc; # undef -> use src directly, or nothing at all
+   $fc = {
+      type => 'git',
+      origin => $fc,
+   } if ! ref($fc) && $fc =~ m{\A(?: http s? | git | ssh )}mxs;
+   ouch 500, 'most probably unimplemented'
+      unless ref($fc) && $fc->{type} eq 'git';
+   my $target = project_dir($config, $config->{project_dirs}{&SRC});
+   require Dibs::Git;
+   Dibs::Git::fetch($fc->{origin}, $target->stringify);
 }
 
 1;

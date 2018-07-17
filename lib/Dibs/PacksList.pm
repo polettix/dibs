@@ -17,6 +17,7 @@ has _list => (is => 'ro', required => 1);
 sub list ($self) { return $self->_list->@* }
 
 sub BUILDARGS ($class, $m, $c) {
+   use Data::Dumper; $log->debug(Dumper $c);
    my @l = map {Dibs::Pack->create($c, $_)} __build_list($c, $m);
    return { moniker => $m, _list => \@l };
 }
