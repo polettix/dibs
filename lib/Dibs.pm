@@ -218,7 +218,7 @@ sub call_detect ($self, $dp, $op, $args) {
       $args->%*,
       keep    => 0,
       volumes => [ $self->list_volumes('detect') ],
-      command => [ $p->stringify, $self->list_dirs ],
+      command => [ $p->stringify, $op, $self->list_dirs ],
    );
    return $exitcode == 0;
 }
@@ -231,7 +231,7 @@ sub call_operate ($self, $dp, $op, $args) {
          $args->%*,
          keep    => 1,
          volumes => [ $self->list_volumes('operate') ],
-         command => [ $p->stringify, $self->list_dirs ],
+         command => [ $p->stringify, $op, $self->list_dirs ],
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
