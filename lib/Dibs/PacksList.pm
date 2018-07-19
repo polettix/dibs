@@ -8,7 +8,7 @@ use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 use Path::Tiny qw< path >;
 use Dibs::Pack;
-use Dibs::Config qw< DPFILE SRC >;
+use Dibs::Config ':constants';
 no warnings qw< experimental::postderef experimental::signatures >;
 
 has moniker => (is => 'ro', required => 1);

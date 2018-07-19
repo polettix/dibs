@@ -26,7 +26,6 @@ use constant INSIDE    => 'inside';
 use constant PROJECT   => 'project';
 use constant SRC       => 'src';
 
-
 use constant DEFAULTS => {
    project_dirs => {
       CACHE     , 'cache',
@@ -55,7 +54,15 @@ use constant OPTIONS => [
 use constant ENV_PREFIX => 'DIBS_';
 
 use Exporter qw< import >;
-our @EXPORT_OK = qw< get_config BIN CACHE DIBSPACKS ENVIRON GIT INSIDE PROJECT SRC >;
+our %EXPORT_TAGS = (
+   constants => [qw< BIN CACHE DIBSPACKS DPFILE ENVIRON GIT INSIDE PROJECT SRC >],
+   functions => [qw< get_config >],
+);
+our @EXPORT_OK = do {
+   my %flag;
+   grep { $flag{$_}++ < 1 } map { $_->@* } values %EXPORT_TAGS;
+};
+$EXPORT_TAGS{all} = [@EXPORT_OK];
 our @EXPORT = ();
 
 sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {

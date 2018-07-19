@@ -9,7 +9,7 @@ use Moo;
 use Path::Tiny qw< path >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-use Dibs::Config qw< DIBSPACKS GIT INSIDE PROJECT SRC >;
+use Dibs::Config ':constants';
 
 has specification  => (is => 'ro', required => 1);
 has host_path      => (is => 'ro', required => 1);

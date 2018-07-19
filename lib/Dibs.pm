@@ -14,7 +14,7 @@ use Moo;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
-use Dibs::Config qw< get_config BIN CACHE DIBSPACKS ENVIRON SRC >;
+use Dibs::Config ':all';
 use Dibs::PacksList;
 use Dibs::Docker;
 
