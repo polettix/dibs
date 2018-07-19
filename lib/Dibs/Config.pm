@@ -46,8 +46,6 @@ use constant DEFAULTS => {
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
-   ['build-dibspacks|build-dibspack=s@',  help => 'list of dibspack for building'],
-   ['bundle-dibspacks|bundle-dibspack=s@', help => 'list of dibspacks for bundling'],
    ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
    ['project-dir|p=s', default => '.', help => 'project base directory'],
 ];
@@ -112,12 +110,8 @@ sub get_config ($args, $defaults = undef) {
    my $overall = _merge($cmdline, $env, $cnffile, $defaults);
    $overall->{project_dir} = $project_dir;
 
-   # adjust buildpacks
-   for my $name (qw< build bundle >) {
-      my $cename = $name . '_dibspacks';
-      next unless exists $overall->{$cename};
-      $overall->{$name}{dibspacks} = delete $overall->{$cename};
-   }
+   # adjust definitions
+   adjust_definitions($overall);
 
    return {
       $overall->%*,
@@ -129,6 +123,31 @@ sub get_config ($args, $defaults = undef) {
          defaults    => $defaults,
       },
    };
+}
+
+sub yaml_boolean ($v) {
+   return 0 unless defined $v;
+   state $yb = {
+      (map { $_ => 0 } qw<
+         n  N  no     No     NO
+               false  False  FALSE
+               off    Off    OFF
+       >),
+      (map { $_ => 1 } qw<
+         y  Y  yes    Yes    YES
+               true   True   TRUE
+               on     On     ON
+       >),
+   };
+   return $yb->{$v} // undef;
+}
+
+sub adjust_definitions ($overall) {
+   # "keep" is a boolean
+   while (my ($k, $d) = each $overall->{definitions}->%*) {
+      defined($d->{keep} = yaml_boolean($d->{keep}))
+         or die "definition for $k: 'keep' is not a boolean\n";
+   }
 }
 
 sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
