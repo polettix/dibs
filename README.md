@@ -41,6 +41,10 @@ programs:
   specific context
 - `operate`: contains the actual logic of the dibspack.
 
+These programs will be executed inside containers. The resulting container
+might then be used as a base for further dibspacks executions and also for
+saving a final image (or more).
+
 The `detect` program is run first: if its exit code is `0` the `operate`
 program is called, otherwise the dibspack is skipped.
 
@@ -104,191 +108,138 @@ Locations can have different shapes:
 
         https://example.com/dibspacks/whatever#v42
 
+- anything that starts with `project:` is a path resolved relatively to the
+  `dibspacks` sub-directory in the project directory
 
+- anything that starts with `src:` is a path resolved inside the `src`
+  directory in the project, which is also the reference directory where the
+  source code is (i.e. dibspacks that fetch your code should put it there)
+
+- anything else generates an exception!
+
+Dibspacks taken from `git` are saved inside the `dibspacks/git` directory.
+Although it's not mandatory, it's probably better to put *local* dibspacks
+inside another sub-directory, e.g. `dibspacks/local` or so.
+
+The execution of the programs in a dibspack is as follows:
+
+- first of all the `detect` program is executed
+- if the execution is successful (exit code `0`), the `operate` program is
+  executed.
+
+Both programs are invokes like this:
+
+    <program> <step-name> <src> <cache> <env>
+
+Example:
+
+    detect build /tmp/src /tmp/cache /tmp/env
+
+The `step-name` is of course the name of the step. This allows you to define a
+buildpack that supports multiple steps in one single place.
+
+The last three arguments are paths to the associated directories in the
+project directory, but "seen" from inside the container. In particular:
+
+- `src` and `cache are available in read-only mode for `detect` and in
+  read-write mode for `operate`
+- `env` is always set read-only.
+
+The directories are usually mounted under `/tmp` like in the example, so you
+should avoid using them otherwise. This might change in the future.
+Additionally, the `dibspacks` directory is mounted too as `/tmp/dibspacks`,
+read-only; you should not use this directory directly, unless you know what
+you are doing and accept that this may change in the future.
 
 ## Configuration
 
+The configuration is kept, by default, inside YAML file `dibs.yml`. The
+generic structure at the higher level is like this:
+
+    ---
+    name: your-project-name
+    env:
+        THIS
+        THAT: 'whatever you want'
+    steps:
+        - build
+        - bundle
+    definitions:
+        build:
+            from: some-image:tag
+            dibspacks:
+                - src:pre-build
+                - https://example.com/prereqs#v42
+                - https://example.com/builder#v72
+                - project:build
+                - src:build
+            # ...
+        bundle:
+            from: some-image:tag
+            dibspacks:
+                - https://example.com/prereqs#v42
+                - https://example.com/bundler#v72
+                - project:bundle
+                - https://example.com/runner#v37
+            keep: 1
+            entrypoint:
+                - /runner
+            cmd: []
+            tags:
+                - latest
+            # ...
+
+Notes on the top-level keys:
+
+- `name` is the name of the project. It is also used as the default for
+  creating and naming images along the line, although you can override it in
+  any of the `definitions`
+- `env` sets some environment variables before executing all dibspacks
+  programs (they can be overridden by definition-specific `env` values). If
+  just the name is provided, the value is taken from the environment where
+  `dibs` is run, otherwise the specific value is set
+- `steps` define a sequence of steps to take. Each step MUST have a
+  definition inside section `definitions`
+- `definitions` is a key-value mapping between possible `steps` and their
+  contents.
+
+Definitions are where you can... define what should be done in a step. It
+supports the following keys:
+
+- `from` is the base image of the container for the step. 
+- `dibspacks` is a list of locations for dibspacks, as explained in the
+  previous section.
+- `keep`, when present and set to a true value will make `dibs` keep the image
+  at the end of the execution of the step. It MUST be a valid YAML boolean
+  value, or null (interpreted as false), or absent (interpreted as false).
+- `entrypoint` and `cmd` are set to the corresponding features of the
+  generated Docker image
+- `tags` allow setting additional tags (the generated image always takes the
+  *name* and an automatically generated tag related to date and time)
+- `env` allows overriding the main `env` values or setting new ones
+- `name` allows overriding the globally set `name` to generate images with a
+  different name for a step.
 
 
+## Running
 
+When you run `dibs`, by default it uses the current directory as the project
+directory and looks for `dibs.yml` inside. It then executes all the `steps` in
+order:
 
+- for each step, the associated dibspacks are detected
+- in the step, the dibspacks are executed as a sequence of containers:
+    - the first one is started based on the image set with `from`
+    - the following ones from the freezing of the previous container
+- after each step, if the associated definition has `keep` set, the container
+  image is kept and additional `tags` are added, otherwise it is dropped.
 
-The process goes along some stages:
+This allows implementing this kind of workflow:
 
-- *fetch* the code
-- *build* it, generating a tarball
-- *bundle* the tarball in a docker image
-- *ship* the docker image to relevant registries
-
-## Directories
-
-There is a project directory with a file `dibs.yml` inside, with
-relevant configurations and sub-directories to perform the different
-stages. Each project has the following structure:
-
-    <PROJECT_DIR>
-        - dibs.yml
-        - dibspacks
-        - cache
-        - env
-        - src
-
-The only necessary file that has to be there is `dibs.yml`, the rest
-will be created.
-
-## Resolving *dibspack*s
-
-On the command line you can set option `--dibspack` (aliased `-D`),
-possibly multiple times:
-
-    $ dibs -D "$URL1" -D "$URL2" ...
-
-If absent, environment variable `DIBS_DIBSPACK` is inspected. It can
-only carry one single `dibspack` though:
-
-    $ DIBS_DIBSPACK="$URL1" dibs ...
-
-If none of the above are present, a file `.dibspacks` in the source root
-is looked for, with a list of one URI per line.
-
-URIs can be... also not strict URIs:
-
-- `http`/`https`/`git` URIs do what you think
-- paths starting with `dibspacks` are relative to the `dibspacks`
-directory, where you can put your project-specific dibspacks
-- paths starting with `src` are relative to the `src` directory, where
-you can put source-specific dibspacks
-- absolute paths are intended with respect to the container, so most of
-the times it will be addressing something that you expect to be already
-in the base image.
-
-If `.dibspacks` is a directory, each sub-directory is a candidate
-dibspack and will be used.
-
-Otherwise... it's an error!
-
-## Using *dibspack*s
-
-The build/bundle phases are driven by one or more *dibspack*s, an idea
-that is drawn directly from Heroku's buildpacks.
-
-The *dibspack* is supposed to have the following structure:
-
-    <DIBSPACK_DIR>
-        - bin
-            - build-detect
-            - build
-            - bundle-detect
-            - bundle
-
-There are some "reference" directories that will be passed to the
-different scripts via positional parameters, in the following way:
-
-    build-detect  "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
-    build         "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
-    bundle-detect "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
-    bundle        "$SRC_DIR" "$CACHE_DIR" "$ENV_DIR"
-
-- `SRC_DIR` is where the originally checked out code will be available.
-It is set read-only for all except `bin/build`.
-
-- `CACHE_DIR` is where you can put stuff that you want to preserve,
-possibly across different build/bundle phases to improve your
-build/bundle overall time. For detect scripts it is read-only, otherwise
-it is read-write.
-
-- `ENV_DIR` is where some environment variables of the *run* phase will
-be put, if any. It is up to `bin/build` or `bin/bundle` to import them
-if needed, although this is discouraged because they belong to the *run*
-phase. It is always passed read-only.
-
-## Fetch
-
-Code ends up in the `src` subdirectory of the project directory.
-
-This can be done in different ways (not all supported initially):
-
-    - git: either local repo or remote
-    - tar: either local file or remote
-    - dir: a directory taken as a base
-    - none: the `src` directory is edited directly
-
-## Build
-
-This uses a mechanism similar to Heroku's buildpacks, with *dibspack*s.
-The dibspack can be set in the configuration file for dibs, in the
-environment variable `DIBSPACK_URL` or in a `.dibspacks` file in the
-`src` directory.
-
-The structure is similar to that of buildpacks, apart that as of now
-only `detect` and `build` are supported. The first assesses whether the
-dibspack is suitable, the other does the build itself.
-
-The two scripts SHOULD be executable within the selected image, hence
-it's probably better to rely on POSIX shell only and in case instal
-further tools from there.
-
-### Detection step
-
-The `bin/build-detect` script is passed one single parameter `SRC_DIR`, where
-the code is already available. Exit code `0` means that the dibspack is
-suitable for building, any other value skip the buildpack.
-
-### Build step
-
-The `bin/build` script in the *dibspack* is passed all positional
-parameters.
-
-## Bundle
-
-The bundle phase takes the build output tarball and generates a Docker
-image out of it.
-
-It again uses the same *dibspack* mechanism, in a detect-then-bundle
-way. Whatever is the state of the container at the end... is packaged.
-
-### Detection step
-
-The `bin/bundle-detect` is passed one single parameter `SRC_DIR` where
-the stuff to install resides.
-
-### Installation step
-
-The `bin/bundle` script in the *dibspack* is passed all positional
-parameters.
-
-The installation might be as simple as a copy or something more
-complicated. You choose!
-
-### Bundling step
-
-After the installation is completed, the container is stopped and
-additional configurations applied (up to a full Dockerfile). The outcome
-is tagged for shipping.
-
-
-## Practical Considerations on Build/Bundle
-
-You have total control about what happens in the build/bundle phases,
-but their separation is to help you out with the following problems:
-
-- build usually needs a set of tools (e.g. compilers) that are then not
-necessary when running the container. Separating the two phases allows
-you to include those tools in the build phase, and leave them out in the
-bundle phase.
-
-- some programs/libraries might insist on being installed in specific
-positions. E.g. you are encouraged to end up with all your application
-in `/app`, much like herokuish. The presence of the `CACHE_DIR` should
-be leveraged to reach this goal, e.g. a build/bundle pattern might be:
-
-    # in dibspack's bin/build
-    mkdir "$CACHE_DIR/app"
-    ln -s "$CACHE_DIR/app" /app
-    # install all things inside /app now...
-
-    # in dibspack's bin/bundle
-    mkdir /app
-    cp -pPR "$CACHE_DIR/app" /app
-
+- define one or more *build* phases that leverage images/dibspacks that
+  include build tools, like a compiler;
+- save the outcome of that/those phases in the `cache` directory
+- define a *bundle* phase where that outcome is fit inside a *release* image
+  that only contains the needed tools for running (but does not include
+  building tools)
 
