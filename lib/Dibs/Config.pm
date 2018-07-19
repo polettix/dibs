@@ -19,6 +19,7 @@ our $VERSION = '0.001';
 use constant BIN       => 'bin';
 use constant CACHE     => 'cache';
 use constant DIBSPACKS => 'dibspacks';
+use constant DPFILE    => '.dibspacks';
 use constant ENVIRON   => 'env';
 use constant GIT       => 'git';
 use constant INSIDE    => 'inside';

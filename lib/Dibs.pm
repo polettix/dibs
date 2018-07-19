@@ -108,7 +108,7 @@ sub iterate_buildpacks ($self, $op) {
 
          $log->info("    operate  $spec");
          $self->call_operate($dp, $op, $args);
-         $log->info("    complete $spec");
+         $log->info("    done     $spec");
       }
    }
    catch {
@@ -213,7 +213,7 @@ sub list_volumes ($self, $step) {
 }
 
 sub call_detect ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child(BIN, "$op-detect");
+   my $p = path($dp->container_path)->child('detect');
    my ($exitcode) = Dibs::Docker::docker_run(
       $args->%*,
       keep    => 0,
@@ -224,7 +224,7 @@ sub call_detect ($self, $dp, $op, $args) {
 }
 
 sub call_operate ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child(BIN, $op);
+   my $p = path($dp->container_path)->child('operate');
    my ($exitcode, $cid, $out);
    try {
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(

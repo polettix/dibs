@@ -8,9 +8,8 @@ use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 use Path::Tiny qw< path >;
 use Dibs::Pack;
+use Dibs::Config qw< DPFILE SRC >;
 no warnings qw< experimental::postderef experimental::signatures >;
-
-use constant SRC => 'src';
 
 has moniker => (is => 'ro', required => 1);
 has _list => (is => 'ro', required => 1);
@@ -29,24 +28,20 @@ sub __build_list($config, $what) {
 
    # now check for a .dibspacks in the source directory
    my $project_dir = path($config->{project_dir})->absolute;
-   my $src_dir     = $project_dir->child($config->{project_src_dir});
-   my $ds_path     = $src_dir->child('.dibspacks');
-
-   # if the file does not exist we just give up
-   if (! $ds_path->exists) {
-      $log->warning("no dibspack found for $what");
-      return;
-   }
+   my $src_dir     = $project_dir->child($config->{project_dirs}{&SRC});
+   my $ds_path     = $src_dir->child(DPFILE);
 
    # if a plain file, just take whatever it's written inside
    return $ds_path->lines_utf8({chomp => 1}) if $ds_path->is_file;
 
-   # in this case, paths have to be forced as starting with SRC
-   my $csd = path(SRC); # helper to have stuff "inside" SRC
-   return map {
-      my $rel_path = $_->relative($src_dir);
-      $csd->child($rel_path)
-   } $ds_path->child($what)->children;
+   # if dir, we allow for one single dibspack per "$what", if any
+   if ($ds_path->is_dir) {
+      my $cp = $ds_path->child($what); # "candidate" path to dibspack
+      return SRC . ':' . $cp->relative($src_dir) if $cp->is_dir;
+   }
+
+   $log->warning("no dibspack found for $what");
+   return;
 }
 
 1;
