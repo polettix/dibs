@@ -25,17 +25,21 @@ our @EXPORT = ();
 has _config => (is => 'ro', required => 1);
 has _project_dir => (is => 'lazy');
 has _dibspacks_for => (is => 'ro', default => sub { return {} });
-has name => (
-   is => 'ro',
-   lazy => 1,
-   default => sub ($s) {$s->config('name')}
-);
+
+sub name ($self, $op) {
+   if (defined($op) && defined(my $name = $self->dconfig($op, 'name'))) {
+      return $name;
+   }
+   return $self->config('name');
+}
 
 sub config ($self, @path) {
    my $c = $self->_config;
    $c = $c->{shift @path} while defined($c) && @path;
    return $c;
 }
+
+sub dconfig ($self, @path) { $self->config(definitions => @path) }
 
 sub _build__project_dir ($self) {
    return path($self->config('project_dir'))->absolute;
@@ -77,8 +81,6 @@ sub ensure_host_directories ($self) {
    return;
 }
 
-sub definition_for ($self, $x) { $self->config(definitions => $x) }
-
 sub dibspacks_for ($self, $x) {
    my $dfor = $self->_dibspacks_for;
    $dfor->{$x} //= Dibs::PacksList->new($x, $self->config);
@@ -87,8 +89,7 @@ sub dibspacks_for ($self, $x) {
 
 sub iterate_buildpacks ($self, $op) {
    # continue only if it makes sense...
-   ouch 400, "no definitions for $op"
-      unless defined $self->config(definitions => $op);
+   ouch 400, "no definitions for $op" unless defined $self->dconfig($op);
    my @dibspacks = $self->dibspacks_for($op) or return;
 
    my $args = $self->prepare_args($op);
@@ -111,16 +112,16 @@ sub iterate_buildpacks ($self, $op) {
       }
    }
    catch {
-      $self->cleanup_tags($args->{image});
+      $self->cleanup_tags($op, $args->{image});
       die $_; # rethrow
    };
    return $args->{image};
 }
 
 sub prepare_args ($self, $op) {
-   my $opc = $self->definition_for($op);
+   my $opc = $self->dconfig($op);
    my $from = $opc->{from};
-   my $image = Dibs::Docker::docker_tag($from, $self->target_name);
+   my $image = Dibs::Docker::docker_tag($from, $self->target_name($op));
    return {
       env => __merge_envs(
          $opc->{env},
@@ -137,7 +138,7 @@ sub prepare_args ($self, $op) {
 }
 
 sub changes_for_commit ($self, $op) {
-   my $cfg = $self->definition_for($op);
+   my $cfg = $self->dconfig($op);
    my %changes;
    for my $key (qw< entrypoint cmd >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
@@ -145,7 +146,7 @@ sub changes_for_commit ($self, $op) {
    return \%changes;
 }
 
-sub cleanup_tags ($self, @tags) {
+sub cleanup_tags ($self, $op, @tags) {
    for my $tag (@tags) {
       try { Dibs::Docker::docker_rmi($tag) }
       catch { $log->error("failed to remove $tag") };
@@ -153,11 +154,11 @@ sub cleanup_tags ($self, @tags) {
    return;
 }
 
-sub additional_tags ($self, $image, $new_tags) {
+sub additional_tags ($self, $op, $image, $new_tags) {
    return ($image) unless $new_tags;
    my @tags = $image;
    try {
-      my $name = $self->name;
+      my $name = $self->name($op);
       for my $tag ($new_tags->@*) {
          my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
          Dibs::Docker::docker_tag($image, $dst);
@@ -165,7 +166,7 @@ sub additional_tags ($self, $image, $new_tags) {
       }
    }
    catch {
-      $self->cleanup_tags(@tags);
+      $self->cleanup_tags($op, @tags);
       die $_; # rethrow
    };
    return @tags;
@@ -245,16 +246,16 @@ sub call_operate ($self, $dp, $op, $args) {
    return;
 }
 
-sub target_name ($s) {
-   return join ':', $s->name, $s->config(qw< run metadata DIBS_ID >);
+sub target_name ($self, $op) {
+   join ':', $self->name($op), $self->config(qw< run metadata DIBS_ID >);
 }
 
 sub run_step ($self, $name) {
    my $image = $self->iterate_buildpacks($name);
-   my $pc = $self->definition_for($name);
+   my $pc = $self->dconfig($name);
    return $pc->{keep}
-      ? $self->additional_tags($image, $pc->{tags})
-      : $self->cleanup_tags($image);
+      ? $self->additional_tags($name, $image, $pc->{tags})
+      : $self->cleanup_tags($name, $image);
 }
 
 sub run ($self) {
@@ -263,12 +264,25 @@ sub run ($self) {
    $self->dump_configuration;
    $self->ensure_host_directories;
 
-   for my $step ($self->steps) {
-      $log->info("step $step");
-      my @tags = $self->run_step($step);
-      say "$step @tags" if @tags;
+   my @tags_lists;
+   return try {
+      for my $step ($self->steps) {
+         $log->info("step $step");
+         if (my @tags = $self->run_step($step)) {
+            push @tags_lists, [$step, @tags];
+         }
+      }
+      for (@tags_lists) {
+         my ($step, @tags) = $_->@*;
+         say "$step: @tags";
+      }
+      0;
    }
-   return 0;
+   catch {
+      $self->cleanup_tags($_->@*) for reverse @tags_lists;
+      $log->fatal(bleep);
+      1;
+   };
 }
 
 sub main (@as) { __PACKAGE__->new(_config => get_config(\@as))->run }
