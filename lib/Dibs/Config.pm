@@ -63,28 +63,30 @@ our @EXPORT_OK = do {
 $EXPORT_TAGS{all} = [@EXPORT_OK];
 our @EXPORT = ();
 
-sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
-   my %p2u = (
+sub _pod2usage {
+   pod2usage (
       -exitval => 0,
       -input => pod_where({-inc => 1}, __PACKAGE__),
       -sections => 'USAGE',
       -verbose => 99,
+      @_
    );
+}
+
+sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    my %config;
    GetOptionsFromArray(
       $cmdline,
       \%config,
       qw< usage! help! man! version!  >,
       map { $_->[0] } $optspecs->@*,
-   ) or pod2usage(%p2u, -exitval => 1);
-   pod2usage(%p2u, -message => $VERSION, -sections => ' ')
+   ) or _pod2usage(-exitval => 1);
+   _pod2usage(-message => $VERSION, -sections => ' ')
      if $config{version};
-   pod2usage(%p2u) if $config{usage};
-   pod2usage(%p2u, -sections => 'USAGE|EXAMPLES|OPTIONS')
+   _pod2usage() if $config{usage};
+   _pod2usage(-sections => 'USAGE|EXAMPLES|OPTIONS')
      if $config{help};
-   pod2usage(%p2u, -verbose => 2) if $config{man};
-   #pod2usage(%p2u, -message => 'Error: missing command', -exitval => 1)
-   #  unless @ARGV;
+   _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
    $config{args} = [$cmdline->@*];
    return \%config;
