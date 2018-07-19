@@ -25,6 +25,15 @@ our @EXPORT = ();
 has _config => (is => 'ro', required => 1);
 has _project_dir => (is => 'lazy');
 has _dibspacks_for => (is => 'ro', default => sub { return {} });
+has all_metadata => (is => 'ro', default => sub { return {} });
+
+sub add_metadata ($self, %pairs) {
+   my $md = $self->all_metadata;
+   $md->%* = ($md->%*, %pairs);
+   return $self;
+}
+
+sub metadata_for ($self, $key) { $self->all_metadata->{$key} // undef }
 
 sub name ($self, $op) {
    if (defined($op) && defined(my $name = $self->dconfig($op, 'name'))) {
@@ -54,9 +63,7 @@ sub set_logger($self) {
 }
 
 sub set_run_metadata ($self) {
-   $self->config->{run}{metadata} = {
-      DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime),
-   };
+   $self->add_metadata(DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime));
 }
 
 sub dump_configuration ($self) {
@@ -124,8 +131,9 @@ sub prepare_args ($self, $op) {
    my $image = Dibs::Docker::docker_tag($from, $self->target_name($op));
    return {
       env => __merge_envs(
+         $self->config('env'),
          $opc->{env},
-         $self->config(qw< run metadata >),
+         $self->all_metadata,
          {
             DIBS_FROM_IMAGE => $from,
             DIBS_WORK_IMAGE => $image,
@@ -247,7 +255,7 @@ sub call_operate ($self, $dp, $op, $args) {
 }
 
 sub target_name ($self, $op) {
-   join ':', $self->name($op), $self->config(qw< run metadata DIBS_ID >);
+   join ':', $self->name($op), $self->metadata('DIBS_ID');
 }
 
 sub run_step ($self, $name) {
