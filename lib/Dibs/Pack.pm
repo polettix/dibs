@@ -16,26 +16,19 @@ has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 has type           => (is => 'ro', required => 1);
 
-sub __split_first_directory ($path) {
-   my $root = Path::Tiny->rootdir;
-   my $abs = $path->absolute($root);
-   $abs = $abs->parent while ! $abs->parent->is_rootdir;
-   my $first = $abs->relative($root)->stringify;
-   return ($first, $path->relative($first));
-}
-
 sub create ($package, $config, $specification) {
    return $package->_create_git($config, $specification)
       if $specification =~ m{\A (?: http s? | git | ssh ) :// }imxs;
-   
-   my $path = path($specification);
-   return $package->_create_inside($config, $specification) if $path->is_absolute;
 
-   my ($first, $subpath) = __split_first_directory($path);
-   return $package->_create_project($config, $specification, $subpath)
-      if $first eq PROJECT;
-   return $package->_create_src($config, $specification, $subpath)
-      if $first eq SRC;
+   if (my ($type, $subpath) = split m{:}mxs, $specification, 2) {
+      return $package->_create_project($config, $specification, $subpath)
+         if $type eq PROJECT;
+      return $package->_create_src($config, $specification, $subpath)
+         if $type eq SRC;
+   }
+
+   return $package->_create_inside($config, $specification)
+      if path($specification)->is_absolute;
 
    ouch 400, "unsupported dibspack $specification";
 }
