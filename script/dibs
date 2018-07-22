@@ -4,5 +4,5 @@ use warnings;
 use FindBin qw< $Bin >;
 use Path::Tiny qw< path >;
 use lib path($Bin)->sibling('lib')->stringify;
-use Dibs;
-exit Dibs::main(@ARGV);
+use Dibs 'main';
+exit main(@ARGV);
