@@ -131,7 +131,10 @@ The execution of the programs in a dibspack is as follows:
 
 - first of all the `detect` program is executed
 - if the execution is successful (exit code `0`), the `operate` program is
-  executed.
+  executed. If the execution returns exit code 100, it is interpreted as a
+  successful run of the program itself, but an indication that the associated
+  `operate` action has to be skipped. Any other return value is interpreted as
+  an error and leads to an exception.
 
 Both programs are invokes like this:
 

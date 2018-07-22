@@ -66,5 +66,10 @@ sub _create_inside ($package, $config, $specification) {
 
 sub fetch { return }
 
+sub has_program ($self, $program) {
+   return (!defined($self->host_path))
+       || -x path($self->host_path, $program)->stringify;
+}
+
 1;
 __END__

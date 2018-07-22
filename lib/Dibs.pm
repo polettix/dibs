@@ -105,14 +105,18 @@ sub iterate_buildpacks ($self, $op) {
       DIBSPACK:
       for my $dp (@dibspacks) {
          $dp->fetch;
-
          my $name = $dp->name;
-         $log->info("    detect   $name");
-         if (! $self->call_detect($dp, $op, $args)) {
-            $log->info("    skip     $name");
-            next DIBSPACK;
+
+         if ($dp->has_program('detect')) {
+            $log->info("    detect   $name");
+            if (! $self->call_detect($dp, $op, $args)) {
+               $log->info("    skip     $name");
+               next DIBSPACK;
+            }
          }
 
+         ouch 500, "    dibspack $name cannot 'operate'"
+            unless $dp->has_program('operate');
          $log->info("    operate  $name");
          $self->call_operate($dp, $op, $args);
          $log->info("    done     $name");
@@ -228,7 +232,12 @@ sub call_detect ($self, $dp, $op, $args) {
       volumes => [ $self->list_volumes('detect') ],
       command => [ $p->stringify, $op, $self->list_dirs ],
    );
-   return $exitcode == 0;
+   return 1 if $exitcode == DETECT_OK;
+   return 0 if $exitcode == DETECT_SKIP;
+
+   my ($signal, $exit) = ($exitcode & 0xFF, $exitcode >> 8);
+   ouch 500, "detect exited due to signal $signal" if $signal;
+   ouch 500, "detect exited with $exit, interpreted as error";
 }
 
 sub call_operate ($self, $dp, $op, $args) {

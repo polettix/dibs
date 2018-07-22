@@ -25,6 +25,8 @@ use constant GIT       => 'git';
 use constant INSIDE    => 'inside';
 use constant PROJECT   => 'project';
 use constant SRC       => 'src';
+use constant DETECT_OK => ((0 << 8) | 0);
+use constant DETECT_SKIP => ((0 << 8) | 100);
 
 use constant DEFAULTS => {
    project_dirs => {
@@ -53,7 +55,10 @@ use constant ENV_PREFIX => 'DIBS_';
 
 use Exporter qw< import >;
 our %EXPORT_TAGS = (
-   constants => [qw< BIN CACHE DIBSPACKS DPFILE ENVIRON GIT INSIDE PROJECT SRC >],
+   constants => [qw<
+      BIN CACHE DIBSPACKS DPFILE ENVIRON GIT INSIDE PROJECT SRC
+      DETECT_OK DETECT_SKIP   
+   >],
    functions => [qw< get_config >],
 );
 our @EXPORT_OK = do {
