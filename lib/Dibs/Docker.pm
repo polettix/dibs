@@ -72,7 +72,7 @@ sub docker_run (%args) {
 
    push @command, @ep_args;
 
-   #$log->debug("running: @command");
+   $log->debug("running: @command");
    my ($out);
    IPC::Run::run \@command, \undef, \$out, \*STDERR;
 

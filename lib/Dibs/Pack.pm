@@ -7,57 +7,52 @@ use Ouch qw< :trytiny_var >;
 use Log::Any qw< $log >;
 use Moo;
 use Path::Tiny qw< path >;
+use List::Util qw< any >;
+use Try::Catch;
+use Module::Runtime qw< use_module >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Config ':constants';
 
-has specification  => (is => 'ro', required => 1);
+has name           => (is => 'ro', required => 1);
 has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
-has type           => (is => 'ro', required => 1);
 
-sub create ($package, $config, $specification) {
-   return $package->_create_git($config, $specification)
-      if $specification =~ m{\A (?: http s? | git | ssh ) :// }imxs;
+sub _build_name ($self) { return $self->origin }
 
-   if (my ($type, $subpath) = split m{:}mxs, $specification, 2) {
-      return $package->_create_project($config, $specification, $subpath)
-         if $type eq PROJECT;
-      return $package->_create_src($config, $specification, $subpath)
-         if $type eq SRC;
+sub class_for ($package, $type) {
+   ouch 400, 'undefined type for dibspack' unless defined $type;
+   return try { use_module($package . '::' . ucfirst(lc($type))) }
+          catch { ouch 400, "invalid type '$type' for dibspack ($_)" }
+}
+
+sub create ($pkg, $config, $spec) {
+   if (my $sref = ref $spec ) {
+      ouch 400, "invalid reference of type '$sref' for dibspack"
+         unless $sref eq 'HASH';
+      my %spec = $spec->%*;
+      return $pkg->class_for(delete $spec{type})->new($config, %spec);
    }
 
-   return $package->_create_inside($config, $specification)
-      if path($specification)->is_absolute;
+   # optimize for git
+   return $pkg->class_for('git')->parse_new($config, $spec, $spec)
+      if $spec =~ m{\A (?: http s? | git | ssh ) :// }imxs;
 
-   ouch 400, "unsupported dibspack $specification";
+   # otherwise the type must be encoded in the spec
+   my ($type, $data) = split m{:}mxs, $spec, 2;
+   return $pkg->class_for($type)->parse_new($config, $data, $spec);
 }
 
-sub __resolve_paths ($config, $path, $zone_name) {
-   $log->debug("__resolve_paths(@_)");
+sub resolve_host_path ($class, $config, $zone, $path) {
    my $pd = path($config->{project_dir})->absolute;
-   my $hp = $pd->child($config->{project_dirs}{$zone_name}, $path);
-   my $cp = path($config->{container_dirs}{$zone_name}, $path);
-   return (
-      host_path      => $hp->stringify,
-      container_path => $cp->stringify,
-   );
+   $log->debug("project dir $pd");
+   my $zd = $config->{project_dirs}{$zone};
+   $log->debug("zone <$zd> path<$path>");
+   return $pd->child($zd, $path)->stringify;
 }
 
-sub _create_project ($package, $config, $spec, $subpath) {
-   return $package->new(
-      type => PROJECT,
-      specification => $spec,
-      __resolve_paths($config, $subpath, DIBSPACKS),
-   );
-}
-
-sub _create_src ($package, $config, $spec, $subpath) {
-   return $package->new(
-      type => SRC,
-      specification => $spec,
-      __resolve_paths($config, $subpath, SRC),
-   );
+sub resolve_container_path ($class, $config, $zone, $path) {
+   return path($config->{container_dirs}{$zone}, $path)->stringify;
 }
 
 sub _create_inside ($package, $config, $specification) {
@@ -69,23 +64,7 @@ sub _create_inside ($package, $config, $specification) {
    );
 }
 
-sub _create_git ($package, $config, $uri) {
-   require Digest::MD5;
-   my $name = Digest::MD5::md5_hex($uri);
-   my ($pd, $pdd) = $config->@{qw< project_dir project_dibspacks_dir >};
-   my $host_path = path($pd)->child($pdd, GIT, $name);
-   return $package->new(
-      type => GIT,
-      specification => $uri,
-      __resolve_paths($config, path(GIT, $name)->stringify, DIBSPACKS),
-   );
-}
-
-sub fetch ($self) {
-   return unless $self->type eq GIT;
-   require Dibs::Git;
-   Dibs::Git::fetch($self->specification, $self->host_path);
-}
+sub fetch { return }
 
 1;
 __END__

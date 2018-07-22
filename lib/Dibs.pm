@@ -106,16 +106,16 @@ sub iterate_buildpacks ($self, $op) {
       for my $dp (@dibspacks) {
          $dp->fetch;
 
-         my $spec = $dp->specification;
-         $log->info("    detect   $spec");
+         my $name = $dp->name;
+         $log->info("    detect   $name");
          if (! $self->call_detect($dp, $op, $args)) {
-            $log->info("    skip     $spec");
+            $log->info("    skip     $name");
             next DIBSPACK;
          }
 
-         $log->info("    operate  $spec");
+         $log->info("    operate  $name");
          $self->call_operate($dp, $op, $args);
-         $log->info("    done     $spec");
+         $log->info("    done     $name");
       }
    }
    catch {
@@ -255,7 +255,7 @@ sub call_operate ($self, $dp, $op, $args) {
 }
 
 sub target_name ($self, $op) {
-   join ':', $self->name($op), $self->metadata('DIBS_ID');
+   join ':', $self->name($op), $self->metadata_for('DIBS_ID');
 }
 
 sub run_step ($self, $name) {
