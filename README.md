@@ -94,11 +94,14 @@ which should cover a wide range of needs:
   configuration in the `dibs.yml` file (or whatever you are going to use)
 - as a fallback, they might be defined directly in your code, i.e. inside
   `src/.dibspacks`. There are two sub-alternatives here:
-    - if `.dibspacks` is a file, then each line is the location of a
-      dibspack
+    - if `.dibspacks` is a file, then it is loaded as a YAML file and expected
+      to contain a mapping between step names and dibspacks (either single
+      ones, or lists of them)
     - if `.dibspacks` is a directory, each sub-directory is a dibspack that
-      matches the name of a corresponding step. E.g. if you have a step called
-      `build`, the `build` sub-directory will be its (only) dibspack
+      matches the name of a corresponding step, containing dibspacks inside as
+      sub-directories. In this case, "hidden" sub-directories (i.e. whose name
+      starts with `.`) or sub-directory `_` are ignored, to let you put
+      additionall stuff in there.
 
 Locations can have different shapes:
 
@@ -120,6 +123,9 @@ Locations can have different shapes:
 Dibspacks taken from `git` are saved inside the `dibspacks/git` directory.
 Although it's not mandatory, it's probably better to put *local* dibspacks
 inside another sub-directory, e.g. `dibspacks/local` or so.
+
+FIXME add object-style definition of dibspacks
+FIXME specify that git dibspacks can optionally specify a subpath
 
 The execution of the programs in a dibspack is as follows:
 

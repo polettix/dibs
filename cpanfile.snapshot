@@ -271,6 +271,13 @@ DISTRIBUTIONS
       strict 0
       version 0
       warnings 0
+  Try-Catch-1.1.0
+    pathname: M/MA/MAMOD/Try-Catch-1.1.0.tar.gz
+    provides:
+      Try::Catch 1.001000
+    requirements:
+      ExtUtils::MakeMaker 0
+      perl v5.6.0
   URI-1.74
     pathname: E/ET/ETHER/URI-1.74.tar.gz
     provides:
