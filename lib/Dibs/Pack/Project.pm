@@ -22,9 +22,7 @@ sub BUILDARGS ($class, $config, @args) {
    return \%spec;
 }
 
-sub parse_new ($class, $config, $path, $name) {
-   return $class->new($config, name => $name, path => $path);
-}
+sub parse_specification ($class, $path, @rest) { return {path => $path} }
 
 1;
 __END__

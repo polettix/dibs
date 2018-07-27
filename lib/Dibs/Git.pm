@@ -4,11 +4,13 @@ use Carp;
 use English qw< -no_match_vars >;
 use experimental qw< postderef signatures >;
 use Path::Tiny qw< path >;
-use IPC::Run ();
 use File::chdir;
 use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 no warnings qw< experimental::postderef experimental::signatures >;
+
+use Dibs::Run qw< assert_command assert_command_out >;
+use Dibs::Output;
 
 sub fetch ($uri, $path) {
    my $ref = $uri =~ m{\#}mxs ? $uri =~ s{\A.*\#}{}rmxs : 'master';
@@ -22,42 +24,36 @@ sub _fetch ($origin, $dir) {
 
    my $current_origin = _current_origin($dir);
    if ($current_origin ne $origin) {
-      $log->info("changed origin, re-cloning");
+      OUTPUT('changed origin, re-cloning');
       $dir->remove_tree({safe => 0});
       return _clone($origin, $dir);
    }
 
    local $CWD = $dir->stringify;
-   IPC::Run::run [qw< git fetch origin >]
-      or ouch 500, 'cannot fetch from origin';
+   assert_command [qw< git fetch origin >];
 
    return $dir;
 }
 
 sub _clone ($origin, $dir) {
    $dir = path($dir)->stringify;
-   IPC::Run::run [qw< git clone >, $origin, $dir]
-      or ouch 500, "cannot clone '$origin' into '$dir'";
+   assert_command [qw< git clone >, $origin, $dir];
    return;
 }
 
 sub _current_origin ($path) {
    local $CWD = path($path)->stringify;
-   IPC::Run::run [qw< git remote get-url origin >], \undef, \my $out
-      or ouch 500, "cannot find origin's URL";
+   my $out = assert_command_out [qw< git remote get-url origin >];
    return $out =~ s{\s+\z}{}rmxs;
 }
 
 sub _checkout_ref ($path, $ref = 'master') {
    local $CWD = path($path)->stringify;
-   IPC::Run::run [qw< git checkout >, $ref]
-      or ouch 500, "cannot checkout ref '$ref'";
-   IPC::Run::run [qw< git branch >], \undef, \my $out
-      or ouch 500, 'cannot get list of branches';
+   assert_command [qw< git checkout >, $ref];
+   my $out = assert_command_out [qw< git branch >];
    my ($active) = $out =~ m{^ \* \s* (.*?) $}mxs;
    return if substr($active, 0, 1) eq '('; # detached head, exact point
-   IPC::Run::run [qw< git merge >, "origin/$ref"]
-      or ouch 500, "cannot merge from 'origin/$ref'";
+   assert_command [qw< git merge >, "origin/$ref"];
    return;
 }
 

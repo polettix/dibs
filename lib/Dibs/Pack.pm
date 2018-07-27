@@ -12,9 +12,12 @@ use Try::Catch;
 use Module::Runtime qw< use_module >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-use Dibs::Config ':constants';
+use Dibs::Config qw< :constants :functions >;
 
 has name           => (is => 'ro', required => 1);
+has env            => (is => 'ro', default => sub { return {} });
+has indent         => (is => 'ro', default => sub { return 42 });
+has skip_detect    => (is => 'ro', default => sub { return 0  });
 has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 
@@ -27,20 +30,51 @@ sub class_for ($package, $type) {
 }
 
 sub create ($pkg, $config, $spec) {
-   if (my $sref = ref $spec ) {
+   my ($class, $args);
+   if (my $sref = ref $spec) {
       ouch 400, "invalid reference of type '$sref' for dibspack"
          unless $sref eq 'HASH';
-      my %spec = $spec->%*;
-      return $pkg->class_for(delete $spec{type})->new($config, %spec);
+      $args = {$spec->%*};
    }
+   else {
+      my ($type, $data) = 
+         ($spec =~ m{\A (?: http s? | git | ssh ) :// }imxs)
+         ? (git => $spec) : split(m{:}mxs, $spec, 2);
+      $class = $pkg->class_for($type);
+      $args = $class->parse_specification($data, $config);
+   }
+   $args = $pkg->integrate_and_validate($args, $config);
+   $class //= $pkg->class_for(delete $args->{type});
+   return $class->new($config, $args);
+}
 
-   # optimize for git
-   return $pkg->class_for('git')->parse_new($config, $spec, $spec)
-      if $spec =~ m{\A (?: http s? | git | ssh ) :// }imxs;
+sub merge_defaults ($pkg, $args, $config) {
+   my %args = $args->%*;
+   my @candidates = (delete $args{default}, '*');
+   my $cdefs = $config->{defaults}{dibspack} // {};
+   while (@candidates) {
+      defined(my $candidate = shift @candidates) or next;
+      if (ref($candidate) eq 'ARRAY') {
+         unshift @candidates, $candidate->@*;
+         next;
+      }
+      next unless $cdefs->{$candidate};
+      %args = ($cdefs->{$candidate}->%*, %args);
+   }
+   return \%args;
+}
 
-   # otherwise the type must be encoded in the spec
-   my ($type, $data) = split m{:}mxs, $spec, 2;
-   return $pkg->class_for($type)->parse_new($config, $data, $spec);
+sub integrate_and_validate ($pkg, $as, $config) {
+   $as = $pkg->merge_defaults($as, $config);
+   defined($as->{indent} = yaml_boolean($as->{indent} // 'Y'))
+      or ouch 400, '`indent` in dibspack MUST be a YAML boolean';
+   defined($as->{skip_detect} = yaml_boolean($as->{skip_detect} // 'N'))
+      or ouch 400, '`skip_detect` in dibspack MUST be a YAML boolean';
+   return $as;
+}
+
+sub BUILDARGS ($class, @args) {
+   use Data::Dumper; $log->info(Dumper \@args); exit 0;
 }
 
 sub resolve_host_path ($class, $config, $zone, $path) {
@@ -64,7 +98,7 @@ sub _create_inside ($package, $config, $specification) {
    );
 }
 
-sub fetch { return }
+sub needs_fetch { return }
 
 sub has_program ($self, $program) {
    return (!defined($self->host_path))

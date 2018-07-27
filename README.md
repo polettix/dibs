@@ -252,3 +252,53 @@ This allows implementing this kind of workflow:
   that only contains the needed tools for running (but does not include
   building tools)
 
+
+
+## Examples
+
+`dibs` allows taking a flexible approach to building images, which might be
+overwhelming. Here are a few examples that might apply in different
+situations.
+
+### Small Project
+
+In a small project, you probably want to keep things as simple and compact as
+possible. Especially if your project does not take much to build and bundle,
+you will probably not need much caching and so you can do with one single
+`dibs.yml` file and only one step.
+
+As an example, consider the following `dibs.yml` file:
+
+    ---
+    name: mojo-example
+    steps:
+       - build
+       - bundle
+    definitions:
+       build:
+          from: 'alpine:3.6'
+          dibspacks:
+             - type: git
+               origin: 'https://github.com/polettix/dibspack-basic.git'
+               subpath: prereqs
+             - 'project:perl/build'
+       bundle:
+          from: 'alpine:3.6'
+          dibspacks:
+             - type: git
+               origin: 'https://github.com/polettix/dibspack-basic.git'
+               subpath: prereqs
+             - 'project:perl/bundle'
+             - type: git
+               origin: 'https://github.com/polettix/dibspack-basic.git'
+               subpath: procfile
+          keep: yes
+          tags:
+             - latest
+          entrypoint: 
+             - '/procfilerun'
+          cmd: []
+
+This leverages both remote and local dibspacks. At every run, both the build
+and the bundle images are re-built from scratch, adding prerequisites, doing
+dependencies installations, etc.

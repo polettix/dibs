@@ -4,38 +4,32 @@ use Carp;
 use English qw< -no_match_vars >;
 use experimental qw< postderef signatures >;
 use Path::Tiny qw< path >;
-use IPC::Run ();
 use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 use JSON::PP qw< encode_json >;
 use File::Temp qw< tempfile >;
+use Try::Catch;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-sub _assert_command (@command) {
-   my ($out);
-   $log->debug("$$ _assert_command(@command)");
-   for my $i (0 .. $#command) {
-      my $v = defined($command[$i]) ? $command[$i] : '*undef*';
-      $log->debug("command[$i] = $v");
-   }
-   IPC::Run::run \@command, \undef, \$out, \*STDERR
-      or ouch 500, "failed command (@command)";
-   $log->debug("executed (@command), got $out");
-   return ($out);
-}
+use Dibs::Config ':constants';
+use Dibs::Output;
+use Dibs::Run qw< run_command assert_command >;
 
 sub docker_tag ($src, $dst) {
-   _assert_command(qw< docker tag >, $src, $dst);
+   OUTPUT("tagging image as $dst", INDENT);
+   assert_command([qw< docker tag >, $src, $dst]);
    return $dst;
 }
 
 sub docker_rmi ($tag) {
-   _assert_command(qw< docker rmi >, $tag);
+   OUTPUT("removing tag $tag", INDENT);
+   assert_command([qw< docker rmi >, $tag]);
    return;
 }
 
 sub docker_rm ($cid) {
-   _assert_command(qw< docker rm >, $cid);
+   OUTPUT('removing working container', INDENT);
+   assert_command([qw< docker rm >, $cid]);
 }
 
 sub docker_commit ($cid, $tag, $changes = undef) {
@@ -46,7 +40,8 @@ sub docker_commit ($cid, $tag, $changes = undef) {
       my $change = uc($c) . ' ' . (ref($cd) ? encode_json($cd) : $cd);
       push @command, -c => $change;
    }
-   _assert_command(@command, $cid, $tag);
+   OUTPUT("committing working container to $tag", INDENT);
+   assert_command([@command, $cid, $tag]);
    return $tag;
 }
 
@@ -72,15 +67,12 @@ sub docker_run (%args) {
 
    push @command, @ep_args;
 
-   $log->debug("running: @command");
-   my ($out);
-   IPC::Run::run \@command, \undef, \$out, \*STDERR;
-
-   return $? unless wantarray;
+   my $retval = run_command(\@command, $args{indent} ? INDENT : 0);
+   return $retval unless wantarray;
 
    my $cid = $args{keep} ? $cidfile->slurp_raw : undef;
    $cidfile->remove if $cidfile->exists;
-   return ($?, $cid, $out);
+   return ($retval, $cid);
 }
 
 sub expand_environment ($env) {

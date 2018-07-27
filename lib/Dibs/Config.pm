@@ -25,8 +25,9 @@ use constant GIT       => 'git';
 use constant INSIDE    => 'inside';
 use constant PROJECT   => 'project';
 use constant SRC       => 'src';
-use constant DETECT_OK => ((0 << 8) | 0);
-use constant DETECT_SKIP => ((0 << 8) | 100);
+use constant DETECT_OK   => ((  0 << 8) | 0);
+use constant DETECT_SKIP => ((100 << 8) | 0);
+use constant INDENT    => 7;
 
 use constant DEFAULTS => {
    project_dirs => {
@@ -58,8 +59,9 @@ our %EXPORT_TAGS = (
    constants => [qw<
       BIN CACHE DIBSPACKS DPFILE ENVIRON GIT INSIDE PROJECT SRC
       DETECT_OK DETECT_SKIP   
+      INDENT
    >],
-   functions => [qw< get_config >],
+   functions => [qw< get_config yaml_boolean >],
 );
 our @EXPORT_OK = do {
    my %flag;

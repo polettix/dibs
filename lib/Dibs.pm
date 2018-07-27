@@ -17,6 +17,7 @@ our $VERSION = '0.001';
 use Dibs::Config ':all';
 use Dibs::PacksList;
 use Dibs::Docker;
+use Dibs::Output;
 
 use Exporter qw< import >;
 our @EXPORT_OK = qw< main >;
@@ -104,22 +105,28 @@ sub iterate_buildpacks ($self, $op) {
    try {
       DIBSPACK:
       for my $dp (@dibspacks) {
-         $dp->fetch;
          my $name = $dp->name;
+         ARROW_OUTPUT('+', "dibspack $name");
 
-         if ($dp->has_program('detect')) {
-            $log->info("    detect   $name");
+         $args->{env} = $self->coalesce_envs($dp, $op, $args);
+
+         if ($dp->needs_fetch) {
+            ARROW_OUTPUT('-', 'fetch dibspack');
+            $dp->fetch;
+         }
+
+         if (!$dp->skip_detect && $dp->has_program('detect')) {
+            ARROW_OUTPUT('-', "detect");
             if (! $self->call_detect($dp, $op, $args)) {
-               $log->info("    skip     $name");
+               OUTPUT('skip this dibspack');
                next DIBSPACK;
             }
          }
 
-         ouch 500, "    dibspack $name cannot 'operate'"
+         ouch 500, (' ' x INDENT) . "error: dibspack $name cannot operate"
             unless $dp->has_program('operate');
-         $log->info("    operate  $name");
+         ARROW_OUTPUT('-', 'operate');
          $self->call_operate($dp, $op, $args);
-         $log->info("    done     $name");
       }
    }
    catch {
@@ -129,20 +136,25 @@ sub iterate_buildpacks ($self, $op) {
    return $args->{image};
 }
 
+sub coalesce_envs ($self, $dp, $op, $args) {
+   my $opc = $self->dconfig($op);
+   return __merge_envs(
+      $self->config('env'),
+      $opc->{env},
+      $dp->env,
+      $self->all_metadata,
+      {
+         DIBS_FROM_IMAGE => $opc->{from},
+         DIBS_WORK_IMAGE => $args->{image},
+      },
+   );
+}
+
 sub prepare_args ($self, $op) {
    my $opc = $self->dconfig($op);
    my $from = $opc->{from};
    my $image = Dibs::Docker::docker_tag($from, $self->target_name($op));
    return {
-      env => __merge_envs(
-         $self->config('env'),
-         $opc->{env},
-         $self->all_metadata,
-         {
-            DIBS_FROM_IMAGE => $from,
-            DIBS_WORK_IMAGE => $image,
-         },
-      ),
       image => $image,
       changes => $self->changes_for_commit($op),
       project_dir => $self->project_dir,
@@ -229,6 +241,7 @@ sub call_detect ($self, $dp, $op, $args) {
    my ($exitcode) = Dibs::Docker::docker_run(
       $args->%*,
       keep    => 0,
+      indent  => $dp->indent,
       volumes => [ $self->list_volumes('detect') ],
       command => [ $p->stringify, $op, $self->list_dirs ],
    );
@@ -247,6 +260,7 @@ sub call_operate ($self, $dp, $op, $args) {
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
          $args->%*,
          keep    => 1,
+         indent  => $dp->indent,
          volumes => [ $self->list_volumes('operate') ],
          command => [ $p->stringify, $op, $self->list_dirs ],
       );
@@ -284,7 +298,7 @@ sub run ($self) {
    my @tags_lists;
    return try {
       for my $step ($self->steps) {
-         $log->info("step $step");
+         ARROW_OUTPUT('=', "step $step");
          if (my @tags = $self->run_step($step)) {
             push @tags_lists, [$step, @tags];
          }
