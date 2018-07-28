@@ -57,8 +57,14 @@ sub _build__project_dir ($self) {
 
 sub steps ($self) {$self->config('steps')->@*}
 
+sub resolve_container_path ($self, $zone, $path) {
+   defined(my $base = $self->config(container_dirs => $zone))
+      or ouch 400, "unknown zone $zone for resolution inside container";
+   return path($base, $path)->stringify;
+}
+
 sub set_logger($self) {
-   my $logger = $self->config('logger') // 'Sderr';
+   my $logger = $self->config('logger') // ['Stderr', log_level => 'info'];
    my @logger = ref($logger) ? $logger->@* : $logger;
    Log::Any::Adapter->set(@logger);
 }
@@ -115,7 +121,7 @@ sub iterate_buildpacks ($self, $op) {
             $dp->fetch;
          }
 
-         if (!$dp->skip_detect && $dp->has_program('detect')) {
+         if ($dp->do_detect) {
             ARROW_OUTPUT('-', "detect");
             if (! $self->call_detect($dp, $op, $args)) {
                OUTPUT('skip this dibspack');
@@ -123,9 +129,7 @@ sub iterate_buildpacks ($self, $op) {
             }
          }
 
-         ouch 500, (' ' x INDENT) . "error: dibspack $name cannot operate"
-            unless $dp->has_program('operate');
-         ARROW_OUTPUT('-', 'operate');
+         ARROW_OUTPUT('-', 'run');
          $self->call_operate($dp, $op, $args);
       }
    }
@@ -236,15 +240,51 @@ sub list_volumes ($self, $step) {
    } $self->config(volumes => $step)->@*;
 }
 
+sub expand_command_args ($self, $op, @args) {
+   map {
+      my $ref = ref $_;
+      if ($ref eq 'HASH') {
+         my %data = $_->%*;
+         my ($type, $data) = (scalar(keys %data) == 1) ? %data
+            : (delete $data{type}, \%data);
+         ouch 'unknown type for arg of dibspack' unless defined $type;
+         ($type, $data) = ($data, undef) if $type eq 'type';
+         if (my ($ptype) = $type =~ m{\A path_ (.+) \z}mxs) {
+            $type = 'path';
+            $data = { $ptype => $data };
+         }
+         if ($type eq 'path') {
+            ouch 400, 'unrecognized request for path resolution'
+               unless (ref($data) eq 'HASH')
+                   && (scalar(keys $data->%*) == 1);
+            $self->resolve_container_path($data->%*);
+         }
+         elsif ($type eq 'step_id') { $op }
+         elsif ($type eq 'step_name') {
+            $self->dconfig($op, 'step') // $op;
+         }
+         else {
+            ouch 400, "unrecognized arg for dibspack (type: $type)";
+         }
+      }
+      elsif (!$ref) {
+         $_;
+      }
+      else {
+         ouch 400, "invalid arg for dibspack (ref: $ref)";
+      }
+   } @args;
+}
+
 sub call_detect ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child('detect');
-   my $opname = $self->dconfig($op, 'step') // $op;
+   my $p = path($dp->container_path)->stringify;
    my ($exitcode) = Dibs::Docker::docker_run(
       $args->%*,
       keep    => 0,
       indent  => $dp->indent,
       volumes => [ $self->list_volumes('detect') ],
-      command => [ $p->stringify, $opname, $self->list_dirs ],
+      command => [ $p, $self->list_dirs,
+         $self->expand_command_args($op, $dp->detect_args) ],
    );
    return 1 if $exitcode == DETECT_OK;
    return 0 if $exitcode == DETECT_SKIP;
@@ -255,7 +295,7 @@ sub call_detect ($self, $dp, $op, $args) {
 }
 
 sub call_operate ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->child('operate');
+   my $p = path($dp->container_path)->stringify;
    my $opname = $self->dconfig($op, 'step') // $op;
    my ($exitcode, $cid, $out);
    try {
@@ -264,7 +304,8 @@ sub call_operate ($self, $dp, $op, $args) {
          keep    => 1,
          indent  => $dp->indent,
          volumes => [ $self->list_volumes('operate') ],
-         command => [ $p->stringify, $opname, $self->list_dirs ],
+         command => [ $p, $self->list_dirs,
+            $self->expand_command_args($op, $dp->args)],
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 

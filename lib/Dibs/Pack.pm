@@ -17,7 +17,16 @@ use Dibs::Config qw< :constants :functions >;
 has name           => (is => 'ro', required => 1);
 has env            => (is => 'ro', default => sub { return {} });
 has indent         => (is => 'ro', default => sub { return 42 });
-has skip_detect    => (is => 'ro', default => sub { return 0  });
+has _args          => (
+   is => 'ro',
+   default => sub { return [] },
+   init_arg => 'args',
+);
+has _detect_args   => (
+   is => 'ro',
+   default => sub { return [] },
+   init_arg => 'detect_args',
+);
 has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 
@@ -28,6 +37,10 @@ sub class_for ($package, $type) {
    return try { use_module($package . '::' . ucfirst(lc($type))) }
           catch { ouch 400, "invalid type '$type' for dibspack ($_)" }
 }
+
+sub do_detect   ($self) { return scalar($self->_detect_args->@*) }
+sub args        ($self) { return $self->_args->@* }
+sub detect_args ($self) { return $self->_detect_args->@* }
 
 sub create ($pkg, $config, $spec) {
    my ($class, $args);
