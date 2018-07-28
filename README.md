@@ -455,29 +455,29 @@ There are two sub-keys supported in `defaults`:
 - `dibspack`: sets group of default configurations associated to a name that
   can be eventually used inside a dibspack. Example:
 
-        defaults:
-            dibspack:
-                basic: # real git repository
-                    type:   git
-                    origin: https://github.com/polettix/dibspack-basic.git
+      defaults:
+          dibspack:
+              basic: # real git repository
+                  type:   git
+                  origin: https://github.com/polettix/dibspack-basic.git
 
-        # ... then later...
-        definitions:
-            whateverstep:
-                dibspacks:
-                    - default: basic
-                      subpath: prereqs
-                      # ... and everything else needed
+      # ... then later...
+      definitions:
+          whateverstep:
+              dibspacks:
+                  - default: basic
+                    subpath: prereqs
+                    # ... and everything else needed
 
     The example is the same as just writing:
 
-        definitions:
-            whateverstep:
-                dibspacks:
-                    - type:   git
-                      origin: https://github.com/polettix/dibspack-basic.git
-                      subpath: prereqs
-                      # ... and everything else needed
+      definitions:
+          whateverstep:
+              dibspacks:
+                  - type:   git
+                    origin: https://github.com/polettix/dibspack-basic.git
+                    subpath: prereqs
+                    # ... and everything else needed
 
     with the difference that you can reuse the defaults in `basic` over and
     over.
