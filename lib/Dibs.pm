@@ -238,12 +238,13 @@ sub list_volumes ($self, $step) {
 
 sub call_detect ($self, $dp, $op, $args) {
    my $p = path($dp->container_path)->child('detect');
+   my $opname = $self->dconfig($op, 'step') // $op;
    my ($exitcode) = Dibs::Docker::docker_run(
       $args->%*,
       keep    => 0,
       indent  => $dp->indent,
       volumes => [ $self->list_volumes('detect') ],
-      command => [ $p->stringify, $op, $self->list_dirs ],
+      command => [ $p->stringify, $opname, $self->list_dirs ],
    );
    return 1 if $exitcode == DETECT_OK;
    return 0 if $exitcode == DETECT_SKIP;
@@ -255,6 +256,7 @@ sub call_detect ($self, $dp, $op, $args) {
 
 sub call_operate ($self, $dp, $op, $args) {
    my $p = path($dp->container_path)->child('operate');
+   my $opname = $self->dconfig($op, 'step') // $op;
    my ($exitcode, $cid, $out);
    try {
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
@@ -262,7 +264,7 @@ sub call_operate ($self, $dp, $op, $args) {
          keep    => 1,
          indent  => $dp->indent,
          volumes => [ $self->list_volumes('operate') ],
-         command => [ $p->stringify, $op, $self->list_dirs ],
+         command => [ $p->stringify, $opname, $self->list_dirs ],
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
