@@ -331,6 +331,9 @@ Recognized keys are:
 - `steps`: a sequence of steps to take. Each step MUST have a definition
   inside section `definitions`
 
+
+### Annotated Example `dibs.yml`
+
 An annotated example `dibs.yml` file is below:
 
     # name of our dibs project
@@ -489,6 +492,188 @@ There are two sub-keys supported in `defaults`:
 
 ### Top level: `definitions`
 
+This section is where definitions for the different steps can be found. It is
+an associative array where the keys represent names/identifiers of the steps;
+they are also what is expected to be used inside the `steps` section. So, for
+example, the following is a valid structure:
+
+    definitions:
+        foo: # ...
+        bar: # ...
+        baz: # ...
+    steps:
+        - foo
+        - baz
+        - bar
+        - baz
+
+but the following is not because step `foo` used in `steps` is not defined:
+
+    definitions:
+        bar: # ...
+        baz: # ...
+    steps:
+        - foo # ERROR! this is not in definitions
+        - baz
+        - bar
+        - baz
+
+Each definition is itself an associative array with some reference keys that
+are recognized:
+
+- `cmd`: the default command set in the final image. See [Docker][]
+  documentation on [CMD][] for details. This is useful only when `keep` is set
+  to a true value, otherwise its effects are ignored.
+
+- `dibspacks`: a list of dibspacks that have to be applied in sequence. See
+  below for the details.
+
+- `entrypoint`: the default entry point set in the final image. See [Docker][]
+  documentation on [ENTRYPOINT][] for details. This is useful only when `keep`
+  is set to a true value, otherwise its effects are ignored.
+
+- `from`: the starting image from where the first container is run. It might
+  be a very basic image (e.g. `alpine:3.6` or so) or an image that was
+  previously crafted with some basic tooling inside.
+
+- `keep`: boolean value, set to true to keep the final container as an image.
+  This is typically what is needed to save an image at the end of a `bundle`
+  sequence.
+
+- `name`: the name to associate to generated images. This overrides the `name`
+  parameter at the top level and can be useful to put multiple alternative
+  definitions inside the same `dibs.yml` file, e.g. to build base images. This
+  is useful only when `keep` is set to a true value, otherwise it is ignored.
+
+- `step`: the name of the step that should be provided to dibspacks when
+  calling their `detect`/`operate` programs. By default it is the same as the
+  identifier of the definition.
+
+- `tags`: additional tags for the generated image. This is useful only when
+  `keep` is set to a true value, otherwise it is ignored.
+
+
+The `dibspacks` list, as anticipated, is a sequence of pointers to dibspacks,
+each of which is either a plain string or an associative array with the
+following basic structure:
+
+- `default`: names a key inside the `defaults.dibspack` section of the
+  `dibs.yml` file where default options can be taken.
+
+- `env`: sets step-wide environment variables. Environment variables handling
+  is detailed in a section below.
+
+- `indent`: boolean value detailing if the output from the dibspack should be
+  indented or not. By default it is assumed that the dibspack does not care
+  about indenting its output for pretty-printing with arrows etc. and this is
+  done by `dibs`.
+
+- `name`: name of the dibspack for reference in the logs. Defaults to
+  something taken from the definition.
+
+- `skip_detect`: boolean, when true the `detect` phase of the dibspack is
+  skipped and the `operate` phase is run directly. Defaults to false.
+
+- `type`: the type of the dibspack, see subsections below for the different
+  types available.
+
+Depending on the `type`, the dibspack definition might contain additional
+fields, explained in the sub-sections below.
+
+The string-based definition of a dibspack is a shorthand that is recognised as
+follows:
+
+- if it's a URL that can be consumed by git, the type is assumed to be `git`
+  and th definition is considered the `origin`. See below for the details on
+  the `git` type.
+- otherwise, it MUST have the form `<type>:<definition>` (e.g. `project:foo`).
+  The `type` and the `definition` are separated and the right handler is
+  called to interpret the `definition`, which is type-dependent.
+
+#### Dibspack Type `git`
+
+In this case, the dibspack can be retrieved from a git repository. The
+following keys are recognised:
+
+- `origin`: the origin of the git repository. It can optionally have a
+  *fragment* part, i.e. a hash sign `#` followed by text, that is interpreted
+  as the ref to use (defaults to `master`). If the fragment part is present,
+  it's an error to specify a `ref`. Examples:
+
+      # just the origin position, defaults to master branch unless ref
+      # says differently
+      https://example.com/repo.git
+
+      # set both the origin and the ref ("v42"). It's an error to also specify
+      # ref explicitly in this case
+      https://example.com/repo.git#v42
+
+      # set the origin to a local directory, and the ref too
+      /path/to/some/local/repo.git#devel
+
+
+- `ref`: the ref to checkout. It's possible to set a branch or pin a specific
+  hash/tag for better tracking and reproducibility.
+
+- `subpath`: set the path inside the git repo where the dibspack can be found.
+  A git repository might contain multiple dibspack, each in a sub-directory;
+  in this case, this parameter allows selecting the right one. See an example
+  in [dibspack-basic][].
+
+The string-based definition of the dibspack sets the parameter `origin` above.
+
+#### Dibspack Type `inside`
+
+This type allows specifying that the dibspack can be found inside the docker
+image. It might be that the docker image is already equipped with it, or that
+another dibspack put it previously.
+
+In the associative array definition, only the `path` key is supported,
+pointing to the base directory of the dibspack (i.e. the one containing the
+`operate` and optionally the `detect` programs); the path should be absolute
+and referred to the filesystem inside the container.
+
+In the string-based definition, the `path` is set, e.g.:
+
+    inside:/path/to/dibspack
+
+#### Dibspack Type `project`
+
+This type signals that the dibspack can be found inside the `dibspacks`
+sub-directory of the project (which is mounted and make available inside the
+container).
+
+In the associative array definition, only the `path` key is supported,
+pointing to the base directory of the dibspack (i.e. the one containing the
+`operate` and optionally the `detect` programs); the path is relative to the
+`dibspacks` sub-directory of the main project directory.
+
+In the string-based definition, the `path` is set, e.g.:
+
+    project:path/to/dibspack
+
+Note: dibspacks of type `git` are placed inside the `dibspacks/git`
+sub-directory of the main project directory. To avoid conflicts, it's suggestd
+to avoid placing additional dibspacks there, e.g. by placing all dibspacks
+inside `dibspacks/local` or similar.
+
+#### Dibspack Type `src`
+
+This type signals that the dibspack can be found inside the `src`
+sub-directory of the project, which is also mounted in the container and whose
+position is passed to `detect`/`operate` programs in the dibspack as the
+second positional argument. This allows to bind the dibspacks directly with
+the source code, granting stricter control over what is used for the
+build/bundle processes (at the expense of loose coupling of course).
+
+In the associative array definition, only the `path` key is supported,
+pointing to the base directory of the dibspack (i.e. the one containing the
+`operate` and optionally the `detect` programs); the path is relative to the
+`src` sub-directory of the main project directory.
+
+In the string-based definition, the `path` is set, e.g.:
+
+    src:path/to/dibspack
 
 
 
@@ -497,12 +682,9 @@ There are two sub-keys supported in `defaults`:
 
 
 
+### Environment Variables Handling
 
-
-
-
-
-
+...
 
 
 
@@ -520,3 +702,7 @@ There are two sub-keys supported in `defaults`:
 
 [Perl]: https://www.perl.org
 [Log::Any]: https://metacpan.org/pod/Log::Any
+[Docker]: https://www.docker.com/
+[CMD]: https://docs.docker.com/engine/reference/builder/#cmd
+[ENTRYPOINT]: https://docs.docker.com/engine/reference/builder/#entrypoint
+[dibspack-basic]: https://github.com/polettix/dibspack-basic
