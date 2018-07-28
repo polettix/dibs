@@ -139,7 +139,7 @@ sub iterate_buildpacks ($self, $op) {
 sub coalesce_envs ($self, $dp, $op, $args) {
    my $opc = $self->dconfig($op);
    return __merge_envs(
-      $self->config('env'),
+      $self->config(defaults => 'env'),
       $opc->{env},
       $dp->env,
       $self->all_metadata,
