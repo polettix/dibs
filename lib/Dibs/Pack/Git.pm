@@ -6,7 +6,7 @@ use experimental qw< postderef signatures >;
 use Ouch;
 use Moo;
 use Log::Any qw< $log >;
-use Path::Tiny;
+use Path::Tiny ();
 use Digest::MD5 qw< md5_hex >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
@@ -40,7 +40,7 @@ sub BUILDARGS ($class, $config, @args) {
 
    $spec{ref} = 'master' unless length($spec{ref} // '');
    
-   my $p = path(GIT, md5_hex($origin));
+   my $p = Path::Tiny::path(GIT, md5_hex($origin));
    $spec{local_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
    $p = $p->child($spec{path}) if length($spec{path} //= '');
    $spec{host_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
