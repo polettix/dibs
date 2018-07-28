@@ -302,3 +302,221 @@ As an example, consider the following `dibs.yml` file:
 This leverages both remote and local dibspacks. At every run, both the build
 and the bundle images are re-built from scratch, adding prerequisites, doing
 dependencies installations, etc.
+
+
+## Configuration: Details
+
+This section aims at explaining all the features and capabilities that can be
+leveraged through the `dibs.yml` file.
+
+The YAML file is structured as an associative array. The keys below are
+*supported*, in the sense that they have a meaning for `dibs`; it is anyway
+possible to add more keys as needed.
+
+Recognized keys are:
+
+- `defaults`: an associative array setting defaults that apply over the
+  specific call to `dibs`. More details below in the specific section.
+
+- `definitions`: an associative array, mappingpossible `steps` and their
+  contents. The keys set the name of the possible `steps`.
+
+- `logger`: a list of parameters for [Perl][] module [Log::Any][]. This part
+  is currently not entirely fleshed out, although it's possible to set the
+  logging level to make `dibs` more or less verbose.
+
+- `name`: the name of the project. It is mostly used as the default image
+  name, but it can be overridden in the `definitions`.
+
+- `steps`: a sequence of steps to take. Each step MUST have a definition
+  inside section `definitions`
+
+An annotated example `dibs.yml` file is below:
+
+    # name of our dibs project
+    name: examploid
+
+    # set run-wide defaults
+    defaults:
+
+        # setting defaults for dibspacks allows to "recall" those defaults
+        # and avoid typing. The sub-keys are just names/identifiers that can
+        # then be used to recall the defaults in the dibspacks sections inside
+        # definitions.
+        dibspack:
+            basic: # this is a real git repository with many dibspacks inside
+                type:   git
+                origin: https://github.com/polettix/dibspack-basic.git
+
+        # these environment variables are run-wide, passed to every invocation
+        # of dibspacks
+        env:
+            - THIS  # this is "imported" from the current environment
+            - THAT: 'has a value'
+
+    # this is where you define what is performed in the different steps.
+    # Sub-keys are names/identifiers that can the be used/reused inside the
+    # steps section. We will define two of them, one for building our code and
+    # one for packing ("bundle") it.
+    definitions:
+
+        build:
+
+            # the base image. You might of course prepare a build image and
+            # skip some of the steps, e.g. by setting up an image that already
+            # has build tools (compiler, make, etc.) inside. Here we will
+            # start almost from scratch.
+            from: 'alpine:3.6'
+
+            # a list of dibspacks to apply in order
+            dibspacks:
+
+                # each dibspack does a specific job, or is supposed to. You
+                # can recall common parameters from the defaults section above
+                # using the `default` key, and then specialize/override
+                # parameters as needed. This example below fetches the code
+                # from the remote repository and will put it in the `src`
+                # directory
+                - default: basic
+                  subpath: git
+                  env:
+                    DIBSPACK_GIT_URI: https://example.com/code.git#master
+                    DIBSPACK_GIT_REFRESH: 0 # default, restart over every time
+                - default: basic
+                  subpath: prereqs
+                - default: basic
+                  subpath: perl
+                  env:
+                    DIBSPACK_FINAL_TARGET_BASE: root
+                    DIBSPACK_FINAL_TARGET:      /app
+                - default: basic
+                  subpath: install
+                  env:
+                    DIBSPACK_INSTALL_SRC_BASE: src
+                    DIBSPACK_INSTALL_SRC:      /
+                    DIBSPACK_INSTALL_DST_BASE: cache
+                    DIBSPACK_INSTALL_DST:      /app
+
+        bundle:
+
+            # again, start over almost from scratch here, but you can prepare
+            # base image with some tooling inside and spare some time
+            from: 'alpine:3.6'
+
+            # final containers are eventually dropped unless dibs is told to
+            # keep them. This is what is done here so that we will have the
+            # final image available
+            keep: true # or yes, or whatever is true for YAML
+
+            # when `keep` is set, it's also necessary to set the entry point
+            # and the cmd for the final container image, so that its usage can
+            # be automated easily.
+            entrypoint:
+                - /procfilerun
+            cmd: []
+
+            # by default, retained images are named after the `name` set at
+            # the highest level of the dibs.yml file, with a tag that
+            # represents the build (timestamp and pseudo-random number). You
+            # can also tag the image with additional tags or name:tags.
+            tags: # additional tags or name:tag
+                - latest
+                - 7
+                - 'whatever:7'
+
+            dibspacks:
+                - default: basic
+                  subpath: procfile
+                  skip_detect: true
+                - default: basic
+                  subpath: prereqs
+                - default: basic
+                  subpath: simple-install
+                  env:
+                    DIBSPACK_INSTALL_SRC_BASE: cache
+                    DIBSPACK_INSTALL_SRC:      /app
+                    DIBSPACK_INSTALL_DST_BASE: root
+                    DIBSPACK_INSTALL_DST:      /app
+
+    steps:
+        - build
+        - bundle
+
+    logger:
+        - Stderr
+        - log_level
+        - info
+
+
+### Top level: `defaults`
+
+There are two sub-keys supported in `defaults`:
+
+- `dibspack`: sets group of default configurations associated to a name that
+  can be eventually used inside a dibspack. Example:
+
+        defaults:
+            dibspack:
+                basic: # real git repository
+                    type:   git
+                    origin: https://github.com/polettix/dibspack-basic.git
+
+        # ... then later...
+        definitions:
+            whateverstep:
+                dibspacks:
+                    - default: basic
+                      subpath: prereqs
+                      # ... and everything else needed
+
+    The example is the same as just writing:
+
+        definitions:
+            whateverstep:
+                dibspacks:
+                    - type:   git
+                      origin: https://github.com/polettix/dibspack-basic.git
+                      subpath: prereqs
+                      # ... and everything else needed
+
+    with the difference that you can reuse the defaults in `basic` over and
+    over.
+
+- `env` sets environment variables that apply to all definitions; these are
+  free to override them with different values anyway. More details below in
+  the specific section.
+
+
+### Top level: `definitions`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Perl]: https://www.perl.org
+[Log::Any]: https://metacpan.org/pod/Log::Any
