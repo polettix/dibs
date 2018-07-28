@@ -17,7 +17,7 @@ extends 'Dibs::Pack';
 has origin     => (is => 'ro', required => 1);
 has _full_orig => (is => 'lazy');
 has local_path => (is => 'ro', required => 1);
-has subpath    => (is => 'ro', default => '');
+has path       => (is => 'ro', default => '');
 has ref        => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, $config, @args) {
@@ -28,7 +28,7 @@ sub BUILDARGS ($class, $config, @args) {
 
    if (! defined $spec{name}) {
       $spec{name} = $origin;
-      $spec{name} .= " -> $spec{subpath}" if length($spec{subpath} // '');
+      $spec{name} .= " -> $spec{path}" if length($spec{path} // '');
    }
 
    if ($origin =~ m{\#}mxs) {
@@ -42,7 +42,7 @@ sub BUILDARGS ($class, $config, @args) {
    
    my $p = path(GIT, md5_hex($origin));
    $spec{local_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
-   $p = $p->child($spec{subpath}) if length($spec{subpath} //= '');
+   $p = $p->child($spec{path}) if length($spec{path} //= '');
    $spec{host_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
    $spec{container_path} =
       $class->resolve_container_path($config, DIBSPACKS, $p);

@@ -125,7 +125,7 @@ Although it's not mandatory, it's probably better to put *local* dibspacks
 inside another sub-directory, e.g. `dibspacks/local` or so.
 
 FIXME add object-style definition of dibspacks
-FIXME specify that git dibspacks can optionally specify a subpath
+FIXME specify that git dibspacks can optionally specify a path
 
 The execution of the programs in a dibspack is as follows:
 
@@ -280,18 +280,18 @@ As an example, consider the following `dibs.yml` file:
           dibspacks:
              - type: git
                origin: 'https://github.com/polettix/dibspack-basic.git'
-               subpath: prereqs
+               path: prereqs
              - 'project:perl/build'
        bundle:
           from: 'alpine:3.6'
           dibspacks:
              - type: git
                origin: 'https://github.com/polettix/dibspack-basic.git'
-               subpath: prereqs
+               path: prereqs
              - 'project:perl/bundle'
              - type: git
                origin: 'https://github.com/polettix/dibspack-basic.git'
-               subpath: procfile
+               path: procfile
           keep: yes
           tags:
              - latest
@@ -381,19 +381,19 @@ An annotated example `dibs.yml` file is below:
                 # from the remote repository and will put it in the `src`
                 # directory
                 - default: basic
-                  subpath: git
+                  path: git
                   env:
                     DIBSPACK_GIT_URI: https://example.com/code.git#master
                     DIBSPACK_GIT_REFRESH: 0 # default, restart over every time
                 - default: basic
-                  subpath: prereqs
+                  path: prereqs
                 - default: basic
-                  subpath: perl
+                  path: perl
                   env:
                     DIBSPACK_FINAL_TARGET_BASE: root
                     DIBSPACK_FINAL_TARGET:      /app
                 - default: basic
-                  subpath: install
+                  path: install
                   env:
                     DIBSPACK_INSTALL_SRC_BASE: src
                     DIBSPACK_INSTALL_SRC:      /
@@ -429,12 +429,12 @@ An annotated example `dibs.yml` file is below:
 
             dibspacks:
                 - default: basic
-                  subpath: procfile
+                  path: procfile
                   skip_detect: true
                 - default: basic
-                  subpath: prereqs
+                  path: prereqs
                 - default: basic
-                  subpath: simple-install
+                  path: simple-install
                   env:
                     DIBSPACK_INSTALL_SRC_BASE: cache
                     DIBSPACK_INSTALL_SRC:      /app
@@ -469,7 +469,7 @@ There are two sub-keys supported in `defaults`:
           whateverstep:
               dibspacks:
                   - default: basic
-                    subpath: prereqs
+                    path: prereqs
                     # ... and everything else needed
 
     The example is the same as just writing:
@@ -479,7 +479,7 @@ There are two sub-keys supported in `defaults`:
               dibspacks:
                   - type:   git
                     origin: https://github.com/polettix/dibspack-basic.git
-                    subpath: prereqs
+                    path: prereqs
                     # ... and everything else needed
 
     with the difference that you can reuse the defaults in `basic` over and
@@ -615,7 +615,7 @@ following keys are recognised:
 - `ref`: the ref to checkout. It's possible to set a branch or pin a specific
   hash/tag for better tracking and reproducibility.
 
-- `subpath`: set the path inside the git repo where the dibspack can be found.
+- `path`: set the path inside the git repo where the dibspack can be found.
   A git repository might contain multiple dibspack, each in a sub-directory;
   in this case, this parameter allows selecting the right one. See an example
   in [dibspack-basic][].
