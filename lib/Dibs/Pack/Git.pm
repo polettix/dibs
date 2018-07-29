@@ -17,7 +17,7 @@ extends 'Dibs::Pack';
 has origin     => (is => 'ro', required => 1);
 has _full_orig => (is => 'lazy');
 has local_path => (is => 'ro', required => 1);
-has path       => (is => 'ro', default => '');
+has path       => (is => 'ro', default => 'operate');
 has ref        => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, $config, @args) {
