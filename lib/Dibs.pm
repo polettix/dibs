@@ -121,16 +121,8 @@ sub iterate_buildpacks ($self, $op) {
             $dp->fetch;
          }
 
-         if ($dp->do_detect) {
-            ARROW_OUTPUT('-', "detect");
-            if (! $self->call_detect($dp, $op, $args)) {
-               OUTPUT('skip this dibspack');
-               next DIBSPACK;
-            }
-         }
-
          ARROW_OUTPUT('-', 'run');
-         $self->call_operate($dp, $op, $args);
+         $self->call_dibspack($dp, $op, $args);
       }
    }
    catch {
@@ -226,7 +218,7 @@ sub list_dirs ($self) {
    map { $cds->{$_} } $dds->@*;
 }
 
-sub list_volumes ($self, $step) {
+sub list_volumes ($self) {
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
    my $cds = $self->config('container_dirs');
@@ -237,7 +229,7 @@ sub list_volumes ($self, $step) {
          $cds->{$name},
          @mode
       ];
-   } $self->config(volumes => $step)->@*;
+   } $self->config('volumes')->@*;
 }
 
 sub expand_command_args ($self, $op, @args) {
@@ -276,25 +268,7 @@ sub expand_command_args ($self, $op, @args) {
    } @args;
 }
 
-sub call_detect ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->stringify;
-   my ($exitcode) = Dibs::Docker::docker_run(
-      $args->%*,
-      keep    => 0,
-      indent  => $dp->indent,
-      volumes => [ $self->list_volumes('detect') ],
-      command => [ $p, $self->list_dirs,
-         $self->expand_command_args($op, $dp->detect_args) ],
-   );
-   return 1 if $exitcode == DETECT_OK;
-   return 0 if $exitcode == DETECT_SKIP;
-
-   my ($signal, $exit) = ($exitcode & 0xFF, $exitcode >> 8);
-   ouch 500, "detect exited due to signal $signal" if $signal;
-   ouch 500, "detect exited with $exit, interpreted as error";
-}
-
-sub call_operate ($self, $dp, $op, $args) {
+sub call_dibspack ($self, $dp, $op, $args) {
    my $p = path($dp->container_path)->stringify;
    my $opname = $self->dconfig($op, 'step') // $op;
    my ($exitcode, $cid, $out);
@@ -303,7 +277,7 @@ sub call_operate ($self, $dp, $op, $args) {
          $args->%*,
          keep    => 1,
          indent  => $dp->indent,
-         volumes => [ $self->list_volumes('operate') ],
+         volumes => [ $self->list_volumes ],
          command => [ $p, $self->list_dirs,
             $self->expand_command_args($op, $dp->args)],
       );

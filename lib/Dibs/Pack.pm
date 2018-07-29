@@ -22,11 +22,6 @@ has _args          => (
    default => sub { return [] },
    init_arg => 'args',
 );
-has _detect_args   => (
-   is => 'ro',
-   default => sub { return [] },
-   init_arg => 'detect_args',
-);
 has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 
@@ -38,9 +33,7 @@ sub class_for ($package, $type) {
           catch { ouch 400, "invalid type '$type' for dibspack ($_)" }
 }
 
-sub do_detect   ($self) { return scalar($self->_detect_args->@*) }
 sub args        ($self) { return $self->_args->@* }
-sub detect_args ($self) { return $self->_detect_args->@* }
 
 sub create ($pkg, $config, $spec) {
    my ($class, $args);
@@ -81,8 +74,6 @@ sub integrate_and_validate ($pkg, $as, $config) {
    $as = $pkg->merge_defaults($as, $config);
    defined($as->{indent} = yaml_boolean($as->{indent} // 'Y'))
       or ouch 400, '`indent` in dibspack MUST be a YAML boolean';
-   defined($as->{skip_detect} = yaml_boolean($as->{skip_detect} // 'N'))
-      or ouch 400, '`skip_detect` in dibspack MUST be a YAML boolean';
    return $as;
 }
 

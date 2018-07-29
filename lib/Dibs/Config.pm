@@ -42,10 +42,7 @@ use constant DEFAULTS => {
       ENVIRON   , '/tmp/env',
       SRC       , '/tmp/src',
    },
-   volumes => {
-      detect  => [[CACHE, 'ro'], [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], [SRC, 'ro']],
-      operate => [ CACHE       , [ENVIRON, 'ro'], [DIBSPACKS, 'ro'],  SRC       ],
-   },
+   volumes => [ CACHE , [ENVIRON, 'ro'], [DIBSPACKS, 'ro'],  SRC ],
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
