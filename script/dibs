@@ -2,7 +2,6 @@
 use 5.024;
 use warnings;
 use FindBin qw< $Bin >;
-use Path::Tiny qw< path >;
-use lib path($Bin)->sibling('lib')->stringify;
+use lib "$Bin/../lib", "$Bin/../local/lib/perl5";
 use Dibs 'main';
 exit main(@ARGV);
