@@ -48,6 +48,7 @@ use constant DEFAULTS => {
 };
 use constant OPTIONS => [
    ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
+   ['host-project-dir|H=s', default => undef, help => 'project base dir (dind-like)'],
    ['project-dir|p=s', default => '.', help => 'project base directory'],
 ];
 use constant ENV_PREFIX => 'DIBS_';

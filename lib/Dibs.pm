@@ -25,6 +25,7 @@ our @EXPORT = ();
 
 has _config => (is => 'ro', required => 1);
 has _project_dir => (is => 'lazy');
+has _host_project_dir => (is => 'lazy');
 has _dibspacks_for => (is => 'ro', default => sub { return {} });
 has all_metadata => (is => 'ro', default => sub { return {} });
 
@@ -55,9 +56,18 @@ sub _build__project_dir ($self) {
    return path($self->config('project_dir'))->absolute;
 }
 
+sub _build__host_project_dir ($self) {
+   return path($self->config('host_project_dir') // $self->project_dir);
+}
+
 sub project_dir ($self, @subdirs) {
    my $pd = $self->_project_dir;
    return(@subdirs ? $pd->child(@subdirs) : $pd);
+}
+
+sub host_project_dir ($self, @subdirs) {
+   my $hpd = $self->_host_project_dir;
+   return(@subdirs ? $hpd->child(@subdirs) : $hpd);
 }
 
 sub steps ($self) {$self->config('steps')->@*}
@@ -249,7 +259,7 @@ sub list_dirs ($self) {
 }
 
 sub list_volumes ($self) {
-   my $pd = $self->project_dir;
+   my $pd = $self->host_project_dir;
    my $pds = $self->config('project_dirs');
    my $cds = $self->config('container_dirs');
    return map {
