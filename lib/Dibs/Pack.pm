@@ -27,6 +27,15 @@ has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 
 has id => (is => 'lazy');
+has user => (is => 'ro', default => sub { return });
+
+sub docker_run_args ($self) {
+   my @retval = (
+      indent => $self->indent,
+   );
+   push @retval, user => $self->user if defined $self->user;
+   return @retval;
+}
 
 sub _build_id ($self) {
    our $__id //= 0;

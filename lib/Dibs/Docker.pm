@@ -56,6 +56,7 @@ sub docker_run (%args) {
       push @command, '--cidfile', $cidfile;
    }
 
+   push @command, '--user', $args{user} if exists $args{user};
    push @command, expand_volumes($args{volumes});
    push @command, expand_environment($args{env});
    my ($entrypoint, @ep_args) = $args{command}->@*;

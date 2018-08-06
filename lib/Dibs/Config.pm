@@ -24,6 +24,7 @@ use constant ENVIRON   => 'env';
 use constant GIT       => 'git';
 use constant INSIDE    => 'inside';
 use constant PROJECT   => 'project';
+use constant IMMEDIATE => 'immediate';
 use constant SRC       => 'src';
 use constant DETECT_OK   => ((  0 << 8) | 0);
 use constant DETECT_SKIP => ((100 << 8) | 0);
@@ -54,7 +55,7 @@ use constant ENV_PREFIX => 'DIBS_';
 use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [qw<
-      BIN CACHE DIBSPACKS DPFILE ENVIRON GIT INSIDE PROJECT SRC
+      BIN CACHE DIBSPACKS DPFILE ENVIRON GIT IMMEDIATE INSIDE PROJECT SRC
       DETECT_OK DETECT_SKIP   
       INDENT
    >],

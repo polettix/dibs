@@ -141,8 +141,10 @@ sub call_dibspack ($self, $dp, $step, $args) {
    try {
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
          $args->%*,
+         $dp->docker_run_args,
+
+         # overriding everything above
          keep    => 1,
-         indent  => $dp->indent,
          volumes => [ $self->list_volumes ],
          command => [ $p, $self->list_dirs,
             $self->expand_command_args($step, $dp->args)],
