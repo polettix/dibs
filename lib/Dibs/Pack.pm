@@ -18,14 +18,20 @@ has name           => (is => 'ro', required => 1);
 has env            => (is => 'ro', default => sub { return {} });
 has indent         => (is => 'ro', default => sub { return 42 });
 has _args          => (
-   is => 'ro',
-   default => sub { return [] },
+   coerce   => \&__parse_args,
+   default  => sub { return [] },
    init_arg => 'args',
+   is       => 'ro',
 );
 has host_path      => (is => 'ro', required => 1);
 has container_path => (is => 'ro', required => 1);
 
-sub _build_name ($self) { return $self->origin }
+has id => (is => 'lazy');
+
+sub _build_id ($self) {
+   our $__id //= 0;
+   return ++$__id;
+}
 
 sub class_for ($package, $type) {
    ouch 400, 'undefined type for dibspack' unless defined $type;
@@ -33,7 +39,7 @@ sub class_for ($package, $type) {
           catch { ouch 400, "invalid type '$type' for dibspack ($_)" }
 }
 
-sub args        ($self) { return $self->_args->@* }
+sub args ($self) { return $self->_args->@* }
 
 sub create ($pkg, $config, $spec) {
    my ($class, $args);
@@ -49,7 +55,7 @@ sub create ($pkg, $config, $spec) {
       $class = $pkg->class_for($type);
       $args = $class->parse_specification($data, $config);
    }
-   $args = $pkg->integrate_and_validate($args, $config);
+   $args = $pkg->validate($pkg->merge_defaults($args, $config));
    $class //= $pkg->class_for(delete $args->{type});
    return $class->new($config, $args);
 }
@@ -70,15 +76,10 @@ sub merge_defaults ($pkg, $args, $config) {
    return \%args;
 }
 
-sub integrate_and_validate ($pkg, $as, $config) {
-   $as = $pkg->merge_defaults($as, $config);
+sub validate ($pkg, $as) {
    defined($as->{indent} = yaml_boolean($as->{indent} // 'Y'))
       or ouch 400, '`indent` in dibspack MUST be a YAML boolean';
    return $as;
-}
-
-sub BUILDARGS ($class, @args) {
-   use Data::Dumper; $log->info(Dumper \@args); exit 0;
 }
 
 sub resolve_host_path ($class, $config, $zone, $path) {
@@ -93,20 +94,63 @@ sub resolve_container_path ($class, $config, $zone, $path) {
    return path($config->{container_dirs}{$zone}, $path)->stringify;
 }
 
-sub _create_inside ($package, $config, $specification) {
-   return $package->new(
-      type => INSIDE,
-      specification  => $specification,
-      host_path => undef,
-      container_path => $specification,
-   );
-}
-
 sub needs_fetch { return }
 
 sub has_program ($self, $program) {
    return (!defined($self->host_path))
        || -x path($self->host_path, $program)->stringify;
+}
+
+sub __parse_args ($value) {
+   return $value if ref $value;
+
+   $value =~ s{\\\n}{}gmxs;
+   $value =~ s{\A\s+|\s*\z}{ }gmxs;
+   my ($in_single, $in_double, $is_escaped, $is_function, @args, $buffer);
+   for my $c (split m{}mxs, $value) {
+      if ($is_escaped) {
+         $is_escaped = 0;
+      }
+      elsif ($in_single) {
+         next unless $in_single = ($c ne "'");
+         # otherwise just get the char
+      }
+      elsif ($c eq '\\') { # escape can happen in plain or dquote
+         $is_escaped = 1;
+         next; # ignore escape char
+      }
+      elsif ($in_double) {
+         next unless $in_double = ($c ne '"');
+         # otherwise just get the char
+      }
+      elsif ($c =~ m{\s}mxs) {
+         if (defined $buffer) {
+            push @args,
+               $is_function
+               ? { split m{:}mxs, substr($buffer, 1), 2 }
+               : $buffer;
+         }
+         ($buffer, $is_function) = ();
+         next; # remove spacing chars
+      }
+      elsif ($c eq "'") {
+         $in_single = 1;
+         next; # ignore quote char
+      }
+      elsif ($c eq '"') {
+         $in_double = 1;
+         next; # ignore quote char
+      }
+      elsif ($c eq '@' && ! defined($buffer)) {
+         $is_function = 1;
+      }
+      ($buffer //= '') .= $c;
+   }
+
+   ouch 400, 'missing closing single quote' if $in_single;
+   ouch 400, 'missing closing double quote' if $in_double;
+   ouch 400, 'stray escape character at end' if $is_escaped;
+   return \@args;
 }
 
 1;

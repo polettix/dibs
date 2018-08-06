@@ -36,9 +36,9 @@ sub add_metadata ($self, %pairs) {
 
 sub metadata_for ($self, $key) { $self->all_metadata->{$key} // undef }
 
-sub name ($self, $op) {
-   if (defined($op) && defined(my $name = $self->dconfig($op, 'name'))) {
-      return $name;
+sub name ($self, $step) {
+   if (defined($step) && defined(my $n = $self->dconfig($step, 'name'))) {
+      return $n;
    }
    return $self->config('name');
 }
@@ -53,6 +53,11 @@ sub dconfig ($self, @path) { $self->config(definitions => @path) }
 
 sub _build__project_dir ($self) {
    return path($self->config('project_dir'))->absolute;
+}
+
+sub project_dir ($self, @subdirs) {
+   my $pd = $self->_project_dir;
+   return(@subdirs ? $pd->child(@subdirs) : $pd);
 }
 
 sub steps ($self) {$self->config('steps')->@*}
@@ -80,11 +85,6 @@ sub dump_configuration ($self) {
    return;
 }
 
-sub project_dir ($self, @subdirs) {
-   my $pd = $self->_project_dir;
-   return(@subdirs ? $pd->child(@subdirs) : $pd);
-}
-
 sub ensure_host_directories ($self) {
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
@@ -95,26 +95,28 @@ sub ensure_host_directories ($self) {
    return;
 }
 
-sub dibspacks_for ($self, $x) {
+sub dibspacks_for ($self, $step) {
    my $dfor = $self->_dibspacks_for;
-   $dfor->{$x} //= Dibs::PacksList->new($x, $self->config);
-   return $dfor->{$x}->list;
+   $dfor->{$step} //= Dibs::PacksList->new($step, $self->config);
+   return $dfor->{$step}->list;
 }
 
-sub iterate_buildpacks ($self, $op) {
+sub iterate_buildpacks ($self, $step) {
    # continue only if it makes sense...
-   ouch 400, "no definitions for $op" unless defined $self->dconfig($op);
-   my @dibspacks = $self->dibspacks_for($op) or return;
+   ouch 400, "no definitions for $step"
+      unless defined $self->dconfig($step);
+   my @dibspacks = $self->dibspacks_for($step) or return;
 
-   my $args = $self->prepare_args($op);
-   my $exception;
+   # these "$args" (anon hash) contain arguments that are reused across all
+   # dibspacks in this specific step
+   my $args = $self->prepare_args($step);
    try {
       DIBSPACK:
       for my $dp (@dibspacks) {
          my $name = $dp->name;
          ARROW_OUTPUT('+', "dibspack $name");
 
-         $args->{env} = $self->coalesce_envs($dp, $op, $args);
+         $args->{env} = $self->coalesce_envs($dp, $step, $args);
 
          if ($dp->needs_fetch) {
             ARROW_OUTPUT('-', 'fetch dibspack');
@@ -122,43 +124,69 @@ sub iterate_buildpacks ($self, $op) {
          }
 
          ARROW_OUTPUT('-', 'run');
-         $self->call_dibspack($dp, $op, $args);
+         $self->call_dibspack($dp, $step, $args);
       }
    }
    catch {
-      $self->cleanup_tags($op, $args->{image});
+      $self->cleanup_tags($step, $args->{image});
       die $_; # rethrow
    };
    return $args->{image};
 }
 
-sub coalesce_envs ($self, $dp, $op, $args) {
-   my $opc = $self->dconfig($op);
+sub call_dibspack ($self, $dp, $step, $args) {
+   my $p = path($dp->container_path)->stringify;
+   my $stepname = $self->dconfig($step, 'step') // $step;
+   my ($exitcode, $cid, $out);
+   try {
+      ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
+         $args->%*,
+         keep    => 1,
+         indent  => $dp->indent,
+         volumes => [ $self->list_volumes ],
+         command => [ $p, $self->list_dirs,
+            $self->expand_command_args($step, $dp->args)],
+      );
+      ouch 500, "failure ($exitcode)" if $exitcode;
+
+      Dibs::Docker::docker_commit($cid, $args->@{qw< image changes >});
+      (my $__cid, $cid) = ($cid, undef);
+      Dibs::Docker::docker_rm($__cid);
+   }
+   catch {
+      Dibs::Docker::docker_rm($cid) if defined $cid;
+      die $_; # rethrow
+   };
+   return;
+}
+
+sub coalesce_envs ($self, $dp, $step, $args) {
+   my $stepc = $self->dconfig($step);
    return __merge_envs(
       $self->config(defaults => 'env'),
-      $opc->{env},
+      $stepc->{env},
       $dp->env,
       $self->all_metadata,
       {
-         DIBS_FROM_IMAGE => $opc->{from},
+         DIBS_FROM_IMAGE => $stepc->{from},
          DIBS_WORK_IMAGE => $args->{image},
       },
    );
 }
 
-sub prepare_args ($self, $op) {
-   my $opc = $self->dconfig($op);
-   my $from = $opc->{from};
-   my $image = Dibs::Docker::docker_tag($from, $self->target_name($op));
+sub prepare_args ($self, $step) {
+   my $stepc = $self->dconfig($step);
+   my $from = $stepc->{from};
+   my $image = Dibs::Docker::docker_tag($from, $self->target_name($step));
    return {
       image => $image,
-      changes => $self->changes_for_commit($op),
+      changes => $self->changes_for_commit($step),
       project_dir => $self->project_dir,
    };
 }
 
-sub changes_for_commit ($self, $op) {
-   my $cfg = $self->dconfig($op);
+sub changes_for_commit ($self, $step) {
+   my $cfg = $self->dconfig($step);
    my %changes;
    for my $key (qw< entrypoint cmd >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
@@ -166,7 +194,7 @@ sub changes_for_commit ($self, $op) {
    return \%changes;
 }
 
-sub cleanup_tags ($self, $op, @tags) {
+sub cleanup_tags ($self, $step, @tags) {
    for my $tag (@tags) {
       try { Dibs::Docker::docker_rmi($tag) }
       catch { $log->error("failed to remove $tag") };
@@ -174,11 +202,11 @@ sub cleanup_tags ($self, $op, @tags) {
    return;
 }
 
-sub additional_tags ($self, $op, $image, $new_tags) {
+sub additional_tags ($self, $step, $image, $new_tags) {
    return ($image) unless $new_tags;
    my @tags = $image;
    try {
-      my $name = $self->name($op);
+      my $name = $self->name($step);
       for my $tag ($new_tags->@*) {
          my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
          Dibs::Docker::docker_tag($image, $dst);
@@ -186,7 +214,7 @@ sub additional_tags ($self, $op, $image, $new_tags) {
       }
    }
    catch {
-      $self->cleanup_tags($op, @tags);
+      $self->cleanup_tags($step, @tags);
       die $_; # rethrow
    };
    return @tags;
@@ -232,7 +260,7 @@ sub list_volumes ($self) {
    } $self->config('volumes')->@*;
 }
 
-sub expand_command_args ($self, $op, @args) {
+sub expand_command_args ($self, $step, @args) {
    map {
       my $ref = ref $_;
       if ($ref eq 'HASH') {
@@ -251,9 +279,9 @@ sub expand_command_args ($self, $op, @args) {
                    && (scalar(keys $data->%*) == 1);
             $self->resolve_container_path($data->%*);
          }
-         elsif ($type eq 'step_id') { $op }
+         elsif ($type eq 'step_id') { $step }
          elsif ($type eq 'step_name') {
-            $self->dconfig($op, 'step') // $op;
+            $self->dconfig($step, 'step') // $step;
          }
          else {
             ouch 400, "unrecognized arg for dibspack (type: $type)";
@@ -268,34 +296,8 @@ sub expand_command_args ($self, $op, @args) {
    } @args;
 }
 
-sub call_dibspack ($self, $dp, $op, $args) {
-   my $p = path($dp->container_path)->stringify;
-   my $opname = $self->dconfig($op, 'step') // $op;
-   my ($exitcode, $cid, $out);
-   try {
-      ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
-         $args->%*,
-         keep    => 1,
-         indent  => $dp->indent,
-         volumes => [ $self->list_volumes ],
-         command => [ $p, $self->list_dirs,
-            $self->expand_command_args($op, $dp->args)],
-      );
-      ouch 500, "failure ($exitcode)" if $exitcode;
-
-      Dibs::Docker::docker_commit($cid, $args->@{qw< image changes >});
-      (my $__cid, $cid) = ($cid, undef);
-      Dibs::Docker::docker_rm($__cid);
-   }
-   catch {
-      Dibs::Docker::docker_rm($cid) if defined $cid;
-      die $_; # rethrow
-   };
-   return;
-}
-
-sub target_name ($self, $op) {
-   join ':', $self->name($op), $self->metadata_for('DIBS_ID');
+sub target_name ($self, $step) {
+   join ':', $self->name($step), $self->metadata_for('DIBS_ID');
 }
 
 sub run_step ($self, $name) {
@@ -334,20 +336,6 @@ sub run ($self) {
 }
 
 sub main (@as) { __PACKAGE__->new(_config => get_config(\@as))->run }
-
-sub fetch ($config) {
-   my $fc = $config->{fetch};
-   return unless defined $fc; # undef -> use src directly, or nothing at all
-   $fc = {
-      type => 'git',
-      origin => $fc,
-   } if ! ref($fc) && $fc =~ m{\A(?: http s? | git | ssh )}mxs;
-   ouch 500, 'most probably unimplemented'
-      unless ref($fc) && $fc->{type} eq 'git';
-   my $target = project_dir($config, $config->{project_dirs}{&SRC});
-   require Dibs::Git;
-   Dibs::Git::fetch($fc->{origin}, $target->stringify);
-}
 
 1;
 __END__

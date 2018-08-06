@@ -19,6 +19,7 @@ has _full_orig => (is => 'lazy');
 has local_path => (is => 'ro', required => 1);
 has path       => (is => 'ro', default => 'operate');
 has ref        => (is => 'ro', required => 1);
+has fetched    => (is => 'rw', default => 0);
 
 sub BUILDARGS ($class, $config, @args) {
    my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
@@ -52,10 +53,11 @@ sub BUILDARGS ($class, $config, @args) {
 
 sub parse_specification ($c, $origin, @rest) { return {origin => $origin} }
 
-sub needs_fetch ($self) { return 1 }
+sub needs_fetch ($self) { return ! $self->fetched }
 
 sub fetch ($self) {
    Dibs::Git::fetch($self->_full_orig, $self->local_path);
+   $self->fetched(1);
 }
 
 sub _build__full_orig ($self) {
@@ -63,6 +65,8 @@ sub _build__full_orig ($self) {
    return $self->origin unless length $ref;
    return $self->origin . '#' . $ref;
 }
+
+sub _build_id ($self) { return $self->_full_orig }
 
 1;
 __END__
