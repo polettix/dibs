@@ -9,7 +9,7 @@ use Ouch qw< :trytiny_var >;
 use Path::Tiny qw< path >;
 use Dibs::Pack;
 use Dibs::Config ':constants';
-use YAML::Tiny 'LoadFile';
+use YAML::XS 'LoadFile';
 no warnings qw< experimental::postderef experimental::signatures >;
 
 has moniker => (is => 'ro', required => 1);

@@ -4,7 +4,6 @@ use Carp;
 use English qw< -no_match_vars >;
 use Log::Any qw< $log >;
 use Log::Any::Adapter;
-use YAML::Tiny qw< LoadFile >;
 use Path::Tiny qw< path cwd >;
 use Ouch qw< :trytiny_var >;
 use Try::Catch;

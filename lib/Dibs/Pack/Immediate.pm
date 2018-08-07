@@ -18,7 +18,6 @@ sub BUILDARGS ($class, $config, @args) {
    my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
 
    ouch 400, 'no program provided' unless defined $spec{program};
-   $spec{program} =~ s{^[|]}{}gmxs;
    ouch 400, 'empty program provided' unless length $spec{program};
 
    my $id = $spec{id} = md5_hex($spec{program});

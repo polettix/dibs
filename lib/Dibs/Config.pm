@@ -6,7 +6,7 @@ use Pod::Find qw< pod_where >;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< GetOptionsFromArray :config gnu_getopt >;
 use Log::Any qw< $log >;
-use YAML::Tiny qw< LoadFile >;
+use YAML::XS qw< LoadFile >;
 use Path::Tiny qw< path cwd >;
 use Data::Dumper;
 use Ouch qw< :trytiny_var >;
