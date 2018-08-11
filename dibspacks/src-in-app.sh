@@ -9,3 +9,4 @@ for f in "$HOME/.profile.d"/*.sh ; do
    . "$f"
 done
 END
+chown -R user:user /app/.profile /app/.profile.d
