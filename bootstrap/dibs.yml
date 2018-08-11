@@ -5,8 +5,8 @@ logger:
    - log_level
    - info
 steps:
-   #- build
-   #- bundle
+   - build
+   - bundle
 defaults:
    variables:
       - &base_image 'alpine:3.6'
@@ -65,7 +65,6 @@ definitions:
       entrypoint: [ '/bin/sh' ]
       cmd: [ '-l' ]
       dibspacks:
-         - *user
          - default: prereqs
            args: bundle
          - default: basic
