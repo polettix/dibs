@@ -21,10 +21,10 @@ defaults:
          path:   prereqs
          user:   root
       user: &user
-         type: project
+         type: src
          name: add user and enable for docker
          user: root
-         path: user-docker.sh
+         path: dibspacks/user-docker.sh
 definitions:
    builder:
       from: *base_image
@@ -50,7 +50,7 @@ definitions:
       dibspacks:
          - default: prereqs
            args: build
-         - 'project:src-in-app.sh'
+         - 'src:dibspacks/src-in-app.sh'
          - default: basic
            path: perl/build
            args: /app yes
