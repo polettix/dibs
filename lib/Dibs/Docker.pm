@@ -16,7 +16,7 @@ use Dibs::Output;
 use Dibs::Run qw< run_command assert_command >;
 
 sub docker_tag ($src, $dst) {
-   OUTPUT("tagging image as $dst", INDENT);
+   OUTPUT("tagging $src as $dst", INDENT);
    assert_command([qw< docker tag >, $src, $dst]);
    return $dst;
 }
