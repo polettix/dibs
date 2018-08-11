@@ -1,2 +1,2 @@
 #!/bin/sh
-apk --no-cache add perl docker
+apk --no-cache add perl docker git
