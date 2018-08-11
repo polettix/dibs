@@ -193,7 +193,14 @@ sub coalesce_envs ($self, $dp, $step, $args) {
 sub prepare_args ($self, $step) {
    my $stepc = $self->dconfig($step);
    my $from = $stepc->{from};
-   my $image = Dibs::Docker::docker_tag($from, $self->target_name($step));
+   my $image = try {
+      Dibs::Docker::docker_tag($from, $self->target_name($step));
+   }
+   catch {
+      ouch 400,
+         "Unable to use image '$from'. Maybe it can be build with "
+       . "some other different step before?";
+   };
    return {
       image => $image,
       changes => $self->changes_for_commit($step),
