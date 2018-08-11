@@ -69,7 +69,12 @@ sub host_project_dir ($self, @subdirs) {
    return(@subdirs ? $hpd->child(@subdirs) : $hpd);
 }
 
-sub steps ($self) {$self->config('steps')->@*}
+sub steps ($self) {
+   my $s = $self->config('steps');
+   ouch 400, 'no step defined for execution'
+      unless (ref($s) eq 'ARRAY') && scalar($s->@*);
+   return $s->@*;
+}
 
 sub resolve_container_path ($self, $zone, $path) {
    defined(my $base = $self->config(container_dirs => $zone))

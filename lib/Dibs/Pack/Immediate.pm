@@ -20,6 +20,11 @@ sub BUILDARGS ($class, $config, @args) {
    ouch 400, 'no program provided' unless defined $spec{program};
    ouch 400, 'empty program provided' unless length $spec{program};
 
+   if (defined (my $prefix = delete $spec{prefix})) {
+      $prefix = quotemeta $prefix;
+      $spec{program} =~ s{^$prefix}{}gmxs;
+   }
+
    my $id = $spec{id} = md5_hex($spec{program});
    $spec{name} //= $id;
 

@@ -50,6 +50,7 @@ use constant OPTIONS => [
    ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
    ['host-project-dir|H=s', default => undef, help => 'project base dir (dind-like)'],
    ['project-dir|p=s', default => '.', help => 'project base directory'],
+   ['steps|step|s=s@', help => 'steps to execute'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
 
@@ -95,6 +96,8 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
    $config{args} = [$cmdline->@*];
+   $config{steps} = [map {split m{[,\s]}mxs} $config{steps}->@*]
+      if exists $config{steps};
    return \%config;
 }
 

@@ -1,3 +1,2 @@
 #!/bin/sh
 apk --no-cache add build-base git openssh-client perl perl-dev
-ln -s "$1" /app
