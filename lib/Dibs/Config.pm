@@ -16,39 +16,41 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
-use constant BIN       => 'bin';
-use constant CACHE     => 'cache';
-use constant DIBSPACKS => 'dibspacks';
-use constant DPFILE    => '.dibspacks';
-use constant ENVIRON   => 'env';
-use constant GIT       => 'git';
-use constant INSIDE    => 'inside';
-use constant PROJECT   => 'project';
-use constant IMMEDIATE => 'immediate';
-use constant SRC       => 'src';
-use constant DETECT_OK   => ((  0 << 8) | 0);
+use constant BIN         => 'bin';
+use constant CACHE       => 'cache';
+use constant DIBSPACKS   => 'dibspacks';
+use constant DPFILE      => '.dibspacks';
+use constant ENVIRON     => 'env';
+use constant GIT         => 'git';
+use constant INSIDE      => 'inside';
+use constant PROJECT     => 'project';
+use constant IMMEDIATE   => 'immediate';
+use constant SRC         => 'src';
+use constant DETECT_OK   => ((0 << 8) | 0);
 use constant DETECT_SKIP => ((100 << 8) | 0);
-use constant INDENT    => 7;
+use constant INDENT      => 7;
 
 use constant DEFAULTS => {
-   project_dirs => {
-      CACHE     , 'cache',
-      DIBSPACKS , 'dibspacks',
-      ENVIRON   , 'env',
-      SRC       , 'src',
-   },
+   project_dirs =>
+     {CACHE, 'cache', DIBSPACKS, 'dibspacks', ENVIRON, 'env', SRC, 'src',},
    container_dirs => {
-      CACHE     , '/tmp/cache',
-      DIBSPACKS , '/tmp/dibspacks',
-      ENVIRON   , '/tmp/env',
-      SRC       , '/tmp/src',
+      CACHE,   '/tmp/cache', DIBSPACKS, '/tmp/dibspacks',
+      ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
    },
-   volumes => [ CACHE , [ENVIRON, 'ro'], [DIBSPACKS, 'ro'],  SRC ],
+   volumes => [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC],
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
-   ['config-file|config|c=s', default => 'dibs.yml', help => 'name of configfile'],
-   ['host-project-dir|H=s', default => undef, help => 'project base dir (dind-like)'],
+   [
+      'config-file|config|c=s',
+      default => 'dibs.yml',
+      help    => 'name of configfile'
+   ],
+   [
+      'host-project-dir|H=s',
+      default => undef,
+      help    => 'project base dir (dind-like)'
+   ],
    ['project-dir|p=s', default => '.', help => 'project base directory'],
    ['steps|step|s=s@', help => 'steps to execute'],
 ];
@@ -56,11 +58,13 @@ use constant ENV_PREFIX => 'DIBS_';
 
 use Exporter qw< import >;
 our %EXPORT_TAGS = (
-   constants => [qw<
-      BIN CACHE DIBSPACKS DPFILE ENVIRON GIT IMMEDIATE INSIDE PROJECT SRC
-      DETECT_OK DETECT_SKIP   
-      INDENT
-   >],
+   constants => [
+      qw<
+        BIN CACHE DIBSPACKS DPFILE ENVIRON GIT IMMEDIATE INSIDE PROJECT SRC
+        DETECT_OK DETECT_SKIP
+        INDENT
+        >
+   ],
    functions => [qw< get_config yaml_boolean >],
 );
 our @EXPORT_OK = do {
@@ -71,20 +75,19 @@ $EXPORT_TAGS{all} = [@EXPORT_OK];
 our @EXPORT = ();
 
 sub _pod2usage {
-   pod2usage (
-      -exitval => 0,
-      -input => pod_where({-inc => 1}, __PACKAGE__),
+   pod2usage(
+      -exitval  => 0,
+      -input    => pod_where({-inc => 1}, __PACKAGE__),
       -sections => 'USAGE',
-      -verbose => 99,
+      -verbose  => 99,
       @_
    );
-}
+} ## end sub _pod2usage
 
 sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    my %config;
    GetOptionsFromArray(
-      $cmdline,
-      \%config,
+      $cmdline, \%config,
       qw< usage! help! man! version!  >,
       map { $_->[0] } $optspecs->@*,
    ) or _pod2usage(-exitval => 1);
@@ -96,10 +99,10 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
    $config{args} = [$cmdline->@*];
-   $config{steps} = [map {split m{[,\s]}mxs} $config{steps}->@*]
-      if exists $config{steps};
+   $config{steps} = [map { split m{[,\s]}mxs } $config{steps}->@*]
+     if exists $config{steps};
    return \%config;
-}
+} ## end sub get_cmdline
 
 sub optname ($specish) { ($specish =~ s{[^-\w].*}{}rmxs) =~ s{-}{_}rgmxs }
 
@@ -115,10 +118,10 @@ sub get_config ($args, $defaults = undef) {
    };
    my $env = get_environment(OPTIONS, {%ENV});
    my $cmdline = get_cmdline(OPTIONS, $args);
-   my $sofar = _merge($cmdline, $env, $defaults);
+   my $sofar       = _merge($cmdline, $env, $defaults);
    my $project_dir = path($sofar->{project_dir});
-   my $cnffile = LoadFile($project_dir->child($sofar->{config_file}));
-   my $overall = _merge($cmdline, $env, $cnffile, $defaults);
+   my $cnffile     = LoadFile($project_dir->child($sofar->{config_file}));
+   my $overall     = _merge($cmdline, $env, $cnffile, $defaults);
    $overall->{project_dir} = $project_dir;
 
    # adjust definitions
@@ -134,44 +137,53 @@ sub get_config ($args, $defaults = undef) {
          defaults    => $defaults,
       },
    };
-}
+} ## end sub get_config
 
 sub yaml_boolean ($v) {
    return 0 unless defined $v;
    state $yb = {
-      (map { $_ => 0 } qw<
-         n  N  no     No     NO
-               false  False  FALSE
-               off    Off    OFF
-       >),
-      (map { $_ => 1 } qw<
-         y  Y  yes    Yes    YES
-               true   True   TRUE
-               on     On     ON
-       >),
+      (
+         map { $_ => 0 }
+           qw<
+           n  N  no     No     NO
+           false  False  FALSE
+           off    Off    OFF
+           >
+      ),
+      (
+         map { $_ => 1 }
+           qw<
+           y  Y  yes    Yes    YES
+           true   True   TRUE
+           on     On     ON
+           >
+      ),
    };
    return $yb->{$v} // undef;
-}
+} ## end sub yaml_boolean ($v)
 
 sub adjust_definitions ($overall) {
+
    # "keep" is a boolean
    while (my ($k, $d) = each $overall->{definitions}->%*) {
       defined($d->{keep} = yaml_boolean($d->{keep}))
-         or die "definition for $k: 'keep' is not a boolean\n";
+        or die "definition for $k: 'keep' is not a boolean\n";
    }
-}
+} ## end sub adjust_definitions ($overall)
 
 sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
    my %config;
    for my $option ($optspecs->@*) {
-      my $name = optname($option->[0]);
+      my $name     = optname($option->[0]);
       my $env_name = ENV_PREFIX . uc $name;
       $config{$name} = $env->{$env_name} if exists $env->{$env_name};
    }
    return \%config;
-}
+} ## end sub get_environment
 
-sub _merge { return {map {$_->%*} grep {defined} reverse @_} } # first wins
+sub _merge {
+   return {map { $_->%* } grep { defined } reverse @_};
+}    # first wins
 
 1;
 __END__
