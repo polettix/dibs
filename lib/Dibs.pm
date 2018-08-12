@@ -102,7 +102,10 @@ sub dump_configuration ($self) {
 sub ensure_host_directories ($self) {
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
-   for my $name (CACHE, DIBSPACKS, ENVIRON, SRC) {
+   my @dirs = (CACHE, DIBSPACKS, ENVIRON);
+   push @dirs, SRC unless $self->config('local');
+   push @dirs, EMPTY if $self->config('local');
+   for my $name (@dirs) {
       my $subdir_name = $pds->{$name};
       $pd->child($subdir_name)->mkpath;
    }
@@ -273,13 +276,28 @@ sub list_volumes ($self) {
    my $pd = $self->host_project_dir;
    my $pds = $self->config('project_dirs');
    my $cds = $self->config('container_dirs');
+
+   my $local = $self->config('local');
    return map {
       my ($name, @mode) = ref($_) ? $_->@* : $_;
-      [
-         $pd->child($pds->{$name})->stringify,
-         $cds->{$name},
-         @mode
-      ];
+      my @r;
+      if ($local && ($name eq SRC)) {
+         @r = (cwd->stringify, $cds->{$name}, @mode);
+      }
+      elsif ($local && ($name eq EMPTY)) {
+         my $host_src_dir = cwd;
+         my $host_prj_dir = $pd->absolute;
+         if ($host_src_dir->subsumes($host_prj_dir)) {
+            my $subdir = $host_prj_dir->relative($host_src_dir);
+            my $container_src_dir = path($cds->{&SRC})->absolute;
+            my $target = $subdir->absolute($container_src_dir)->stringify;
+            @r = ($pd->child($pds->{$name})->stringify, $target, @mode);
+         }
+      }
+      elsif ($name ne EMPTY) { # no EMPTY on "old-style" projects
+         @r = ($pd->child($pds->{$name})->stringify, $cds->{$name}, @mode);
+      }
+      @r ? \@r : ();
    } $self->config('volumes')->@*;
 }
 

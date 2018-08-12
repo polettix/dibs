@@ -20,6 +20,7 @@ use constant BIN         => 'bin';
 use constant CACHE       => 'cache';
 use constant DIBSPACKS   => 'dibspacks';
 use constant DPFILE      => '.dibspacks';
+use constant EMPTY       => 'empty';
 use constant ENVIRON     => 'env';
 use constant GIT         => 'git';
 use constant INSIDE      => 'inside';
@@ -29,21 +30,25 @@ use constant SRC         => 'src';
 use constant DETECT_OK   => ((0 << 8) | 0);
 use constant DETECT_SKIP => ((100 << 8) | 0);
 use constant INDENT      => 7;
+use constant DEFAULT_PROJECT_DIR => '.';
+use constant LOCAL_PROJECT_DIR   => '.dibs';
+use constant CONFIG_FILE         => 'dibs.yml';
 
 use constant DEFAULTS => {
    project_dirs =>
-     {CACHE, 'cache', DIBSPACKS, 'dibspacks', ENVIRON, 'env', SRC, 'src',},
+     {CACHE, 'cache', DIBSPACKS, 'dibspacks', ENVIRON, 'env', SRC, 'src',
+     EMPTY, 'empty'},
    container_dirs => {
       CACHE,   '/tmp/cache', DIBSPACKS, '/tmp/dibspacks',
       ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
    },
-   volumes => [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC],
+   volumes => [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
    [
       'config-file|config|c=s',
-      default => 'dibs.yml',
+      default => CONFIG_FILE,
       help    => 'name of configfile'
    ],
    [
@@ -51,7 +56,12 @@ use constant OPTIONS => [
       default => undef,
       help    => 'project base dir (dind-like)'
    ],
-   ['project-dir|p=s', default => '.', help => 'project base directory'],
+   [
+      'local|l!',
+      default => undef, # might just as well leave it out
+      help    => 'change convention for directories layout',
+   ],
+   ['project-dir|p=s', default => DEFAULT_PROJECT_DIR, help => 'project base directory'],
    ['steps|step|s=s@', help => 'steps to execute'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
@@ -60,7 +70,8 @@ use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [
       qw<
-        BIN CACHE DIBSPACKS DPFILE ENVIRON GIT IMMEDIATE INSIDE PROJECT SRC
+        BIN CACHE DIBSPACKS DPFILE EMPTY ENVIRON GIT IMMEDIATE
+        INSIDE PROJECT SRC
         DETECT_OK DETECT_SKIP
         INDENT
         >
@@ -118,15 +129,43 @@ sub get_config ($args, $defaults = undef) {
    };
    my $env = get_environment(OPTIONS, {%ENV});
    my $cmdline = get_cmdline(OPTIONS, $args);
-   my $sofar       = _merge($cmdline, $env, $defaults);
+
+   # first step merge command line and environment, leave defaults out
+   # because they might have to be changed depending on options
+   my $sofar = _merge($cmdline, $env);
+   if ($sofar->{local}) {
+      $defaults->{project_dir} = LOCAL_PROJECT_DIR
+         unless defined($sofar->{project_dir}); # otherwise no point
+
+      # force absolute version of config_file path if it exists relative to
+      # the current directory, to override search in project dir. This is
+      # valid only because `local` was set.
+      my $cnfp = path($sofar->{config_file} // CONFIG_FILE)->absolute;
+      $sofar->{config_file} = $cnfp if $cnfp->exists;
+   }
+
+   # now merge everything, including defaults. This will definitely set
+   # where the project dir is located and load the configuration file from
+   # there... maybe
+   $sofar       = _merge($sofar, $defaults);
    my $project_dir = path($sofar->{project_dir});
-   my $cnffile     = LoadFile($project_dir->child($sofar->{config_file}));
-   my $overall     = _merge($cmdline, $env, $cnffile, $defaults);
+
+   # now look for a configuration file. Absolute paths are taken as-is,
+   # relative ones are referred to the project directory
+   my $cnfp = path($sofar->{config_file});
+   $cnfp = $cnfp->absolute($project_dir) if $cnfp->is_relative;
+   my $cnffile = LoadFile($cnfp);
+
+   # configurations from the file must have higher precedence with respect
+   # to the defaults. We will keep a couple things anyway.
+   my $overall = _merge($cmdline, $env, $cnffile, $defaults);
    $overall->{project_dir} = $project_dir;
+   $overall->{config_file} = $cnfp;
 
    # adjust definitions
    adjust_definitions($overall);
 
+   # now return everything! No anticipation of performance issues here...
    return {
       $overall->%*,
       _sources => {
@@ -164,10 +203,10 @@ sub yaml_boolean ($v) {
 
 sub adjust_definitions ($overall) {
 
-   # "keep" is a boolean
+   # "keep" is a boolean FIXME can we get rid of this with YAML::XS?
    while (my ($k, $d) = each $overall->{definitions}->%*) {
       defined($d->{keep} = yaml_boolean($d->{keep}))
-        or die "definition for $k: 'keep' is not a boolean\n";
+        or ouch 400, "definition for $k: 'keep' is not a boolean\n";
    }
 } ## end sub adjust_definitions ($overall)
 
