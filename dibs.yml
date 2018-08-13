@@ -10,6 +10,7 @@ steps:
 defaults:
    variables:
       - &base_image 'alpine:3.6'
+      - &version 'DIBSPACK_SET_VERSION="0.001997"'
    dibspack:
       basic:
          type:   git
@@ -53,7 +54,7 @@ definitions:
          - 'src:dibspacks/src-in-app.sh'
          - default: basic
            path: perl/build
-           args: /app yes
+           args: ['/app', *version]
          - default: basic
            path: install/with-dibsignore
            args: '--src /app --dst @path_cache:perl-app'
@@ -62,16 +63,15 @@ definitions:
       keep: yes
       name: dibs
       tags: [ 'latest' ]
-      entrypoint: [ '/dockexec', 'user', '/app/bin/dibs' ]
+      entrypoint: [ '/dockexec', 'user', '/profilexec', '/app/bin/dibs' ]
       cmd: [ '--help' ]
-      #entrypoint: [ '/dockexec', 'user', '/bin/sh' ]
-      #cmd: [ '-l' ]
       dibspacks:
          - default: prereqs
            args: bundle
          - default: basic
-           path: dockexec/install
            user: root
+           path: wrapexec/install
+           args: ['dockexec', 'profilexec']
          - default: basic
            path: install/plain-copy
            args: '@path_cache:perl-app /app'
