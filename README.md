@@ -89,7 +89,7 @@ that you made somehow visible inside the container during its
 construction. While very powerful (it's actually all that is strictly
 needed), it's quite difficult to reuse operations consistently.
 
-`dibs` draws inspiration from how Heroku addressed this problem, i.e.
+`dibs` draws inspiration from how [Heroku][] addressed this problem, i.e.
 [buildpacks][]. Much in the same spirit, `dibs` leverages *dibspacks* to
 accomplish operations; these can be shared and loaded easily and
 automatically, so that the user only has to select and configure the right
@@ -97,6 +97,10 @@ ones.
 
 
 ## Basics
+
+Some basic concepts to understand how to use `dibs`.
+
+### Directory Layouts
 
 `dibs` assumes that there is a *project directory* where things are kept
 nicely. The basic structure of a project is the following:
@@ -108,53 +112,123 @@ nicely. The basic structure of a project is the following:
         - env
         - src
 
-`dibs` expects to find a configuration file. By default, it's the `dibs.txt`
+`dibs` expects to find a configuration file. By default, it's the `dibs.yml`
 file you see in the directory structure above, but you have means to provide
-an alternative one. More on how to set the configuration can be found down in
-section *Configuration*.
+an alternative one.
+
+To be completely fair, the layout above is not the only one out of the box.
+That is the way to go if there is a clear separation between the development
+and the packaging phases (e.g. different teams, or setting up a generic system
+like [Heroku][] or [Dokku][]), because it will be up to the packaging *team*
+to make sure that the code to use for building the image ends up in the `src`
+directory.
+
+If simplicity is preferred (e.g. for single-person developments, or small
+teams), it is also possible to work in *local* mode and have a slighly
+different layout:
+
+    <SOURCE_DIR>
+        - dibs.yml
+        - .dibs
+            - cache
+            - dibspacks
+            - env
+
+Here, the role of `PROJECT_DIR` is taken by the sub-directory `.dibs`, with
+the exception that the code is at the root of the whole setup. As a matter of
+fact, it's not even necessary to create the `.dibs` directory in this case,
+because `dibs` will do this as needed.
+
+Whatever the layout, anyway, the following directories are of interest:
+
+- *project* directory (`<PROJECT_DIR>` or `.dibs` in the two layouts) is a
+  basecamp for `dibs` operations
+- *source*  directory (`src` or `<SOURCE_DIR>` in the two layouts) is where
+  the source code is
+- `cache` is a read-write directory that is available through all steps of a
+  `dibs` run, as well as different invocations, and useful for passing
+  artifacts through the different stages
+- `env` is a read-only directory that might be useful to have around
+- `dibspacks` is where most of the dibspacks will be available (either coded
+  directly, or automatically downloaded via [Git][])
+
+### Dibspacks
 
 The actual operations are performed through *dibspack*s. The starting idea is
-taken from Heroku's buildpacks, but there is actually little resemblance left
-as of now. A dibspack is a program (whose location can be specified flexibly);
-this program can be used to perform an action within a container. This is more
-or less what the `build` program in a buildpack is for; the other programs are
+taken from [Heroku][]'s [buildpacks][], but there is actually little
+resemblance left as of now.
+
+A *dibspack* is a program (whose location can be specified flexibly); this
+program can be used to perform an action within a container. This is more or
+less what the `build` program in a buildpack is for; the other programs are
 not supported (either because they can be embedded in the main dibspack
 program, like `detect`, or because they are not used by `dibs`).
 
-The program will be executed inside containers. The resulting container might
-then be used as a base for further dibspacks executions and also for saving a
-final image (or more).
+The program will be executed inside containers. The resulting container is
+then used as a base for further dibspacks executions inside the same step and
+also for saving a final image (if so configured).
 
-For using `dibs` you have to:
+Each *dibspack* is passed some command line arguments. The first three are
+*always* the same, namely (in order):
 
-- create a project directory
-- code/fetch/find suitable dibspack for your specific needs
-- define a configuration file `dibs.yml`
-- run `dibs`.
+- the absolute path to the *source* directory from within the container;
+- the absolute path to the cache directory, from within the container;
+- the absolute path to the env directory, from within the container.
 
-We will see the different steps in the following.
+It's the same as what is provided to the `build` program of a
+[buildpack][buildpacks]. `dibs` also allows passing additional arguments
+though, whose definition and semantics are specific to each dibspack.
+
+Dibspacks can be located in many different positions:
+
+- within the `dibs.yml` file itself
+- inside the `dibspacks` directory (that is also available inside the
+  container, although its position is not passed on the command line)
+- in some location inside the source directory
+- in a git repository, either local or remote
+
+Depending on the type of dibspack, `dibs` will first fetch the associated code
+and then run it, all automatically. For a collection of basic dibspack, it's
+possible to look at the [dibspack-basic][] repository. A simple example
+program might be the following (assuming that the build tools are already
+available in the container):
+
+    #!/bin/sh
+    src_dir="$1"
+    cache_dir="$2"
+
+    cd "$src_dir" &&
+    rm -rf local &&
+    cp -a "$cache_dir/local" . &&
+    carton install --deployment &&
+    rm -rf "$cache_dir/local" &&
+    cp -a local "$cache_dir"
 
 
-## Project Directory
+## Source
 
-The project directory is where all fun happens. You don't need anything fancy,
-just a directory:
+Depending on which *mode* is set, the directory layout is different.
 
-    $ mkdir project
-    $ cd project
+In *external* mode (default), the layout is the following:
 
-Unless you are going to use a dibspack to fetch your code automatically (e.g.
-from a git remote), you can put your code in the `src` directory:
+    <PROJECT_DIR>
+        - cache
+        - dibs.yml
+        - dibspacks
+        - env
+        - src
 
-    $ mkdir src
-    $ echo 'this is all my code' > src/da-code.txt
+The `src` directory is assumed to be populated by some means, e.g. be already
+there thanks to some external program, or fetched as part of a *dibspack*'s
+operation (the source directory is mounted read-write). For example, the
+[git/fetch][] program can be used to fetch a remote [Git][] repository, but it
+might also be that the development happens directly inside `src`.
 
-This is actually it. Other *standard* sub-directories (like `cache`, ...)
-will be created as needed by `dibs`, unless you create them yourselves.
+In *local* mode (triggered with command-line option `--local` or its shortcut
+alias `-l`), instead, the root is assumed to be the source directory itself,
+so it's assumed to be already there. This can be useful when doing local
+development, for example, with local generation of images.
 
-You can put additional stuff in this directory if you want! E.g. you might
-want to source-control it with git, add a `README.md` file with some
-documentation, etc.
 
 ## Dibspacks
 
@@ -163,49 +237,16 @@ without. We already touched upon what a dibspack is: a program to execute some
 task.
 
 `dibs` supports different ways for you to configure the location of dibspacks,
-which should cover a wide range of needs:
-
-- the most natural place to define a list of dibspacks is in each step's
-  configuration in the `dibs.yml` file (or whatever you are going to use)
-
-- as a fallback, they might be defined directly in your code, i.e. inside
-  `src/.dibspacks`. There are two sub-alternatives here:
-
-    - if `.dibspacks` is a file, then it is loaded as a YAML file and expected
-      to contain a mapping between step names and dibspacks (either single
-      ones, or lists of them)
-
-    - if `.dibspacks` is a directory, each sub-directory is a dibspack that
-      matches the name of a corresponding step, containing dibspacks inside.
-      In this case, "hidden" files (i.e. whose name starts with `.`) or
-      starting with `_` are ignored, to let you put additionall stuff in
-      there.
-
-FIXME: double check code for src/.dibspacks
-
-Locations can have different shapes:
-
-- anything that's a valid URI for git (`http`, `https`, `git` or `ssh`) is
-  treated as a remote git repository that will be fetched. You can set a
-  specific tag or branch in the fragment part of the URI, e.g.:
-
-        https://example.com/dibspacks/whatever#v42
-
-- anything that starts with the string `project:` is a path resolved
-  relatively to the `dibspacks` sub-directory in the project directory
-
-- anything that starts with the string `src:` is a path resolved inside the
-  `src` directory in the project, which is also the reference directory where
-  the source code is (i.e. dibspacks that fetch your code should put it there)
-
-- anything else generates an exception!
+which should cover a wide range of needs. They are documented in the
+documentation for `dibs` so the full explanation will not be repeated here.
 
 Dibspacks taken from `git` are saved inside the `dibspacks/git` directory.
 Although it's not mandatory, it's probably better to put *local* dibspacks
 inside another sub-directory, e.g. `dibspacks/local` or so.
 
-FIXME add object-style definition of dibspacks
-FIXME specify that git dibspacks can optionally specify a path
+Dibspacks of the *immediate* type (i.e. where the program is provided inside
+`dibs.yml` itself) are saved inside `dibspacks/immediate`, so in this case too
+it's wise to avoid hitting that.
 
 Dibspack programs are invokes like this:
 
@@ -227,53 +268,90 @@ Additionally, the `dibspacks` directory is mounted too as `/tmp/dibspacks`,
 read-only; you should not use this directory directly, unless you know what
 you are doing and accept that this may change in the future.
 
+A full selection of dibspacks can be found in [dibspack-basic][].
+
 ## Configuration
 
-The configuration is kept, by default, inside YAML file `dibs.yml`. The
-structure is described in detail in a later section, but it might be as simple
-as this if your dibspacks have sensible defaults:
+The configuration is kept, by default, inside YAML file `dibs.yml`; it's
+possible to change this though, so that multiple alternative configurations
+can be kept in the same place.
+
+The structure is described in detail in `dibs`'s documentation, so we will
+concentrate on examples here.
+
+A rather simple but possibly effective configuration file is the following:
 
     ---
-    name: your-project-name
+    name: example-project
+    defaults:
+        dibspacks:
+            basic:
+                type:   git
+                origin: https://github.com/polettix/dibspack-basic.git
+                user:   user
+            prereqs:
+                type:   git
+                origin: https://github.com/polettix/dibspack-basic.git
+                path:   prereqs
+                user:   root
     steps:
         - build
         - bundle
     definitions:
         build:
-            from: some-image:tag
+            from: fat-build-image:tag
             dibspacks:
-                - src:pre-build
-                - https://example.com/prereqs#v42
-                - https://example.com/builder#v72
-                - project:build
-                - src:build
+                - default: prereqs
+                  args: build
+                - default: basic
+                  path: perl/build
+                - default: src
+                  user: user
+                  path: dibs/copy-app-into-cache.sh
         bundle:
-            from: some-image:tag
+            from: lean-running-image:tag
             keep: yes
-            entrypoint:
-                - /runner
+            entrypoint: ['/runner']
             cmd: []
             tags:
                 - latest
             dibspacks:
-                - https://example.com/prereqs#v42
-                - https://example.com/bundler#v72
-                - project:bundle
-                - https://example.com/runner#v37
+                - default: prereqs
+                  args: bundle
+                - default: src
+                  user: user
+                  path: dibs/copy-app-from-cache.sh
+
+There are a few assumptions in the `dibs.yml` file above, but it can
+actually work if:
+
+- images `fat-build-image:tag` and `lean-running-image:tag` already exist
+  and contain, respectively, the build tools and the runtime elements
+  (including a `/runner` program that is used as entry-point)
+- the source directory contains a `dibs` sub-directory and the relevant
+  scripts inside, doing what the advertise in their names.
+
+In this way it's possible to prepare (and maintain) a build and a bundle
+images, and leverage them for doing the actual needed work, generating
+a lean output Docker image.
 
 ## Running
 
-When you run `dibs`, by default it uses the current directory as the project
-directory and looks for `dibs.yml` inside. It then executes all the `steps` in
-order:
+When run, `dibs` looks for the steps to be executed, and runs them.
 
-- for each step, the associated dibspacks are detected
-- in the step, the dibspacks are executed as a sequence of containers:
-    - the first one is started based on the image set with `from`
-    - the following ones from the freezing of the previous container
-- after each step, if the associated definition has `keep` set, the container
-  image is kept and additional `tags` are added, otherwise it is dropped (e.g.
-  after saving something inside `cache`).
+In particular, each step is run stacking on top of an evolving container,
+much like in the [Dockerfile][] case. Whether to keep or ditch the end
+result is a choice that is made inside the `dibs.yml` file through the
+`keep` option.
+
+Different steps are run one after the other, but in independent containers
+that potentially root from different starting images, like in the example
+above in the configuration section.
+
+The documentation for `dibs` has the detail on all command line options,
+although it's probably important to remember that `--local` allows
+selecting between the *local* mode (when present) or the *external* mode
+(when absent from the command line).
 
 This allows implementing many different workflows, e.g.:
 
@@ -291,327 +369,106 @@ This allows implementing many different workflows, e.g.:
 overwhelming. Here are a few examples that might apply in different
 situations.
 
-### Small Project
+### `dibs` itself
 
-In a small project, you probably want to keep things as simple and compact as
-possible. Especially if your project does not take much to build and bundle,
-you will probably not need much caching and so you can do with one single
-`dibs.yml` file and only one step.
+This was the `dibs.yml` file for building the `dibs` image at some stage
+of its life:
 
-As an example, consider the following `dibs.yml` file:
-
-    ---
-    name: mojo-example
-    steps:
-       - build
-       - bundle
-    definitions:
-       build:
-          from: 'alpine:3.6'
-          dibspacks:
-             - type: git
-               origin: 'https://github.com/polettix/dibspack-basic.git'
-               path: prereqs
-             - 'project:perl/build'
-       bundle:
-          from: 'alpine:3.6'
-          dibspacks:
-             - type: git
-               origin: 'https://github.com/polettix/dibspack-basic.git'
-               path: prereqs
-             - 'project:perl/bundle'
-             - type: git
-               origin: 'https://github.com/polettix/dibspack-basic.git'
-               path: procfile
-          keep: yes
-          tags:
-             - latest
-          entrypoint: 
-             - '/procfilerun'
-          cmd: []
-
-This leverages both remote and local dibspacks. At every run, both the build
-and the bundle images are re-built from scratch, adding prerequisites, doing
-dependencies installations, etc.
-
-
-## Configuration: Details
-
-This section aims at explaining all the features and capabilities that can be
-leveraged through the `dibs.yml` file.
-
-The YAML file is structured as an associative array. The keys below are
-*supported*, in the sense that they have a meaning for `dibs`; it is anyway
-possible to add more keys as needed.
-
-Recognized keys are:
-
-- `defaults`: an associative array setting defaults that apply over the
-  specific call to `dibs`. More details below in the specific section.
-
-- `definitions`: an associative array, mappingpossible `steps` and their
-  contents. The keys set the name of the possible `steps`.
-
-- `logger`: a list of parameters for [Perl][] module [Log::Any][]. This part
-  is currently not entirely fleshed out, although it's possible to set the
-  logging level to make `dibs` more or less verbose.
-
-- `name`: the name of the project. It is mostly used as the default image
-  name, but it can be overridden in the `definitions`.
-
-- `steps`: a sequence of steps to take. Each step MUST have a definition
-  inside section `definitions`
-
-
-### Annotated Example `dibs.yml`
-
-An annotated example `dibs.yml` file is below:
-
-    # name of our dibs project
-    name: examploid
-
-    # set run-wide defaults
+    name: dibs
+    steps: ['build', 'bundle']
     defaults:
-
-        # setting defaults for dibspacks allows to "recall" those defaults
-        # and avoid typing. The sub-keys are just names/identifiers that can
-        # then be used to recall the defaults in the dibspacks sections inside
-        # definitions.
-        dibspack:
-            basic: # this is a real git repository with many dibspacks inside
-                type:   git
-                origin: https://github.com/polettix/dibspack-basic.git
-
-        # these environment variables are run-wide, passed to every invocation
-        # of dibspacks
-        env:
-            - THIS  # this is "imported" from the current environment
-            - THAT: 'has a value'
-
-    # this is where you define what is performed in the different steps.
-    # Sub-keys are names/identifiers that can the be used/reused inside the
-    # steps section. We will define two of them, one for building our code and
-    # one for packing ("bundle") it.
+       variables:
+          - &base_image 'alpine:3.6'
+          - &version 'DIBSPACK_SET_VERSION="0.001972"'
+       dibspack:
+          basic:
+             type:   git
+             origin: https://github.com/polettix/dibspack-basic.git
+             user:   user
+          prereqs:
+             type:   git
+             origin: https://github.com/polettix/dibspack-basic.git
+             path:   prereqs
+             user:   root
+          user: &user
+             type: src
+             name: add user and enable for docker
+             user: root
+             path: dibspacks/user-docker.sh
     definitions:
-
-        build:
-
-            # the base image. You might of course prepare a build image and
-            # skip some of the steps, e.g. by setting up an image that already
-            # has build tools (compiler, make, etc.) inside. Here we will
-            # start almost from scratch.
-            from: 'alpine:3.6'
-
-            # a list of dibspacks to apply in order
-            dibspacks:
-
-                # each dibspack does a specific job, or is supposed to. You
-                # can recall common parameters from the defaults section above
-                # using the `default` key, and then specialize/override
-                # parameters as needed. This example below fetches the code
-                # from the remote repository and will put it in the `src`
-                # directory
-                - default: basic
-                  path: git/fetch
-                  args: # specify URI for repository to clone
-                    - 'https://example.com/code.git'
-                - default: basic
-                  path: prereqs
-                  args: # specify phase for prereqs selection
-                    - build
-                - default: basic
-                  path: perl/build
-                - default: basic
-                  path: install/with-dibsignore
-                  args:
-                    - build    # src from src_dir, dst to /cache/app
-
-        bundle:
-
-            # again, start over almost from scratch here, but you can prepare
-            # base image with some tooling inside and spare some time
-            from: 'alpine:3.6'
-
-            # final containers are eventually dropped unless dibs is told to
-            # keep them. This is what is done here so that we will have the
-            # final image available
-            keep: true # or yes, or whatever is true for YAML
-
-            # when `keep` is set, it's also necessary to set the entry point
-            # and the cmd for the final container image, so that its usage can
-            # be automated easily.
-            entrypoint:
-                - /procfilerun
-            cmd: []
-
-            # by default, retained images are named after the `name` set at
-            # the highest level of the dibs.yml file, with a tag that
-            # represents the build (timestamp and pseudo-random number). You
-            # can also tag the image with additional tags or name:tags.
-            tags: # additional tags or name:tag
-                - latest
-                - 7
-                - 'whatever:7'
-
-            dibspacks:
-                - default: basic
-                  path: procfile
-                - default: basic
-                  path: prereqs
-                  args:
-                    - bundle
-                - default: basic
-                  path: install/plain-copy
-                  args:
-                    - path_cache: '/app'  # default is src_dir
-                    - '/app'              # this is the default
-
-    # list of steps to take, in order. Names of the steps MUST be set as
-    # keys in the `definitions` associative array above
-    steps:
-        - build
-        - bundle
-
-
-### Top level: `defaults`
-
-There are two sub-keys supported in `defaults`:
-
-- `dibspack`: sets group of default configurations associated to a name that
-  can be eventually used inside a dibspack. Example:
-
-      defaults:
-        dibspack:
-          basic: # real git repository
-            type:   git
-            origin: https://github.com/polettix/dibspack-basic.git
-
-      # ... then later...
-      definitions:
-        whateverstep:
+       builder:
+          from: *base_image
+          keep: yes
+          name: 'dibs-builder'
+          tags: [ 'latest' ]
           dibspacks:
-            - default: basic
-              path: prereqs
-              # ... and everything else needed
-
-    The example is the same as just writing:
-
-      definitions:
-        whateverstep:
+             - *user
+             - default: prereqs
+               args: build
+       runner:
+          from: *base_image
+          keep: yes
+          name: 'dibs-runner'
+          tags: [ 'latest' ]
           dibspacks:
-            - type:   git
-              origin: https://github.com/polettix/dibspack-basic.git
-              path: prereqs
-              # ... and everything else needed
-
-    with the difference that you can reuse the defaults in `basic` over and
-    over.
-
-- `env` sets environment variables that apply to all definitions; these are
-  free to override them with different values anyway. More details below in
-  the specific section.
-
-
-### Top level: `definitions`
-
-This section is where definitions for the different steps can be found. It is
-an associative array where the keys represent names/identifiers of the steps;
-they are also what is expected to be used inside the `steps` section. So, for
-example, the following is a valid structure:
-
-    definitions:
-      foo: # ...
-      bar: # ...
-      baz: # ...
-    steps:
-      - foo
-      - baz
-      - bar
-      - baz
-
-but the following is not because step `foo` used in `steps` is not defined:
-
-    definitions:
-      bar: # ...
-      baz: # ...
-    steps:
-      - foo # ERROR! this is not in definitions
-      - baz
-      - bar
-      - baz
-
-Each definition is itself an associative array with some reference keys that
-are recognized:
-
-- `cmd`: the default command set in the final image. See [Docker][]
-  documentation on [CMD][] for details. This is useful only when `keep` is set
-  to a true value, otherwise its effects are ignored.
-
-- `dibspacks`: a list of dibspacks that have to be applied in sequence. See
-  below for the details.
-
-- `entrypoint`: the default entry point set in the final image. See [Docker][]
-  documentation on [ENTRYPOINT][] for details. This is useful only when `keep`
-  is set to a true value, otherwise its effects are ignored.
-
-- `from`: the starting image from where the first container is run. It might
-  be a very basic image (e.g. `alpine:3.6` or so) or an image that was
-  previously crafted with some basic tooling inside.
-
-- `keep`: boolean value, set to true to keep the final container as an image.
-  This is typically what is needed to save an image at the end of a `bundle`
-  sequence.
-
-- `name`: the name to associate to generated images. This overrides the `name`
-  parameter at the top level and can be useful to put multiple alternative
-  definitions inside the same `dibs.yml` file, e.g. to build base images. This
-  is useful only when `keep` is set to a true value, otherwise it is ignored.
-
-- `step`: the name of the step (it can e.g. be retrieved in `args` by setting
-  an associative array like `type: step_name`). By default it is the same as
-  the identifier of the definition.
-
-- `tags`: additional tags for the generated image. This is useful only when
-  `keep` is set to a true value, otherwise it is ignored.
+             - *user
+             - default: prereqs
+               args: bundle
+       build:
+          from: 'dibs-builder:latest'
+          keep: no
+          dibspacks:
+             - default: prereqs
+               args: build
+             - 'src:dibspacks/src-in-app.sh'
+             - default: basic
+               path: perl/build
+               args: ['/app', *version]
+             - default: basic
+               path: install/with-dibsignore
+               args: '--src /app --dst @path_cache:perl-app'
+       bundle:
+          from: 'dibs-runner:latest'
+          keep: yes
+          name: dibs
+          tags: [ 'latest' ]
+          entrypoint: [ '/dockexec', 'user', '/profilexec', '/app/bin/dibs' ]
+          cmd: [ '--help' ]
+          dibspacks:
+             - default: prereqs
+               args: bundle
+             - default: basic
+               user: root
+               path: wrapexec/install
+               args: ['dockexec', 'profilexec']
+             - default: basic
+               path: install/plain-copy
+               args: '@path_cache:perl-app /app'
+               user: root
 
 
-The `dibspacks` list, as anticipated, is a sequence of pointers to dibspacks,
-each of which is either a plain string or an associative array with the
-following basic structure:
+This leverages both remote and local dibspacks. The following sub-sections
+add some considerations on the above example.
 
-- `args`: a list of additional arguments to pass when invoking the dibspack
-  program. These can either be plain *scalars* (strings, numbers, ...) or
-  associative arrays as described below;
+#### Shortcut syntax
 
-- `default`: names a key inside the `defaults.dibspack` section of the
-  `dibs.yml` file where default options can be taken.
+There is one `src:dibspacks/src-in-app.sh` dibspack that uses a shortcut
+syntax equivalent to the following:
 
-- `env`: sets step-wide environment variables. Environment variables handling
-  is detailed in a section below.
+    # type is src, i.e. the path below is relative to where the
+    # source is
+    type: src
+    path: dibspacks/src-in-app.sh
 
-- `indent`: boolean value detailing if the output from the dibspack should be
-  indented or not. By default it is assumed that the dibspack does not care
-  about indenting its output for pretty-printing with arrows etc. and this is
-  done by `dibs`.
+This syntax is available also for types `project` and `src`. 
 
-- `name`: name of the dibspack for reference in the logs. Defaults to
-  something taken from the definition.
+Dibspacks of type `git` have a shortcut syntax too, which amounts to
+providing just the URI to the repository (optionally followed by `#` and
+the ref to checkout). In this case, the repository is supposed to contain
+a program called `operate` in the root directory, which will eventually be
+called as entry point of the dibspack.
 
-- `type`: the type of the dibspack, see subsections below for the different
-  types available.
-
-Depending on the `type`, the dibspack definition might contain additional
-fields, explained in the sub-sections below.
-
-The string-based definition of a dibspack is a shorthand that is recognised as
-follows:
-
-- if it's a URL that can be consumed by git, the type is assumed to be `git`
-  and th definition is considered the `origin`. See below for the details on
-  the `git` type.
-- otherwise, it MUST have the form `<type>:<definition>` (e.g. `project:foo`).
-  The `type` and the `definition` are separated and the right handler is
-  called to interpret the `definition`, which is type-dependent.
+Dibpacks of type `immediate` have no shortcut syntax.
 
 #### Providing `args` to a dibspack
 
@@ -627,16 +484,33 @@ array allowing you to retrieve some data from `dibs`.
 If you're just looking for a few examples, the following should all work:
 
     args:
-      - path_cache: perl    # referred to cache
+      - path:               # referred to cache
+          cache: perl
+      - path_cache: perl    # ditto, shortcut
+      - '@path_cache:perl'  # ditto, string-only shortcut
       - path_src: /prereqs  # referred to src, even with initial /
+      - '@path_src:/prereqs' # ditto
       - path_env: /some
       - path_dibspacks: build
-      - path:               # same as above
-          cache: perl
       - type: path          # ditto
         cache: perl
       - type: step_id       # key of step in definitions
       - type: step_name     # "step" field in definition, defaults to key
+
+The arguments can also be provided as a single string, which is where the
+string-shortcuts come handy. The following:
+
+    args: '@path_cache:perl-app /app'
+
+is equivalent to:
+
+    args:
+        - path:
+            type: path
+            cache: perl-app
+        - '/app'
+
+but much easier to type.
 
 The *full* way of setting a special parameter is like this:
 
@@ -644,21 +518,6 @@ The *full* way of setting a special parameter is like this:
       - type: some_type
         this: that
         another: argument
-
-The `type` key is used to understand what kind of functionality to call, each
-having its own specific parameters. As a shorthand, the example above can be
-also expressed like follows:
-
-    args:
-      - some_type:
-          this: that
-          another: argument
-
-This form can come handy if the specific functionality only needs a scalar
-value as argument, because you can call it like this:
-
-    args:
-      - some_type: scalar-argument
 
 The available `type`s are:
 
@@ -698,88 +557,55 @@ through `type`, like in the following example:
       - type: step_name
       - path_cache: whatever
 
+#### Setting defaults
 
-#### Dibspack Type `git`
-
-In this case, the dibspack can be retrieved from a git repository. The
-following keys are recognised:
-
-- `origin`: the origin of the git repository. It can optionally have a
-  *fragment* part, i.e. a hash sign `#` followed by text, that is interpreted
-  as the ref to use (defaults to `master`). If the fragment part is present,
-  it's an error to specify a `ref`. Examples:
-
-      # just the origin position, defaults to master branch unless ref
-      # says differently
-      https://example.com/repo.git
-
-      # set both the origin and the ref ("v42"). It's an error to also specify
-      # ref explicitly in this case
-      https://example.com/repo.git#v42
-
-      # set the origin to a local directory, and the ref too
-      /path/to/some/local/repo.git#devel
+If a dibspack is reused over and over (e.g. leveraging a suite of
+dibspacks collected in a single git repository, much like
+[dibspack-basic][], it comes handy to set entries in the
+`defaults.dibspack` section of the configuration file:
 
 
-- `ref`: the ref to checkout. It's possible to set a branch or pin a specific
-  hash/tag for better tracking and reproducibility.
+   dibspack:
+      basic:
+         type:   git
+         origin: https://github.com/polettix/dibspack-basic.git
+         user:   user
+      prereqs:
+         type:   git
+         origin: https://github.com/polettix/dibspack-basic.git
+         path:   prereqs
+         user:   root
+      user: &user
+         type: src
+         name: add user and enable for docker
+         user: root
+         path: dibspacks/user-docker.sh
 
-- `path`: set the path inside the git repo where the dibspack can be found.  A
-  git repository might contain multiple dibspack, each in a sub-path; in this
-  case, this parameter allows selecting the right one. See an example in
-  [dibspack-basic][]. Defaults to `operate`.
+and later use them, like this (leveraging YAML ancors):
 
-The string-based definition of the dibspack sets the parameter `origin` above.
+    definitions:
+        builder:
+            # ...
+            dibspacks:
+                - *user
 
-#### Dibspack Type `inside`
+or this, leveraging `dibs` internal system for handling defaults (via the
+`default` keyword:
 
-This type allows specifying that the dibspack can be found inside the docker
-image. It might be that the docker image is already equipped with it, or that
-another dibspack put it previously.
-
-In the associative array definition, only the `path` key is supported,
-pointing to the dibspack; the path should be absolute and referred to the
-filesystem inside the container.
-
-In the string-based definition, the `path` is set, e.g.:
-
-    inside:/path/to/dibspack
-
-#### Dibspack Type `project`
-
-This type indicates that the dibspack can be found inside the `dibspacks`
-sub-directory of the project (which is mounted and make available inside the
-container).
-
-In the associative array definition, only the `path` key is supported,
-pointing to the dibspack; the path is relative to the `dibspacks`
-sub-directory of the main project directory.
-
-In the string-based definition, the `path` is set, e.g.:
-
-    project:path/to/dibspack
-
-Note: dibspacks of type `git` are placed inside the `dibspacks/git`
-sub-directory of the main project directory. To avoid conflicts, it's suggestd
-to avoid placing additional dibspacks there, e.g. by placing all dibspacks
-inside `dibspacks/local` or similar.
-
-#### Dibspack Type `src`
-
-This type indicates that the dibspack can be found inside the `src`
-sub-directory of the project, which is also mounted in the container and whose
-position is passed to the dibspack as the second positional argument. This
-allows to bind the dibspacks directly with the source code, granting stricter
-control over what is used for the build/bundle processes (at the expense of
-loose coupling of course).
-
-In the associative array definition, only the `path` key is supported,
-pointing to the dibspack; the path is relative to the `src` sub-directory of
-the main project directory.
-
-In the string-based definition, the `path` is set, e.g.:
-
-    src:path/to/dibspack
+    definitions:
+        ...
+      bundle:  
+          dibspacks:
+             - default: prereqs
+               args: bundle
+             - default: basic
+               user: root
+               path: wrapexec/install
+               args: ['dockexec', 'profilexec']
+             - default: basic
+               path: install/plain-copy
+               args: '@path_cache:perl-app /app'
+               user: root
 
 ### Environment Variables Handling
 
@@ -857,15 +683,6 @@ In this case:
 
 
 
-
-
-
-
-
-
-
-
-
 [Perl]: https://www.perl.org
 [Log::Any]: https://metacpan.org/pod/Log::Any
 [Docker]: https://www.docker.com/
@@ -875,3 +692,8 @@ In this case:
 [dibspack-basic]: https://github.com/polettix/dibspack-basic
 [Dockerfile]: https://docs.docker.com/engine/reference/builder/
 [buildpacks]: https://devcenter.heroku.com/articles/buildpacks
+[Heroku]: https://www.heroku.com/
+[Dokku]: http://dokku.viewdocs.io/dokku/
+[Git]: https://git-scm.com/
+[dibspack-basic]: https://github.com/polettix/dibspack-basic
+[git/fetch]: https://github.com/polettix/dibspack-basic/blob/master/git/fetch
