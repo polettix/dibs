@@ -4,7 +4,29 @@ use warnings;
 use FindBin qw< $Bin >;
 use lib "$Bin/../lib", "$Bin/../local/lib/perl5";
 use Dibs 'main';
+use Path::Tiny;
+
 exit main(@ARGV);
+
+sub version {
+   my $version = $ENV{VERSION};
+
+   if (! defined $version) {
+      my $version_file = path($Bin)->sibling('VERSION');
+      chomp($version = $version_file->slurp_utf8) if $version_file->exists;
+   }
+
+   # last resort, a default value
+   $version //= '0.001972';
+
+   for my $key (qw< GIT_REF DIBS_ID >) {
+      next unless defined $ENV{$key};
+      (my $name = lc $key) =~ s{_}{-}gmxs;
+      $version .= " ($name $ENV{$key})";
+   }
+
+   return $version;
+}
 
 __END__
 

@@ -106,8 +106,11 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
       qw< usage! help! man! version!  >,
       map { $_->[0] } $optspecs->@*,
    ) or _pod2usage(-exitval => 1);
-   _pod2usage(-message => $VERSION, -sections => ' ')
-     if $config{version};
+   if ($config{version}) {
+      my $version = 'unknown';
+      $version = main::version() if main->can('version');
+      _pod2usage(-message => $version, -sections => ' ')
+   }
    _pod2usage() if $config{usage};
    _pod2usage(-sections => 'USAGE|EXAMPLES|OPTIONS')
      if $config{help};
