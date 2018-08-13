@@ -3,8 +3,11 @@
 # dibs - Docker image build system
 
 `dibs` aims at automating the process from code to Docker image, with
-flexibility as to the base images used (mainly to enable building on top
-of Alpine Linux).
+flexibility as to the base images used (mainly to enable building on top of
+Alpine Linux). To some extent, it can be seen as an alternative to using a
+[Dockerfile][], with the difference that `dibs` provides finer control over
+the different phases and might completely ditch intermediate containers during
+the process.
 
 `dibs` itself is a driver program that does nearly nothing... or better:
 
@@ -13,6 +16,85 @@ of Alpine Linux).
 - automates lookup of code to execute in each step, calling `docker` when
   needed and saving images along the way, when requested to do so
 - automates rollback of saved images if something goes wrong
+
+## Introduction
+
+First things first: why `dibs`? The main need is to pack a Docker
+container image starting from some code, much like what can be done with
+a [Dockerfile][]... let's look at a few problems and how `dibs` addresses
+them.
+
+### Trimming Container Images
+
+Just putting the code inside a container is not sufficient, because...
+
+- ... it probably needs a runtime environment (Perl, Java, Python, ...)
+  inside the image too
+- ... it might need additional pre-requisites in form of other software or
+  libraries
+- ... it might need to have some parts compiled or undergo a *build* process
+- ... it will probably need the container to be set so that the invocation of
+  the program is eased.
+
+The build process usually requires tools (like a compiler, C<make>,
+development versions of libraries, etc.) that are rarely needed during the
+runtime phase. With a single [Dockerfile][], there are two choices:
+
+- keep the tools around, or get rid of them while still having a *fat*
+  image (due to how filesystem overlays work, what is *deleted* in a layer
+  only hides it from lower layers, but the space is still needed)
+- install the tools and remove them in the same phase of the
+  [Dockerfile][], thus making it difficult to cache or pinpoint the tools
+  themselves.
+
+The idea behind `dibs` is that the path from the code to the Docker image
+can be broken into *steps*:
+
+- each step runs a sequence of operations that stack upon a container
+  image much like a [Dockerfile][]
+- different steps can pass artifacts around thanks to some shared
+  directories
+- only the containers of the steps of interest are kept, others are thrown
+  away.
+
+For example, a *build, then bundle* process might be broken into two steps
+like this:
+
+      _____________     +-------------+
+     /             \    |             | - start from "build"-ready image
+     | Shared dirs |----| Build Step  | - compile in container
+     | ----------- |    |             | - save in cache
+     |             |    +-------------+
+     |       src - |    
+     |     cache - |    +-------------+
+     |       env - |    |             | - start from "runtime"-ready image
+     |       ... - |----| Bundle Step | - copy artifacts from cache
+     \_____________/    |             |   to destination
+                        +-------------+ - set up entry point
+
+
+In this way, *build* operations can be performed in the context of
+a *heavier* container image, while the *bundle* operation relies on
+a *leaner* starting container image, providing a *leaner* result.
+
+
+### Reuse of operations
+
+Another common problem with [Dockerfile][]s has to do with how container
+images are customized, e.g. to execute build/bundle operations.
+
+The [RUN][] directive in the [Dockerfile][] is surely very powerful, but
+it allows you to execute either direct commands or some script/program
+that you made somehow visible inside the container during its
+construction. While very powerful (it's actually all that is strictly
+needed), it's quite difficult to reuse operations consistently.
+
+`dibs` draws inspiration from how Heroku addressed this problem, i.e.
+[buildpacks][]. Much in the same spirit, `dibs` leverages *dibspacks* to
+accomplish operations; these can be shared and loaded easily and
+automatically, so that the user only has to select and configure the right
+ones.
+
 
 ## Basics
 
@@ -789,4 +871,7 @@ In this case:
 [Docker]: https://www.docker.com/
 [CMD]: https://docs.docker.com/engine/reference/builder/#cmd
 [ENTRYPOINT]: https://docs.docker.com/engine/reference/builder/#entrypoint
+[RUN]: https://docs.docker.com/engine/reference/builder/#run
 [dibspack-basic]: https://github.com/polettix/dibspack-basic
+[Dockerfile]: https://docs.docker.com/engine/reference/builder/
+[buildpack]: https://devcenter.heroku.com/articles/buildpacks
