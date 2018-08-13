@@ -58,7 +58,7 @@ use constant OPTIONS => [
    ],
    [
       'local|l!',
-      default => undef, # might just as well leave it out
+      default => undef,
       help    => 'change convention for directories layout',
    ],
    [
