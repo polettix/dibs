@@ -150,7 +150,8 @@ sub get_config ($args, $defaults = undef) {
    }
 
    # see if it's a "local" run
-   if ($sofar->{local}) {
+   my $local = $sofar->{local};
+   if ($local) {
       $defaults->{project_dir} = LOCAL_PROJECT_DIR
          unless defined($sofar->{project_dir}); # otherwise no point
 
@@ -178,6 +179,7 @@ sub get_config ($args, $defaults = undef) {
    my $overall = _merge($cmdline, $env, $cnffile, $defaults);
    $overall->{project_dir} = $project_dir;
    $overall->{config_file} = $cnfp;
+   $overall->{local}       = $local;
 
    # adjust definitions
    adjust_definitions($overall);
