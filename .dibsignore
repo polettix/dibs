@@ -2,11 +2,13 @@
 /.gitignore
 /.git
 /.dibsignore
+/.dibs
+/dibspacks
+/script
 /cpanfile*
 /dibs.yml
 /prereqs
 /TODO.md
 /bootstrap
 /project*
-/.dibs
 *.swp
