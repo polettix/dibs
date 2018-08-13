@@ -10,7 +10,7 @@ steps:
 defaults:
    variables:
       - &base_image 'alpine:3.6'
-      - &version 'DIBSPACK_SET_VERSION="0.001997"'
+      - &version 'DIBSPACK_SET_VERSION="0.001972"'
    dibspack:
       basic:
          type:   git
