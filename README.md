@@ -874,4 +874,4 @@ In this case:
 [RUN]: https://docs.docker.com/engine/reference/builder/#run
 [dibspack-basic]: https://github.com/polettix/dibspack-basic
 [Dockerfile]: https://docs.docker.com/engine/reference/builder/
-[buildpack]: https://devcenter.heroku.com/articles/buildpacks
+[buildpacks]: https://devcenter.heroku.com/articles/buildpacks
