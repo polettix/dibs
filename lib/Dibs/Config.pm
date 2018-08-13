@@ -93,7 +93,6 @@ our @EXPORT = ();
 sub _pod2usage {
    pod2usage(
       -exitval  => 0,
-      -input    => pod_where({-inc => 1}, __PACKAGE__),
       -sections => 'USAGE',
       -verbose  => 99,
       @_

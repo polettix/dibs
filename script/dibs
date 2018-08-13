@@ -5,3 +5,160 @@ use FindBin qw< $Bin >;
 use lib "$Bin/../lib", "$Bin/../local/lib/perl5";
 use Dibs 'main';
 exit main(@ARGV);
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+dibs - Docker Image Build System
+
+=head1 VERSION
+
+Ask the version number to the script itself, calling:
+
+   shell$ dibs --version
+
+
+=head1 USAGE
+
+   dibs [--usage] [--help] [--man] [--version]
+
+   dibs [--project-dir|--project_dir|-p directory]
+       command args...
+
+=head1 EXAMPLES
+
+   # fetch source into "src" subdirectory
+   shell$ dibs fetch-src
+
+
+
+=head1 DESCRIPTION
+
+Handle different phases of building software and pack it as a trimmed Docker
+image.
+
+=head2 Project Directory
+
+All operations are supposed to be performed within the context of a base
+directory for the whole project. This directory can be set via option
+L</--project_dir>. By default it is the current directory.
+
+The project directory MUST contain a configuration file for the project,
+called C<dibs.yml>.
+
+=head1 OPTIONS
+
+C<dibs> supports some command line options. Some of them are I<meta>, in
+the sense that their goal is to provide information about C<dibs> itself;
+other options are actually used by C<dibs> to do its intended job.
+
+=head2 Meta-Options
+
+The following I<meta-options> allow getting more info about C<dibs>
+itself:
+
+=over
+
+=item --help
+
+print a somewhat more verbose help, showing usage, this description of
+the options and some examples from the synopsis.
+
+=item --man
+
+print out the full documentation for the script.
+
+=item --usage
+
+print a concise usage line and exit.
+
+=item --version
+
+print the version of the script.
+
+=back
+
+
+=head1 Real Options
+
+The following options are supported by C<dibs> as part of its mission:
+
+=over
+
+=item project_dir
+
+=item --project-dir
+
+=item -p
+
+   $ dibs --project-dir directory
+
+set the base directory of the project. All files and directories are referred
+to that directory. Defaults to the current directory.
+
+=back
+
+=head1 DIAGNOSTICS
+
+Whatever fails will complain quite loudly.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+C<dibs> can be configured in multiple ways. The following is a list of
+where configurations are taken, in order of precedence (alternatives
+higher in the list take precedence over those below them):
+
+=over
+
+=item *
+
+command line options;
+
+=item *
+
+environment variables, in the form C<DIBS_XXXX> where C<XXXX> corresponds
+to the command line option name (only for L</Real Options>, first
+alternative for each of them), with initial hypens removed, intermediate
+hyphens turned into underscores and all letters turned uppercase. For
+example, option L</--project_dir> corresponds to environment variable
+C<DPI_PROJECT_DIR>;
+
+=item *
+
+configuration file C<dibs.yml> as mandatorily found in the L</Project
+Directory>.
+
+=back
+
+
+=head1 DEPENDENCIES
+
+See C<cpanfile>.
+
+=head1 BUGS AND LIMITATIONS
+
+No bugs have been reported.
+
+Please report any bugs or feature requests through the repository.
+
+
+=head1 AUTHOR
+
+Flavio Poletti C<polettix@cpan.org>
+
+
+=head1 LICENCE AND COPYRIGHT
+
+Copyright (c) 2016, Flavio Poletti C<polettix@cpan.org>.
+
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
