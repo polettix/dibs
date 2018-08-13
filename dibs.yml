@@ -62,11 +62,16 @@ definitions:
       keep: yes
       name: dibs
       tags: [ 'latest' ]
-      entrypoint: [ '/bin/sh' ]
-      cmd: [ '-l' ]
+      entrypoint: [ '/dockexec', 'user', '/app/bin/dibs' ]
+      cmd: [ '--help' ]
+      #entrypoint: [ '/dockexec', 'user', '/bin/sh' ]
+      #cmd: [ '-l' ]
       dibspacks:
          - default: prereqs
            args: bundle
+         - default: basic
+           path: dockexec/install
+           user: root
          - default: basic
            path: install/plain-copy
            args: '@path_cache:perl-app /app'

@@ -61,6 +61,11 @@ use constant OPTIONS => [
       default => undef, # might just as well leave it out
       help    => 'change convention for directories layout',
    ],
+   [
+      'change-dir|C=s',
+      default => undef,
+      help    => 'change to dir as current directory',
+   ],
    ['project-dir|p=s', default => DEFAULT_PROJECT_DIR, help => 'project base directory'],
    ['steps|step|s=s@', help => 'steps to execute'],
 ];
@@ -133,6 +138,16 @@ sub get_config ($args, $defaults = undef) {
    # first step merge command line and environment, leave defaults out
    # because they might have to be changed depending on options
    my $sofar = _merge($cmdline, $env);
+
+   # honor request to change directory as early as possible
+   if (defined $sofar->{change_dir}) {
+      if (length($sofar->{change_dir}) && $sofar->{change_dir} ne '.') {
+         chdir $sofar->{change_dir}
+            or ouch 400, "unable to go in '$sofar->{change_dir}': $!";
+      }
+   }
+
+   # see if it's a "local" run
    if ($sofar->{local}) {
       $defaults->{project_dir} = LOCAL_PROJECT_DIR
          unless defined($sofar->{project_dir}); # otherwise no point
@@ -147,7 +162,7 @@ sub get_config ($args, $defaults = undef) {
    # now merge everything, including defaults. This will definitely set
    # where the project dir is located and load the configuration file from
    # there... maybe
-   $sofar       = _merge($sofar, $defaults);
+   $sofar          = _merge($sofar, $defaults);
    my $project_dir = path($sofar->{project_dir});
 
    # now look for a configuration file. Absolute paths are taken as-is,
