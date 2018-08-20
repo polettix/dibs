@@ -1,9 +1,5 @@
 ---
 name: dibs
-logger:
-   - Stderr
-   - log_level
-   - info
 steps:
    - build
    - bundle
@@ -22,10 +18,11 @@ defaults:
          path:   prereqs
          user:   root
       user: &user
-         type: src
-         name: add user and enable for docker
-         user: root
-         path: dibspacks/user-docker.sh
+         type:   git
+         origin: https://github.com/polettix/dibspack-basic.git
+         path:   wrapexec/stripexec
+         args:   ['suexec', '-u', 'user']
+         user:   root
 definitions:
    builder:
       from: *base_image
@@ -44,7 +41,10 @@ definitions:
       dibspacks:
          - *user
          - default: prereqs
-           args: bundle
+           args:    bundle
+         - default: basic
+           path:    wrapexec/install
+           args:    ['suexec', 'profilexec']
    build:
       from: 'dibs-builder:latest'
       keep: no
@@ -58,12 +58,15 @@ definitions:
          - default: basic
            path: install/with-dibsignore
            args: '--src /app --dst @path_cache:perl-app'
+           user: root
    bundle:
       from: 'dibs-runner:latest'
       keep: yes
       name: dibs
       tags: [ 'latest' ]
-      entrypoint: [ '/dockexec', 'user', '/profilexec', '/app/bin/dibs' ]
+      entrypoint: [ "/suexec",
+         "--reference", "/app", "--also-for", "/var/run/docker.sock",
+            "--", "/profilexec", "/app/bin/dibs" ]
       cmd: [ '--help' ]
       dibspacks:
          - default: prereqs
