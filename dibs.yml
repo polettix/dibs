@@ -45,6 +45,7 @@ definitions:
          - default: basic
            path:    wrapexec/install
            args:    ['suexec', 'profilexec']
+           user:    root
    build:
       from: 'dibs-builder:latest'
       keep: no
@@ -58,7 +59,6 @@ definitions:
          - default: basic
            path: install/with-dibsignore
            args: '--src /app --dst @path_cache:perl-app'
-           user: root
    bundle:
       from: 'dibs-runner:latest'
       keep: yes
