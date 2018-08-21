@@ -51,31 +51,26 @@ definitions:
       keep: no
       dibspacks:
          - default: prereqs
-           args: build
+           args:    build
          - 'src:dibspacks/src-in-app.sh'
          - default: basic
-           path: perl/build
-           args: ['/app', *version]
+           path:    perl/build
+           args:    ['/app', *version]
          - default: basic
-           path: install/with-dibsignore
-           args: '--src /app --dst @path_cache:perl-app'
+           path:    install/with-dibsignore
+           args:    ['--src', '/app', '--dst', '@path_cache:perl-app']
    bundle:
       from: 'dibs-runner:latest'
       keep: yes
       name: dibs
       tags: [ 'latest' ]
-      entrypoint: [ "/suexec",
-         "--reference", "/app", "--also-for", "/var/run/docker.sock",
+      entrypoint: [ "/suexec", "-r", "/app", "-A", "/var/run/docker.sock",
             "--", "/profilexec", "/app/bin/dibs" ]
       cmd: [ '--help' ]
       dibspacks:
          - default: prereqs
-           args: bundle
+           args:    bundle
          - default: basic
-           user: root
-           path: wrapexec/install
-           args: ['dockexec', 'profilexec']
-         - default: basic
-           path: install/plain-copy
-           args: '@path_cache:perl-app /app'
-           user: root
+           path:    install/plain-copy
+           args:    ['@path_cache:perl-app', '/app']
+           user:    root
