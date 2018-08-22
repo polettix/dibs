@@ -53,7 +53,7 @@ definitions:
            args:    ['suexec', 'profilexec']
            user:    root
    build:
-      from: 'dibs-builder:latest'
+      from: 'dibs-builder:0.1'
       keep: no
       dibspacks:
          - default: prereqs
@@ -66,7 +66,7 @@ definitions:
            path:    install/with-dibsignore
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
-      from: 'dibs-runner:latest'
+      from: 'dibs-runner:0.1'
       keep: yes
       name: dibs
       tags: [ 'latest', *version ]
