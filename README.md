@@ -374,81 +374,132 @@ situations.
 This was the `dibs.yml` file for building the `dibs` image at some stage
 of its life:
 
-    name: dibs
-    steps: ['build', 'bundle']
-    defaults:
-       variables:
-          - &base_image 'alpine:3.6'
-          - &version 'DIBSPACK_SET_VERSION="0.001972"'
-       dibspack:
-          basic:
-             type:   git
-             origin: https://github.com/polettix/dibspack-basic.git
-             user:   user
-          prereqs:
-             type:   git
-             origin: https://github.com/polettix/dibspack-basic.git
-             path:   prereqs
-             user:   root
-          user: &user
-             type: src
-             name: add user and enable for docker
-             user: root
-             path: dibspacks/user-docker.sh
-    definitions:
-       builder:
-          from: *base_image
-          keep: yes
-          name: 'dibs-builder'
-          tags: [ 'latest' ]
-          dibspacks:
-             - *user
-             - default: prereqs
-               args: build
-       runner:
-          from: *base_image
-          keep: yes
-          name: 'dibs-runner'
-          tags: [ 'latest' ]
-          dibspacks:
-             - *user
-             - default: prereqs
-               args: bundle
-       build:
-          from: 'dibs-builder:latest'
-          keep: no
-          dibspacks:
-             - default: prereqs
-               args: build
-             - 'src:dibspacks/src-in-app.sh'
-             - default: basic
-               path: perl/build
-               args: ['/app', *version]
-             - default: basic
-               path: install/with-dibsignore
-               args: '--src /app --dst @path_cache:perl-app'
-       bundle:
-          from: 'dibs-runner:latest'
-          keep: yes
-          name: dibs
-          tags: [ 'latest' ]
-          entrypoint: [ '/dockexec', 'user', '/profilexec', '/app/bin/dibs' ]
-          cmd: [ '--help' ]
-          dibspacks:
-             - default: prereqs
-               args: bundle
-             - default: basic
-               user: root
-               path: wrapexec/install
-               args: ['dockexec', 'profilexec']
-             - default: basic
-               path: install/plain-copy
-               args: '@path_cache:perl-app /app'
-               user: root
-
+    01	---
+    02	name: dibs
+    03	logger:
+    04	   - Stderr
+    05	   - log_level
+    06	   - info
+    07	steps:
+    08	   - build
+    09	   - bundle
+    10	defaults:
+    11	   variables:
+    12	      - &base_image 'alpine:3.6'
+    13	      - &version 'DIBSPACK_SET_VERSION="0.001972"'
+    14	   dibspack:
+    15	      basic:
+    16	         type:   git
+    17	         origin: https://github.com/polettix/dibspack-basic.git
+    18	         user:   user
+    19	      prereqs:
+    20	         type:   git
+    21	         origin: https://github.com/polettix/dibspack-basic.git
+    22	         path:   prereqs
+    23	         user:   root
+    24	      user: &user
+    25	         type: src
+    26	         name: add user and enable for docker
+    27	         user: root
+    28	         path: dibspacks/user-docker.sh
+    29	definitions:
+    30	   builder:
+    31	      from: *base_image
+    32	      keep: yes
+    33	      name: 'dibs-builder'
+    34	      tags: [ 'latest' ]
+    35	      dibspacks:
+    36	         - *user
+    37	         - default: prereqs
+    38	           args: build
+    39	   runner:
+    40	      from: *base_image
+    41	      keep: yes
+    42	      name: 'dibs-runner'
+    43	      tags: [ 'latest' ]
+    44	      dibspacks:
+    45	         - *user
+    46	         - default: prereqs
+    47	           args: bundle
+    48	   build:
+    49	      from: 'dibs-builder:latest'
+    50	      keep: no
+    51	      dibspacks:
+    52	         - default: prereqs
+    53	           args: build
+    54	         - 'src:dibspacks/src-in-app.sh'
+    55	         - default: basic
+    56	           path: perl/build
+    57	           args: ['/app', *version]
+    58	         - default: basic
+    59	           path: install/with-dibsignore
+    60	           args: '--src /app --dst @path_cache:perl-app'
+    61	   bundle:
+    62	      from: 'dibs-runner:latest'
+    63	      keep: yes
+    64	      name: dibs
+    65	      tags: [ 'latest' ]
+    66	      entrypoint: [ '/dockexec', 'user', '/profilexec', '/app/bin/dibs' ]
+    67	      cmd: [ '--help' ]
+    68	      dibspacks:
+    69	         - default: prereqs
+    70	           args: bundle
+    71	         - default: basic
+    72	           user: root
+    73	           path: wrapexec/install
+    74	           args: ['dockexec', 'profilexec']
+    75	         - default: basic
+    76	           path: install/plain-copy
+    77	           args: '@path_cache:perl-app /app'
+    78	           user: root
 
 This leverages both remote and local dibspacks. The following sub-sections
 add some considerations on the above example.
+
+#### Structure
+
+The definition contains four definitions:
+
+- `builder` and `runner` (lines 30 and 39) aim tobe generic base images
+  for building and running respectively. For this reason, both have the
+  `keep` flag set to `yes`, override the `name` property so that they end
+  up generating `dibs-builder:latest` and `dibs-runner:latest`
+- `build` and `bundle` (lines 48 and 61) take care of the source itself,
+  respectively building the Perl project on top of a `dibs-builder`
+  container, isolating the needed parts from it and making sure they are
+  properly installed on top of a `dibs-runner` container.
+
+The `steps` section only runs for `build` and `bundle` because these are
+the *recurrent* operations. At the very beginning this will likely yield
+an error, because `dibs-builder` and `dibs-runner` will be missing and
+need to be generated:
+
+    $ dibs --local --steps builder,runner
+
+Separating the build and run processes in two halves allows reducing the
+execution times because the first halves mostly take care of installing
+pre-requisites (which hopefully varies slowly). It also shows how it is
+possible to separate the concerns, because the *system* team can
+concentrate on selecting the right base components (base image, patches,
+etc.) while the *development* team can just build on top of whatever the
+*system* team provides.
+
+#### Variables
+
+The `defaults.variables` (line 11) is somehow a convention that leverages
+YAML capabilities for good.
+
+Variable `base_image` (line 12) It allows setting the (same) starting
+image for both the `builder` (line 31) and the `runner` (line 40) images,
+reducing space for (human) error in case e.g. of upgrades of the base
+images (like moving from `alpine:3.6` to `alpine:3.8` or later).
+
+Another example of a variable is `version` (line 13). This is defined
+according to the convention set by the `perl/build` buildpack in the
+[dibspack-basic][] bundle (called at line 55, where `*version` is used in
+line 57), but moves it near the beginning of the `dibs.yml` file to make
+it easier to manage. Depending on the buildpack in use, this might even
+easier to set/read.
 
 #### Shortcut syntax
 
