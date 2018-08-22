@@ -181,8 +181,9 @@ sub get_config ($args, $defaults = undef) {
    $overall->{config_file} = $cnfp;
    $overall->{local}       = $local;
 
-   # adjust definitions
+   # adjust definitions and variables (that are "expanded" if needed
    adjust_definitions($overall);
+   adjust_default_variables($overall);
 
    # now return everything! No anticipation of performance issues here...
    return {
@@ -228,6 +229,22 @@ sub adjust_definitions ($overall) {
         or ouch 400, "definition for $k: 'keep' is not a boolean\n";
    }
 } ## end sub adjust_definitions ($overall)
+
+sub adjust_default_variables ($overall) {
+   my $variables = $overall->{defaults}{variables} // [];
+   for my $var ($variables->@*) {
+      next unless (ref($var) eq 'HASH') && (scalar(keys $var->%*) == 1);
+      my ($key, $value) = $var->%*;
+      next unless ($key eq 'function') && (ref($value) eq 'ARRAY');
+      my $function = shift $value->@* // 'undefined';
+      state $cb_for = {
+         join => sub { my $s = shift; join $s, @_ },
+      };
+      ouch 400, "unhandled expansion function $function"
+         unless exists $cb_for->{$function};
+      $var->{$key} = $cb_for->{$function}->($value->@*);
+   }
+}
 
 sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
    my %config;
