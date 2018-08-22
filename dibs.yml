@@ -61,7 +61,7 @@ definitions:
          - 'src:dibspacks/src-in-app.sh'
          - default: basic
            path:    perl/build
-           args:    ['/app', *version]
+           args:    ['-w', '/app', '-V', *version]
          - default: basic
            path:    install/with-dibsignore
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
