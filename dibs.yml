@@ -21,7 +21,7 @@ defaults:
          type:   git
          origin: https://github.com/polettix/dibspack-basic.git
          path:   wrapexec/stripexec
-         args:   ['suexec', '-u', 'user']
+         args:   ['suexec', '-u', 'user', '-h', '/app']
          user:   root
 definitions:
    builder:
@@ -58,13 +58,13 @@ definitions:
            args:    ['/app', *version]
          - default: basic
            path:    install/with-dibsignore
-           args:    ['--src', '/app', '--dst', '@path_cache:perl-app']
+           args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
       from: 'dibs-runner:latest'
       keep: yes
       name: dibs
       tags: [ 'latest' ]
-      entrypoint: [ "/suexec", "-r", "/app", "-A", "/var/run/docker.sock",
+      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
             "--", "/profilexec", "/app/bin/dibs" ]
       cmd: [ '--help' ]
       dibspacks:
@@ -72,5 +72,5 @@ definitions:
            args:    bundle
          - default: basic
            path:    install/plain-copy
-           args:    ['@path_cache:perl-app', '/app']
+           args:    [{path_cache: 'perl-app'}, '/app']
            user:    root
