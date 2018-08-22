@@ -12,7 +12,7 @@ defaults:
       - function: &version
          ['join', '.', *version_major, *version_minor, *version_patch]
       - function: &version_maj_min
-         ['join', '.', *version_major, *version_minor, *version_patch]
+         ['join', '.', *version_major, *version_minor]
    dibspack:
       basic:
          type:   git
