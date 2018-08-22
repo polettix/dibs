@@ -17,7 +17,7 @@ sub version {
    # last resort, a default value
    $version //= '0.001972';
 
-   for my $key (qw< GIT_REF DIBS_ID >) {
+   for my $key (qw< GIT_REF DIBS_ID DIBS_FROM_IMAGE >) {
       next unless defined $ENV{$key};
       (my $name = lc $key) =~ s{_}{-}gmxs;
       $version .= " ($name $ENV{$key})";
