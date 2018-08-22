@@ -436,7 +436,7 @@ L</--steps>.
 Associative array.
 
 It is a best practice to put a sub-key C<variables> with the definition of
-(YAML) variables that can be reused around, e.g.:
+(YAML) variables that can be reused around as an array, like this:
 
    defaults:
       variables:
@@ -447,9 +447,36 @@ It is a best practice to put a sub-key C<variables> with the definition of
       foo:
          from: *base_image
 
-C<dibs> though recognizes only sub-key C<dibspack>, allowing the
-definition of several set of defaults for dibspacks. They can be used both
-I<the YAML way> (note the anchor in the C<user> default dibspack):
+There is more to it anyway: if the item is a hash reference with a single
+key C<function> whose associated value is an array, like in this example:
+
+   defaults:
+      variables:
+         - &version_major           '0'
+         - &version_minor           '1'
+         - &version_patch           '1'
+         - function: &version
+            ['join', '.', *version_major, *version_minor, *version_patch]
+         - function: &version_maj_min
+            ['join', '.', *version_major, *version_minor]
+
+then the first item in the array is taken as a I<function> name and the
+rest as its arguments. Currently the following functions are supported:
+
+=over
+
+=item * C<join>
+
+behaves like the Perl counterpart, taking the first parameter as separator
+and joining the rest with it. In the example above, the first is expanded
+as C<0.1.1> and the second one as C<0.1>.
+
+=back
+
+
+C<dibs> also recognizes sub-key C<dibspack>, allowing the definition of
+several set of defaults for dibspacks. They can be used both I<the YAML
+way> (note the anchor in the C<user> default dibspack):
 
     defaults:
        dibspack:
