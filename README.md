@@ -458,7 +458,7 @@ add some considerations on the above example.
 
 #### Defaults
 
-The `defaults` section has two sub-sections, one (`variables`) used
+The `defaults` section has two sub-sections, one (`variables`), mostly used
 internally in a *YAML-way*, the other one (`dibspack`) consumed by `dibs`:
 
 - `variables` concentrates some values that can be reused later in the
@@ -471,6 +471,22 @@ internally in a *YAML-way*, the other one (`dibspack`) consumed by `dibs`:
       11	   variables:
       12	      - &base_image 'alpine:3.6'
       13	      - &version 'DIBSPACK_SET_VERSION="0.001972"'
+
+  There's more to it anyway, although not visible in the example; in
+  particular, it's possible to set some *expansions*, like in the
+  following example:
+
+      variables:
+         - &version_major           '0'
+         - &version_minor           '1'
+         - &version_patch           '1'
+         - function: &version
+            ['join', '.', *version_major, *version_minor, *version_patch]
+         - function: &version_maj_min
+            ['join', '.', *version_major, *version_minor]
+
+  The `function` associative arrays are expanded evaluating the function
+  in the array (if supported, currently on `join` is).
 
 - `dibspack` sets a few commodity configurations for later reuse inside
   definitions. Most of the activities are performed leveraging
