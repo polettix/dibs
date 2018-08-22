@@ -5,8 +5,14 @@ steps:
    - bundle
 defaults:
    variables:
-      - &base_image 'alpine:3.6'
-      - &version 'DIBSPACK_SET_VERSION="0.001972"'
+      - &base_image     'alpine:3.6'
+      - &version_major           '0'
+      - &version_minor           '1'
+      - &version_patch           '1'
+      - function: &version
+         ['join', '.', *version_major, *version_minor, *version_patch]
+      - function: &version_maj_min
+         ['join', '.', *version_major, *version_minor, *version_patch]
    dibspack:
       basic:
          type:   git
@@ -28,7 +34,7 @@ definitions:
       from: *base_image
       keep: yes
       name: 'dibs-builder'
-      tags: [ 'latest' ]
+      tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
          - default: prereqs
@@ -37,7 +43,7 @@ definitions:
       from: *base_image
       keep: yes
       name: 'dibs-runner'
-      tags: [ 'latest' ]
+      tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
          - default: prereqs
@@ -63,7 +69,7 @@ definitions:
       from: 'dibs-runner:latest'
       keep: yes
       name: dibs
-      tags: [ 'latest' ]
+      tags: [ 'latest', *version ]
       entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
             "--", "/profilexec", "/app/bin/dibs" ]
       cmd: [ '--help' ]
