@@ -1,8 +1,8 @@
 ---
 name: dibs
 steps:
-   - build
-   - bundle
+   - qbuild
+   - qbundle
 defaults:
    variables:
       - &base_image     'alpine:3.6'
@@ -76,6 +76,30 @@ definitions:
       dibspacks:
          - default: prereqs
            args:    bundle
+         - default: basic
+           path:    install/plain-copy
+           args:    [{path_cache: 'perl-app'}, '/app']
+           user:    root
+   qbuild:
+      from: 'dibs-builder:0.1'
+      keep: no
+      dibspacks:
+         - 'src:dibspacks/src-in-app.sh'
+         - default: basic
+           path:    perl/build
+           args:    ['-w', '/app', '-V', *version]
+         - default: basic
+           path:    install/with-dibsignore
+           args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
+   qbundle:
+      from: 'dibs-runner:0.1'
+      keep: yes
+      name: dibs
+      tags: [ 'latest', *version ]
+      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
+            "--", "/profilexec", "/app/bin/dibs" ]
+      cmd: [ '--help' ]
+      dibspacks:
          - default: basic
            path:    install/plain-copy
            args:    [{path_cache: 'perl-app'}, '/app']
