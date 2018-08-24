@@ -15,18 +15,18 @@ use Dibs::Output;
 sub fetch ($uri, $path) {
    my $ref = $uri =~ m{\#}mxs ? $uri =~ s{\A.*\#}{}rmxs : 'master';
    _fetch($uri =~ s{\#.*}{}rmxs, $path);
-   _checkout_ref($path, $ref);
+   checkout_ref($path, $ref);
 }
 
 sub _fetch ($origin, $dir) {
    $dir = path($dir);
-   return _clone($origin, $dir) unless $dir->child('.git')->exists;
+   return clone($origin, $dir) unless $dir->child('.git')->exists;
 
    my $current_origin = _current_origin($dir);
    if ($current_origin ne $origin) {
       OUTPUT('changed origin, re-cloning');
       $dir->remove_tree({safe => 0});
-      return _clone($origin, $dir);
+      return clone($origin, $dir);
    }
 
    local $CWD = $dir->stringify;
@@ -35,7 +35,7 @@ sub _fetch ($origin, $dir) {
    return $dir;
 }
 
-sub _clone ($origin, $dir) {
+sub clone ($origin, $dir) {
    $dir = path($dir)->stringify;
    assert_command [qw< git clone >, $origin, $dir];
    return;
@@ -47,7 +47,7 @@ sub _current_origin ($path) {
    return $out =~ s{\s+\z}{}rmxs;
 }
 
-sub _checkout_ref ($path, $ref = 'master') {
+sub checkout_ref ($path, $ref = 'master') {
    local $CWD = path($path)->stringify;
    assert_command [qw< git checkout >, $ref];
    my $out = assert_command_out [qw< git branch >];
