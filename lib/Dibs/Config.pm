@@ -52,6 +52,11 @@ use constant OPTIONS => [
       help    => 'name of configfile'
    ],
    [
+      'origin|O=s',
+      default => undef,
+      help    => 'get src from specific "location"',
+   ],
+   [
       'host-project-dir|H=s',
       default => undef,
       help    => 'project base dir (dind-like)'

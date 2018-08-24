@@ -17,6 +17,7 @@ use Dibs::Config ':all';
 use Dibs::PacksList;
 use Dibs::Docker;
 use Dibs::Output;
+use Dibs::Get;
 
 use Exporter qw< import >;
 our @EXPORT_OK = qw< main >;
@@ -100,16 +101,26 @@ sub dump_configuration ($self) {
 }
 
 sub ensure_host_directories ($self) {
+   my $is_local = $self->config('local');
+   my $origin = $self->config('origin');
+   ouch 400, 'cannot have both origin and local configurations'
+      if $is_local && defined $origin;
+
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
    my @dirs = (CACHE, DIBSPACKS, ENVIRON);
-   push @dirs, SRC unless $self->config('local');
-   push @dirs, EMPTY if $self->config('local');
+   push @dirs, SRC unless defined $origin;
+   push @dirs, EMPTY if $is_local;
    for my $name (@dirs) {
       my $subdir_name = $pds->{$name};
       $pd->child($subdir_name)->mkpath;
    }
-   return;
+
+   return unless defined $origin;
+   
+   my $src_dir = $pd->child($pds->{&SRC});
+   $src_dir->remove_tree({safe => 0}) if $src_dir->exists;
+   return Dibs::Get::get_origin($origin, $src_dir);
 }
 
 sub dibspacks_for ($self, $step) {
