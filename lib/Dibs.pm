@@ -81,7 +81,7 @@ sub resolve_container_path ($self, $zone, $path) {
    defined(my $base = $self->config(container_dirs => $zone))
       or ouch 400, "unknown zone $zone for resolution inside container";
    my $retval = path($base);
-   $retval = $retva->child($path) if length($path // '');
+   $retval = $retval->child($path) if length($path // '');
    return $retval->stringify;
 }
 
