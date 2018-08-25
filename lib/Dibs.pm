@@ -241,7 +241,10 @@ sub prepare_args ($self, $step) {
 
 sub changes_for_commit ($self, $step) {
    my $cfg = $self->dconfig($step, 'commit');
-   my %changes;
+   my %changes = (
+      cmd => [],
+      entrypoint => [qw< /bin/sh -l >],
+   );
    for my $key (qw< entrypoint cmd workdir user >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
    }
