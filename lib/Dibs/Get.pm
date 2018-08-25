@@ -42,7 +42,7 @@ sub get_origin ($source, $target) {
 sub _get_origin_git ($uri, $target) {
    my ($origin, $ref) = split m{\#}mxs, $uri;
    require Dibs::Git;
-   Dibs::Git::clone($uri, $target);
+   Dibs::Git::clone($origin, $target);
    Dibs::Git::checkout_ref($target, $ref) if length($ref // '');
    return;
 }
