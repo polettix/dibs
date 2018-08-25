@@ -518,46 +518,67 @@ recognized:
 
 =over
 
+=item C<commit>
+
+Boolean or associative array for committing a container as an image. Inthe
+latter case, it supports the following keys:
+
+=over
+
 =item C<cmd>
 
-String or list, has the same meaning as in the Dockerfile. Only meaningful
-when C<keep> is true.
+String or list, has the same meaning as in the Dockerfile. Defaults to an
+empty list.
+
+=item C<entrypoint>
+
+String or list, has the same meaning as in the Dockerfile. Defaults to
+a list with strings C</bin/sh> and C<-l>, in order.
+
+=item C<keep>
+
+Boolean (either YAML or Perl), sets whether the resulting container of the
+step should be kept as a Docker image or ditched away. Defaults to a true
+value when absent; it is mostly useful to temporarily avoid generating an
+image (e.g. to just check that the steps run fine), otherwise the whole
+C<commit> section make little sense.
+
+=item C<name>
+
+String, overrides the global C<name> within the step and is used for
+setting the name of the image. When absent, the C<name> at the YAML
+highest level is taken.
+
+=item C<tags>
+
+List of strings, provides either tags or fully qualified names for images.
+
+Any container is initially started from an image name that is generated
+automatically, based on C<name> and a timestamp. This tag is eventually
+dropped, unless the special tag C<*> (or its alias C<:default:>) are put
+in the list. The automatically generated tag is also kept if there are no
+tags in the list (or there is not C<tag> key at all).
+
+=item C<user>
+
+String, has the same meaning as in the Dockerfile.
+
+=item C<workdir>
+
+String, has the same meaning as in the Dockerfile.
+
+=back
+
 
 =item C<dibspacks>
 
 Array of associative arrays, each specifying a dibspack to execute (in the
 same order as they appear in the array. See below for details.
 
-=item C<entrypoint>
-
-String or list, has the same meaning as in the Dockerfile. Only meaningful
-when C<keep> is true.
-
 =item C<from>
 
 String, has the same meaning as in the Dockerfile, i.e. specify a base
 image where to start from.
-
-=item C<keep>
-
-Boolean (YAML boolean), sets whether the resulting container of the step
-should be kept as a Docker image or ditched away. For example, there might
-be a I<build> step that produces artifacts saved in the C<cache>; the
-resulting container can be thrown away after the artifacts are saved.
-
-Defaults to C<no>, which means that it has to be explicitly enabled to
-save the Docker image.
-
-=item C<name>
-
-String, overrides the global C<name> within the step.
-
-=item C<tags>
-
-When saving the Docker image, it is assigned the specific C<name> and
-a tag that is automatically generated from the timestamp and the process
-identifier. It is possible to set additional tags here. Only meaningful
-when C<keep> is true.
 
 =back
 
