@@ -35,7 +35,7 @@ sub docker_rm ($cid) {
 sub docker_commit ($cid, $tag, $changes = undef) {
    my @command = qw< docker commit >;
    $changes //= {};
-   for my $c (qw< entrypoint cmd >) {
+   for my $c (qw< entrypoint cmd workdir user >) {
       defined (my $cd = $changes->{$c}) or next;
       my $change = uc($c) . ' ' . (ref($cd) ? encode_json($cd) : $cd);
       push @command, -c => $change;
