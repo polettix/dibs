@@ -38,15 +38,14 @@ sub add_metadata ($self, %pairs) {
 sub metadata_for ($self, $key) { $self->all_metadata->{$key} // undef }
 
 sub name ($self, $step) {
-   if (defined($step) && defined(my $n = $self->dconfig($step, 'name'))) {
-      return $n;
-   }
-   return $self->config('name');
+   defined(my $n = $self->dconfig($step, 'commit', 'name'))
+      or return $self->config('name');
+   return $n;
 }
 
 sub config ($self, @path) {
    my $c = $self->_config;
-   $c = $c->{shift @path} while defined($c) && @path;
+   $c = $c->{shift @path} while defined($c) && @path && defined($path[0]);
    return $c;
 }
 
