@@ -102,6 +102,21 @@ sub dump_configuration ($self) {
    return;
 }
 
+sub wipe_directory ($self, $name) {
+   my $dir_for = $self->config('project_dirs');
+   my $dir = $self->project_dir($dir_for->{$name});
+   if ($dir->exists) {
+      try   { $dir->remove_tree({safe => 0}) }
+      catch { ouch 500, "cannot delete $dir, check permissions maybe?" };
+   }
+   return $dir;
+}
+
+sub origin_onto_src ($self, $origin) {
+   my $src_dir = $self->wipe_directory(SRC);
+   return Dibs::Get::get_origin($origin, $src_dir);
+}
+
 sub ensure_host_directories ($self) {
    my $is_local = $self->config('local');
    my $origin = $self->config('origin');
@@ -111,18 +126,19 @@ sub ensure_host_directories ($self) {
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
    my @dirs = (CACHE, DIBSPACKS, ENVIRON);
-   push @dirs, SRC unless defined $origin;
    push @dirs, EMPTY if $is_local;
+
+   # SRC might be special and require to be fetched from somewhere
+   if (defined $origin) { $self->origin_onto_src($origin) }
+   else                 { push @dirs, SRC }
+
+   # create missing directories in host
    for my $name (@dirs) {
-      my $subdir_name = $pds->{$name};
-      $pd->child($subdir_name)->mkpath;
+      my $subdir = $pds->{$name};
+      $pd->child($subdir)->mkpath;
    }
 
-   return unless defined $origin;
-   
-   my $src_dir = $pd->child($pds->{&SRC});
-   $src_dir->remove_tree({safe => 0}) if $src_dir->exists;
-   return Dibs::Get::get_origin($origin, $src_dir);
+   return;
 }
 
 sub dibspacks_for ($self, $step) {

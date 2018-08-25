@@ -10,13 +10,33 @@ use Dibs::Run qw< assert_command >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub get_origin ($source, $target) {
-   ouch 500, "target directory $target exists" if path($target)->exists;
-   my ($type, $location) = $source =~ m{
-      \A (git|dir) \@ (.*) \z }mxs;
-   ($type, $location) = (git => $source) unless defined $location;
-   my $callback = __PACKAGE__->can("_get_origin_$type")
-      or ouch 400, "unknown source type $type";
-   return $callback->($location, $target);
+   # complain loudly if $target exists. Ensure it's a plain string
+   $target = path($target);
+   ouch 500, "target directory $target exists" if $target->exists;
+   $target = $target->stringify;
+
+   # the definition of the source might be an associative array or a string
+   my %source;
+   if (ref $source) {
+      %source = $source->%*;
+   }
+   else {
+      @source{qw< type location >}
+         = $source =~ m{\A (git|dir) \@ (.*) \z}mxs;
+      @source{qw< type location >} = (git => $source)
+         unless defined $source{location};
+   }
+
+   # this is just paranoia, double check that there is something to call
+   my $callback = __PACKAGE__->can("_get_origin_$source{type}")
+      or ouch 400, "unknown source type $source{type}";
+   $callback->($source{location}, $target);
+
+   # change owner if needed. This generally requires using sudo or root
+   assert_command(qw< chown -R >, $source{user}, $target)
+      if defined $source{user};
+
+   return;
 }
 
 sub _get_origin_git ($uri, $target) {
