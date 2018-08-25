@@ -147,7 +147,7 @@ sub dibspacks_for ($self, $step) {
    return $dfor->{$step}->list;
 }
 
-sub iterate_buildpacks ($self, $step) {
+sub iterate_dibspacks ($self, $step) {
    # continue only if it makes sense...
    ouch 400, "no definitions for $step"
       unless defined $self->dconfig($step);
@@ -241,7 +241,7 @@ sub prepare_args ($self, $step) {
 }
 
 sub changes_for_commit ($self, $step) {
-   my $cfg = $self->dconfig($step);
+   my $cfg = $self->dconfig($step, 'commit');
    my %changes;
    for my $key (qw< entrypoint cmd workdir user >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
@@ -259,19 +259,33 @@ sub cleanup_tags ($self, $step, @tags) {
 
 sub additional_tags ($self, $step, $image, $new_tags) {
    return ($image) unless $new_tags;
+
    my @tags = $image;
+   my $keep_default;
    try {
       my $name = $self->name($step);
       for my $tag ($new_tags->@*) {
-         my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
-         Dibs::Docker::docker_tag($image, $dst);
-         push @tags, $dst;
+         if (($tag eq '*') || ($tag eq ':default:')) {
+            $keep_default = 1;
+         }
+         else {
+            my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
+            next if $dst eq $image;
+            Dibs::Docker::docker_tag($image, $dst);
+            push @tags, $dst;
+         }
       }
    }
    catch {
       $self->cleanup_tags($step, @tags);
       die $_; # rethrow
    };
+
+   # get rid of the default image, if "makes sense". Never get rid of
+   # a tag if it's the only one, or requested to keep it.
+   $self->cleanup_tags($step, shift @tags)
+      unless (@tags == 1) || $keep_default;
+
    return @tags;
 }
 
@@ -371,8 +385,16 @@ sub target_name ($self, $step) {
 }
 
 sub run_step ($self, $name) {
-   my $image = $self->iterate_buildpacks($name);
-   my $pc = $self->dconfig($name);
+   my $image = $self->iterate_dibspacks($name);
+
+   # check if commit is present, otherwise default to ditch this container
+   my $pc = $self->dconfig($name, 'commit') // {keep => 0};
+
+   # if 'keep' is *not* present, it defaults to true and the container is
+   # committed. Otherwise it keeps its truth level, either YAML or Perlish
+   # (so "undef" would mean "false")
+   $pc->{keep} = 1 unless exists $pc->{keep};
+
    return $pc->{keep}
       ? $self->additional_tags($name, $image, $pc->{tags})
       : $self->cleanup_tags($name, $image);
