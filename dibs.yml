@@ -32,18 +32,18 @@ defaults:
 definitions:
    builder:
       from: *base_image
-      keep: yes
-      name: 'dibs-builder'
-      tags: [ 'latest', *version_maj_min ]
+      commit:
+         name: 'dibs-builder'
+         tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
          - default: prereqs
            args: build
    runner:
       from: *base_image
-      keep: yes
-      name: 'dibs-runner'
-      tags: [ 'latest', *version_maj_min ]
+      commit:
+         name: 'dibs-runner'
+         tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
          - default: prereqs
@@ -54,7 +54,7 @@ definitions:
            user:    root
    build:
       from: 'dibs-builder:0.1'
-      keep: no
+      commit: no
       dibspacks:
          - default: prereqs
            args:    build
@@ -67,12 +67,12 @@ definitions:
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
       from: 'dibs-runner:0.1'
-      keep: yes
-      name: dibs
-      tags: [ 'latest', *version ]
-      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-            "--", "/profilexec", "/app/bin/dibs" ]
-      cmd: [ '--help' ]
+      commit:
+         name: dibs
+         tags: [ 'latest', *version ]
+         entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
+               "--", "/profilexec", "/app/bin/dibs" ]
+         cmd: [ '--help' ]
       dibspacks:
          - default: prereqs
            args:    bundle
