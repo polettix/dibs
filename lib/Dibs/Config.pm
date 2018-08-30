@@ -77,6 +77,7 @@ use constant OPTIONS => [
       help    => 'change to dir as current directory',
    ],
    ['project-dir|p=s', default => DEFAULT_PROJECT_DIR, help => 'project base directory'],
+   ['#steps'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
 
@@ -113,7 +114,7 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    GetOptionsFromArray(
       $cmdline, \%config,
       qw< usage! help! man! version!  >,
-      map { $_->[0] } $optspecs->@*,
+      grep {substr($_, 0, 1) ne '#'} map { $_->[0] } $optspecs->@*,
    ) or _pod2usage(-exitval => 1);
    if ($config{version}) {
       my $version = 'unknown';
@@ -130,7 +131,12 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    return \%config;
 } ## end sub get_cmdline
 
-sub optname ($specish) { ($specish =~ s{[^-\w].*}{}rmxs) =~ s{-}{_}rgmxs }
+sub optname ($specish) {
+   $specish =~ s{\A\#}{}mxs;
+   $specish =~ s{[^-\w].*}{}mxs;
+   $specish =~ s{-}{_}gmxs;
+   return $specish;
+}
 
 sub get_config ($args, $defaults = undef) {
    $defaults //= {

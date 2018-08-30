@@ -48,8 +48,7 @@ Ask the version number to the script itself, calling:
         [--config-file|--config|-c filename]
         [--local|-l|--no-local]
         [--project-dir|-p directory]
-        [--steps|--step|-s step,step,...]
-        command args...
+        step [step [step...]]
 
 =head1 EXAMPLES
 
@@ -372,18 +371,16 @@ value for this parameter is C<.dibs> (located inside C<src>).
 This option is computed before loading the configuration file and cannot
 be overridden even when missing from environment and/or command line.
 
-=item --steps
+=back
 
-=item --step
-
-=item -s
-
-=item DIBS_STEPS
+I<Straight> command line arguments represent steps to be executed in the
+specific run; they can also be set (comma or space-separated) via
+environment variable C<DIBS_STEPS>. Example:
 
    $ dibs --steps first,second --step third -s fourth,last
 
-set sequence of steps to execute in the specific C<dibs> invocations. It
-defaults to whatever is found inside the C<dibs.yml> configuration file.
+It defaults to whatever is found inside the C<dibs.yml> configuration
+file.
 
 It's possible to provide this option multiple times on the command line.
 Additionally, each time it is passed, the string is split on commas, so
