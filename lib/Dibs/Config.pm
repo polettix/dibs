@@ -77,7 +77,6 @@ use constant OPTIONS => [
       help    => 'change to dir as current directory',
    ],
    ['project-dir|p=s', default => DEFAULT_PROJECT_DIR, help => 'project base directory'],
-   ['steps|step|s=s@', help => 'steps to execute'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
 
@@ -126,9 +125,8 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
      if $config{help};
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
-   $config{args} = [$cmdline->@*];
-   $config{steps} = [map { split m{[,\s]}mxs } $config{steps}->@*]
-     if exists $config{steps};
+   $config{steps} = [map { split m{[,\s]}mxs } $cmdline->@*]
+     if scalar $cmdline->@*;
    return \%config;
 } ## end sub get_cmdline
 
