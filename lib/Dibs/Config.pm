@@ -67,6 +67,11 @@ use constant OPTIONS => [
       help    => 'change convention for directories layout',
    ],
    [
+      'local-clone|L!',
+      default => undef,
+      help => 'clone from current directory',
+   ],
+   [
       'change-dir|C=s',
       default => undef,
       help    => 'change to dir as current directory',
@@ -155,8 +160,9 @@ sub get_config ($args, $defaults = undef) {
    }
 
    # see if it's a "local" run
-   my $local = $sofar->{local};
-   if ($local) {
+   my $is_local = $sofar->{local};
+   my $is_local_clone = $sofar->{local_clone};
+   if ($is_local || $is_local_clone) {
       $defaults->{project_dir} = LOCAL_PROJECT_DIR
          unless defined($sofar->{project_dir}); # otherwise no point
 
@@ -182,11 +188,29 @@ sub get_config ($args, $defaults = undef) {
    # configurations from the file must have higher precedence with respect
    # to the defaults. We will keep a couple things anyway.
    my $overall = _merge($cmdline, $env, $cnffile, $defaults);
+
+   # some configurations have mutual exclusions
+   my $origin = $overall->{origin} // undef;
+   _pod2usage(
+      -message => 'cannot have both origin and local configurations',
+      -exitval => 1,
+   ) if $is_local && defined $origin;
+   _pod2usage(
+      -message => 'cannot have both origin and local-clone configurations',
+      -exitval => 1
+   ) if $is_local_clone && defined $origin;
+   _pod2usage(
+      -message => 'cannot have both local and local-clone configurations',
+      -exitval => 1
+   ) if $is_local && $is_local_clone;
+   $overall->{origin} = cwd->stringify if $is_local_clone;
+
    $overall->{project_dir} = $project_dir;
    $overall->{config_file} = $cnfp;
-   $overall->{local}       = $local;
+   $overall->{local}       = $is_local;
+   $overall->{local_clone} = $is_local_clone;
 
-   # adjust definitions and variables (that are "expanded" if needed
+   # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);
    adjust_default_variables($overall);
 

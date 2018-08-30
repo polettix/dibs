@@ -118,9 +118,6 @@ sub origin_onto_src ($self, $origin) {
 
 sub ensure_host_directories ($self) {
    my $is_local = $self->config('local');
-   my $origin = $self->config('origin');
-   ouch 400, 'cannot have both origin and local configurations'
-      if $is_local && defined $origin;
 
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
@@ -128,6 +125,7 @@ sub ensure_host_directories ($self) {
    push @dirs, EMPTY if $is_local;
 
    # SRC might be special and require to be fetched from somewhere
+   my $origin = $self->config('origin');
    if (defined $origin) { $self->origin_onto_src($origin) }
    else                 { push @dirs, SRC }
 
@@ -322,14 +320,14 @@ sub list_volumes ($self) {
    my $pds = $self->config('project_dirs');
    my $cds = $self->config('container_dirs');
 
-   my $local = $self->config('local');
+   my $is_local = $self->config('local');
    return map {
       my ($name, @mode) = ref($_) ? $_->@* : $_;
       my @r;
-      if ($local && ($name eq SRC)) {
+      if ($is_local && ($name eq SRC)) {
          @r = (cwd->stringify, $cds->{$name}, @mode);
       }
-      elsif ($local && ($name eq EMPTY)) {
+      elsif ($is_local && ($name eq EMPTY)) {
          my $host_src_dir = cwd;
          my $host_prj_dir = $pd->absolute;
          if ($host_src_dir->subsumes($host_prj_dir)) {
