@@ -183,7 +183,9 @@ way.
 =head2 External or Local Project
 
 C<dibs> supports to major modes of operation: external and local. The
-selection is performed using command line option L<--local>.
+selection is performed using command line option L<--local>. There is also
+an intermediate mode I<local clone> that is somehow halfway between the
+two, that can be selected with option L<--local-clone>.
 
 =head3 External mode
 
@@ -244,6 +246,35 @@ or in the project sub-directory (they are searched in this order).
 
 When running in I<local> mode, the current working directory is assumed to
 be C<src>.
+
+=head3 Local Clone mode
+
+If there are the same conditions as L</Local mode> and the project is
+tracked with I<Git>, it is possible to leverage the I<local clone> mode,
+which has a layout similar to L</Local mode> but the simplicity of
+L</External mode>.
+
+   <<origin>>
+   + .dibs     # name of the <<project>> dir
+     + cache
+     + dibspacks
+     + env
+     + src
+
+The current directory is the I<origin> that will be cloned. The project
+directory is set to sub-directory C<.dibs> just like L</Local mode>, but
+for the rest it has the I<shape> of the project directory of L</External
+mode>, i.e. it contains the C<src> sub-directory that will be passed into
+the container.
+
+When C<dibs> is run, the origin is cloned into C<src> and then C<.dibs> is
+just a regular project directory for L</External mode>.
+
+The C<dibs.yml> file is searched in the origin directory first, then in
+the C<.dibs> sub-directory, like L</Local mode>.
+
+This is probably how local mode should have been designed in the first
+place.
 
 =head1 OPTIONS
 
@@ -348,6 +379,63 @@ missing), empty string, number C<0>. Any other value is considered true.
 
 This option is computed before loading the configuration file and cannot
 be overridden even when missing from environment and/or command line.
+
+=item --local-clone
+
+=item -L
+
+=item --no-local-clone
+
+=item DIBS_LOCAL_CLONE
+   
+   $ dibs -L
+
+Boolean option to select a mode that is halfway between L</External mode>
+and L</Local mode>:
+
+=over
+
+=item *
+
+like L</Local mode>, the project directory is set to the C<.dibs>
+sub-directory and the C<dibs.yml> file is searched in the current
+directory first, then in the project directory
+
+=item *
+
+like L</External mode>, the source directory is taken from inside the
+project directory. In particular, the current directory is assumed to be a
+I<Git> repository, and a fresh clone is taken in the C<src> sub-directory
+of the project directory. This also means that there is no messing with
+empty directories etc.
+
+=back
+
+The C<DIBS_LOCAL_CLONE> environment variable is tested as any Perl
+boolean, so only the following values are I<false>: C<undef> (environment
+variable is missing), empty string, number C<0>. Any other value is
+considered true.
+
+This option is computed before loading the configuration file and cannot
+be overridden even when missing from environment and/or command line.
+
+
+=item --origin
+
+=item -O
+
+=item DIBS_ORIGIN
+
+   $ dibs -O /path/to/origin.git
+
+set a I<Git origin> from where C<src> will be cloned.
+
+The clone is performed in the I<host context>, before the containers are
+invoked. It is always done at the beginning and only once per invocation,
+even in steps that technically do not rely on it (C<dibs> has no way to
+tell).
+
+The origin can be set inside the C<dibs.yml> file.
 
 =item --project-dir
 
