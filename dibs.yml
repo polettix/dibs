@@ -64,7 +64,7 @@ definitions:
            args:    ['suexec', 'profilexec']
            user:    root
    build:
-      from: 'dibs-builder:0.1'
+      from: 'dibs-builder:0.2'
       commit: no
       dibspacks:
          - *prereqs_build
@@ -76,7 +76,7 @@ definitions:
            path:    install/with-dibsignore
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
-      from: 'dibs-runner:0.1'
+      from: 'dibs-runner:0.2'
       commit: *commit
       dibspacks:
          - *prereqs_bundle
@@ -85,7 +85,7 @@ definitions:
            args:    [{path_cache: 'perl-app'}, '/app']
            user:    root
    qbuild:
-      from: 'dibs-builder:0.1'
+      from: 'dibs-builder:0.2'
       commit: no
       dibspacks:
          - 'src:dibspacks/src-in-app.sh'
@@ -96,7 +96,7 @@ definitions:
            path:    install/with-dibsignore
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    qbundle:
-      from: 'dibs-runner:0.1'
+      from: 'dibs-runner:0.2'
       commit: *commit
       dibspacks:
          - default: basic
