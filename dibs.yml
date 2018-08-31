@@ -13,6 +13,12 @@ defaults:
          ['join', '.', *version_major, *version_minor, *version_patch]
       - function: &version_maj_min
          ['join', '.', *version_major, *version_minor]
+      - commit: &commit
+         name: dibs
+         tags: [ 'latest', *version ]
+         entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
+               "--", "/profilexec", "/app/bin/dibs" ]
+         cmd: [ '--help' ]
    dibspack:
       basic:
          type:   git
@@ -67,12 +73,7 @@ definitions:
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
       from: 'dibs-runner:0.1'
-      commit:
-         name: dibs
-         tags: [ 'latest', *version ]
-         entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-               "--", "/profilexec", "/app/bin/dibs" ]
-         cmd: [ '--help' ]
+      commit: *commit
       dibspacks:
          - default: prereqs
            args:    bundle
@@ -82,7 +83,7 @@ definitions:
            user:    root
    qbuild:
       from: 'dibs-builder:0.1'
-      keep: no
+      commit: no
       dibspacks:
          - 'src:dibspacks/src-in-app.sh'
          - default: basic
@@ -93,12 +94,7 @@ definitions:
            args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    qbundle:
       from: 'dibs-runner:0.1'
-      keep: yes
-      name: dibs
-      tags: [ 'latest', *version ]
-      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-            "--", "/profilexec", "/app/bin/dibs" ]
-      cmd: [ '--help' ]
+      commit: *commit
       dibspacks:
          - default: basic
            path:    install/plain-copy
