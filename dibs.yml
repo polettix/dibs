@@ -24,10 +24,17 @@ defaults:
          type:   git
          origin: https://github.com/polettix/dibspack-basic.git
          user:   user
-      prereqs:
+      prereqs_build: &prereqs_build
          type:   git
          origin: https://github.com/polettix/dibspack-basic.git
          path:   prereqs
+         args:   ['-s', 'build']
+         user:   root
+      prereqs_bundle: &prereqs_bundle
+         type:   git
+         origin: https://github.com/polettix/dibspack-basic.git
+         path:   prereqs
+         args:   ['-s', 'bundle']
          user:   root
       user: &user
          type:   git
@@ -43,8 +50,7 @@ definitions:
          tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
-         - default: prereqs
-           args: build
+         - *prereqs_build
    runner:
       from: *base_image
       commit:
@@ -52,8 +58,7 @@ definitions:
          tags: [ 'latest', *version_maj_min ]
       dibspacks:
          - *user
-         - default: prereqs
-           args:    bundle
+         - *prereqs_bundle
          - default: basic
            path:    wrapexec/install
            args:    ['suexec', 'profilexec']
@@ -62,8 +67,7 @@ definitions:
       from: 'dibs-builder:0.1'
       commit: no
       dibspacks:
-         - default: prereqs
-           args:    build
+         - *prereqs_build
          - 'src:dibspacks/src-in-app.sh'
          - default: basic
            path:    perl/build
@@ -75,8 +79,7 @@ definitions:
       from: 'dibs-runner:0.1'
       commit: *commit
       dibspacks:
-         - default: prereqs
-           args:    bundle
+         - *prereqs_bundle
          - default: basic
            path:    install/plain-copy
            args:    [{path_cache: 'perl-app'}, '/app']
