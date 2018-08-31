@@ -411,11 +411,15 @@ sub run_step ($self, $name) {
    # "do the thing"
    my $image = $self->iterate_dibspacks($name);
 
-   # check if commit is present, otherwise default to ditch this container
-
-   return $pc->{keep}
-      ? $self->additional_tags($name, $image, $pc->{tags})
-      : $self->cleanup_tags($name, $image);
+   # check if commit is required, otherwise default to ditch this container
+   if ($pc->{keep}) {
+      ARROW_OUTPUT('+', 'saving working image, commit required');
+      return $self->additional_tags($name, $image, $pc->{tags})
+   }
+   else {
+      ARROW_OUTPUT('+', 'removing working image, no commit required');
+      return $self->cleanup_tags($name, $image);
+   }
 }
 
 sub run ($self) {
