@@ -222,12 +222,13 @@ sub coalesce_envs ($self, $dp, $step, $args) {
 sub prepare_args ($self, $step) {
    my $stepc = $self->dconfig($step);
    my $from = $stepc->{from};
+   my $to   = $self->target_name($step);
    my $image = try {
-      Dibs::Docker::docker_tag($from, $self->target_name($step));
+      Dibs::Docker::docker_tag($from, $to);
    }
    catch {
       ouch 400,
-         "Unable to use image '$from'. Maybe it can be build with "
+         "Unable to use image '$from' as '$to'. Maybe it can be build with "
        . "some other different step before?";
    };
    return {
@@ -235,6 +236,23 @@ sub prepare_args ($self, $step) {
       changes => $self->changes_for_commit($step),
       project_dir => $self->project_dir,
    };
+}
+
+sub normalized_commit_config ($self, $cfg) {
+   return {keep => 0} unless $cfg;
+
+   my $ref = ref $cfg;
+   return {keep => 1, $cfg->%*} if $ref eq 'HASH';
+   return {keep => 1, tags => $cfg} if $ref eq 'ARRAY';
+
+   # the "false" one is probably overkill here
+   return {keep => 0}
+      if $cfg =~ m{\A(?:n|N|no|No|NO|false|False|FALSE|off|Off|OFF)\z}mxs;
+   return {keep => 1, tags => [':default:']}
+      if $cfg =~ m{\A(?:y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON)\z}mxs;
+
+   ouch 400, "unhandled ref type $ref for commit field" if $ref;
+   return {keep => 1, tags => [$cfg]};
 }
 
 sub changes_for_commit ($self, $step) {
@@ -385,15 +403,15 @@ sub target_name ($self, $step) {
 }
 
 sub run_step ($self, $name) {
+   # normalize the configuration for "commit" in the step before going on,
+   # it might be a full associative array or some DWIM stuff
+   my $sc = $self->dconfig($name);
+   my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
+
+   # "do the thing"
    my $image = $self->iterate_dibspacks($name);
 
    # check if commit is present, otherwise default to ditch this container
-   my $pc = $self->dconfig($name, 'commit') // {keep => 0};
-
-   # if 'keep' is *not* present, it defaults to true and the container is
-   # committed. Otherwise it keeps its truth level, either YAML or Perlish
-   # (so "undef" would mean "false")
-   $pc->{keep} = 1 unless exists $pc->{keep};
 
    return $pc->{keep}
       ? $self->additional_tags($name, $image, $pc->{tags})
