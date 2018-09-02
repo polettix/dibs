@@ -532,22 +532,16 @@ I<Straight> command line arguments represent steps to be executed in the
 specific run; they can also be set (comma or space-separated) via
 environment variable C<DIBS_STEPS>. Example:
 
-   $ dibs --steps first,second --step third -s fourth,last
+   $ dibs first,second third fourth,last
 
 It defaults to whatever is found inside the C<dibs.yml> configuration
-file.
-
-It's possible to provide this option multiple times on the command line.
-Additionally, each time it is passed, the string is split on commas, so
-the example above leads to the following list of steps:
+file. The example above leads to the following list of steps:
 
    - first
    - second
    - third
    - fourth
    - last
-
-=back
 
 =head1 CONFIGURATION
 
@@ -578,8 +572,7 @@ main name of the project (may be overridden in one or more steps)
 
 =item C<steps>
 
-list of steps to take. This can be overridden by command-line argument
-L</--steps>.
+list of steps to take. This can be overridden by command-line argument.
 
 =back
 
