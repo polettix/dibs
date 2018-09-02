@@ -30,9 +30,9 @@ use constant SRC         => 'src';
 use constant DETECT_OK   => ((0 << 8) | 0);
 use constant DETECT_SKIP => ((100 << 8) | 0);
 use constant INDENT      => 7;
-use constant DEFAULT_PROJECT_DIR => '.';
-use constant LOCAL_PROJECT_DIR   => '.dibs';
-use constant CONFIG_FILE         => 'dibs.yml';
+use constant ALIEN_PROJECT_DIR => '.';
+use constant LOCAL_PROJECT_DIR => 'dibs';
+use constant CONFIG_FILE       => 'dibs.yml';
 
 use constant DEFAULTS => {
    project_dirs =>
@@ -46,6 +46,11 @@ use constant DEFAULTS => {
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
+   [
+      'alien|A!',
+      default => undef,
+      help => 'package some external project, work in current directory',
+   ],
    [
       'config-file|config|c=s',
       default => CONFIG_FILE,
@@ -64,19 +69,14 @@ use constant OPTIONS => [
    [
       'local|l!',
       default => undef,
-      help    => 'change convention for directories layout',
-   ],
-   [
-      'local-clone|L!',
-      default => undef,
-      help => 'clone from current directory',
+      help    => 'change convention for directories layout, work in .dibs',
    ],
    [
       'change-dir|C=s',
       default => undef,
       help    => 'change to dir as current directory',
    ],
-   ['project-dir|p=s', default => DEFAULT_PROJECT_DIR, help => 'project base directory'],
+   ['project-dir|p=s', default => LOCAL_PROJECT_DIR, help => 'project base directory'],
    ['#steps'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
@@ -163,16 +163,26 @@ sub get_config ($args, $defaults = undef) {
       }
    }
 
-   # see if it's a "local" run
-   my $is_local = $sofar->{local};
-   my $is_local_clone = $sofar->{local_clone};
-   if ($is_local || $is_local_clone) {
+   # some configurations have mutual exclusions
+   my ($is_alien, $is_local) = $sofar->@{qw< alien local >};
+   _pod2usage(
+      -message => 'alien and local are mutually exclusive',
+      -exitval => 1,
+   ) if $is_alien && $is_local;
+
+   if ($is_alien) {
+      $defaults->{project_dir} = ALIEN_PROJECT_DIR
+         unless defined($sofar->{project_dir}); # otherwise no point
+   }
+   else {
       $defaults->{project_dir} = LOCAL_PROJECT_DIR
          unless defined($sofar->{project_dir}); # otherwise no point
 
       # force absolute version of config_file path if it exists relative to
       # the current directory, to override search in project dir. This is
-      # valid only because `local` was set.
+      # valid only because either $is_local (i.e. using the current dir
+      # as src directly) or we are cloning the current directory as src, so
+      # the dibs.yml configuration file might be "here"
       my $cnfp = path($sofar->{config_file} // CONFIG_FILE)->absolute;
       $sofar->{config_file} = $cnfp if $cnfp->exists;
    }
@@ -190,8 +200,13 @@ sub get_config ($args, $defaults = undef) {
    my $cnffile = LoadFile($cnfp);
 
    # configurations from the file must have higher precedence with respect
-   # to the defaults. We will keep a couple things anyway.
+   # to the defaults. We will keep a couple things anyway, like project_dir
+   # and friends
    my $overall = _merge($cmdline, $env, $cnffile, $defaults);
+   $overall->{project_dir} = $project_dir;
+   $overall->{config_file} = $cnfp;
+   $overall->{alien}       = $is_alien;
+   $overall->{local}       = $is_local;
 
    # some configurations have mutual exclusions
    my $origin = $overall->{origin} // undef;
@@ -200,19 +215,21 @@ sub get_config ($args, $defaults = undef) {
       -exitval => 1,
    ) if $is_local && defined $origin;
    _pod2usage(
-      -message => 'cannot have both origin and local-clone configurations',
+      -message => 'origin configuration allowed only paired with alien',
       -exitval => 1
-   ) if $is_local_clone && defined $origin;
-   _pod2usage(
-      -message => 'cannot have both local and local-clone configurations',
-      -exitval => 1
-   ) if $is_local && $is_local_clone;
-   $overall->{origin} = cwd->stringify if $is_local_clone;
+   ) if !$is_alien && defined $origin;
 
-   $overall->{project_dir} = $project_dir;
-   $overall->{config_file} = $cnfp;
-   $overall->{local}       = $is_local;
-   $overall->{local_clone} = $is_local_clone;
+   # by default (no alien and no local) the current directory is where we
+   # will take our code from, a.k.a. the "origin". With the defaults, this
+   # is *almost* the same as:
+   #
+   # --alien --config-file "$PWD/dibs.yml" --project-dir dibs --origin .
+   #
+   # except that 'dibs.yml' might be found in the project dir if not
+   # present in the current directory. This optimizes the developer's usage
+   # of dibs while still giving ample flexibility and automation knobs to
+   # everyone else.
+   $overall->{origin} = cwd->stringify unless $is_local || $is_alien;
 
    # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);

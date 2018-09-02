@@ -180,56 +180,187 @@ dir inside the source directory, e.g. making it easy to copy the whole src
 to another destination without C<dibs> project artifacts getting in the
 way.
 
-=head2 External or Local Project
+=head2 Project Modes
 
-C<dibs> supports to major modes of operation: external and local. The
-selection is performed using command line option L<--local>. There is also
-an intermediate mode I<local clone> that is somehow halfway between the
-two, that can be selected with option L<--local-clone>.
+C<dibs> supports a few I<modes of operation> that basically boild down to
+select the right project directory position and layout. They are:
 
-=head3 External mode
+=over
 
-An I<external> type of project means that the source code and the project
-to pack that code in a Docker image are on different tracks, e.g. managed
-by different teams. In this case, as anticipated, the typical layout is
-the following:
+=item *
 
-   <<project>>
+I<development> mode (which is also the default), where the current
+directory is a git repository and C<dibs> is supposed to I<clone> at the
+beginning. The project directory is created as a subdirectory.
+
+=item *
+
+I<local> mode, where the current directory is used directly as the source
+directory. The project directory is created as a subdirectory.
+
+=item *
+
+I<alien> mode, where the current directory is (by default) the I<project
+directory> where C<dibs> operates. The C<src> directory inside it is where
+the code is supposed to be; it can either fetched at the beginning (via
+L</--origin>) or not.
+
+=back
+
+As a rule of thumb, developers that also take care of direct packaging of
+Docker images will work in I<development> mode (i.e. the default), while
+teams packaging code from a remote repository will work in I<alien> mode.
+I<Local> mode should normally be avoided.
+
+=head3 Development mode
+
+In this mode, the directory layout is the following:
+
+   <git-repo>
+   + dibs
+     + cache
+     - [dibs.yml]
+     + dibspacks
+     + env
+     + src
+   - [dibs.yml]
+
+where C<src> is cloned from C<< <sgit-repo> >> at the beginning of
+operations.
+
+The project directory defaults to C<dibs> inside the current directory,
+although this can be changed with option C<--project-dir>.
+
+The C<dibs.yml> file can be put either in the C<< <git-repo> >> itself, or
+inside the project directory. The first has the precedence though.
+
+
+A typical use case (which also gives the name to the mode) is the
+following:
+
+=over
+
+=item *
+
+the C<< <git-repo> >> is a working directory where the developer works on
+the code;
+
+=item *
+
+when ready for packading an image, the developer commits the changes and
+runs C<dibs>;
+
+=item *
+
+there is no step three, the developer restarts working from step one.
+
+=back
+
+FIXME dirty directory FIXME
+
+Another possible use case is the following:
+
+=over
+
+=item *
+
+the C<< <git-repo> >> is a bare git directory, used as a remote/central
+repository by the development team;
+
+=item *
+
+there is a git hook configured to run C<dibs> automatically when new
+changes are pushed to this repository.
+
+=back
+
+=head3 Alien mode
+
+In this mode, the directory layout is the following:
+
+   <project>
    + cache
+   - dibs.yml
    + dibspacks
    + env
    + src
 
 It is upon the team managing the project to make sure that the C<src>
-directory is properly populated with the code from the development team
-(e.g. using a suitable dibspack for checking out a C<git> clone of the
-source repository).
+directory is properly populated with the code from the development team.
+As an option, C<dibs> can clone a git repository if option L<--origin> is
+also set.
 
 In this case, it might well be that the C<dibspacks> directory is
 populated with project-specific dibspacks; note that the same directory is
 also used for automatically generated/retrieved dibspacks, which means
 avoding using file names C<git> and C<immediate> inside the directory.
 
+When running in I<alien> mode, the current working directory is assumed to
+be the project directory. This can be changed with option
+C<--project-dir>.
+
 The configuration file C<dibs.yml> must be contained in the project
 directory.
 
-When running in I<external> mode, the current working directory is assumed
-to be the project directory. This can be changed with option
-C<--project-dir>.
+A typical use case for this mode is the following:
+
+=over
+
+=item *
+
+development and packaging activities are performed by different teams and
+tracked in different repositories. The development team might even be
+unaware of packaging activities through C<dibs>.
+
+=item *
+
+the packaging team has (read-only) access to the development code, and
+performs packaging activities when deemed necessary. It also develops any
+necessary dibspack for properly building/packaging the code.
+
+=back
+
+A totally different use case might be the following:
+
+=over
+
+=item *
+
+the developer adopts the layout above and does code development directly
+inside C<src>
+
+=item *
+
+when ready for packaging the code in a Docker image, the developer runs
+C<dibs> inside the C<< <project> >> directory.
+
+=back
+
+Note that this latter mode of operations might make it more difficult to
+track the changes to the project, so it's adviseable to revert to
+C<development> mode instead.
 
 =head3 Local mode
 
-If there are no specific need for separating the development of the code
-from its packaging inside a Docker image (e.g. for simpler projects, or
-smaller teams that take care of all the aspects), it's possible to work in
-I<local> mode, where the typical layout is the following:
+In this mode, the directory layout is the following:
 
-   <<src>>
-   + .dibs     # name of the <<project>> dir
+   <src>
+   + dibs
      + cache
+     - [dibs.yml]
      + dibspacks
      + empty
      + env
+   - [dibs.yml]
+
+The current (top) directory is used as C<src> directly, without creating
+the C<src> directory inside the project directory (that defaults to
+C<dibs> inside it).
+
+This mode of operations might come handy in I<hackish> situations, but the
+packaging might take a dirty condition in consideration and make the
+process less replicable and more brittle. It is in general adviseable to
+avoid this mode of operation and revert to C<development> mode instead.
 
 The project directory is created automatically by C<dibs> in this case, if
 it does not exists. In this case, when the C<src> directory is mounted,
@@ -239,42 +370,11 @@ not a security measure, but a simplification for handling C<src> inside
 the container, e.g. to copy all of its content to another destination
 without also copying the project-specific files.
 
-C<dibs> itself is an example of a I<local> project.
-
 The configuration file C<dibs.yml> can be either contained in the C<src>
 or in the project sub-directory (they are searched in this order).
 
 When running in I<local> mode, the current working directory is assumed to
 be C<src>.
-
-=head3 Local Clone mode
-
-If there are the same conditions as L</Local mode> and the project is
-tracked with I<Git>, it is possible to leverage the I<local clone> mode,
-which has a layout similar to L</Local mode> but the simplicity of
-L</External mode>.
-
-   <<origin>>
-   + .dibs     # name of the <<project>> dir
-     + cache
-     + dibspacks
-     + env
-     + src
-
-The current directory is the I<origin> that will be cloned. The project
-directory is set to sub-directory C<.dibs> just like L</Local mode>, but
-for the rest it has the I<shape> of the project directory of L</External
-mode>, i.e. it contains the C<src> sub-directory that will be passed into
-the container.
-
-When C<dibs> is run, the origin is cloned into C<src> and then C<.dibs> is
-just a regular project directory for L</External mode>.
-
-The C<dibs.yml> file is searched in the origin directory first, then in
-the C<.dibs> sub-directory, like L</Local mode>.
-
-This is probably how local mode should have been designed in the first
-place.
 
 =head1 OPTIONS
 
@@ -321,6 +421,16 @@ the configuration file; any exception is explicitly acknowledged.
 
 =over
 
+=item --alien
+
+=item -A
+
+=item DIBS_ALIEN
+
+   $dibs --alien
+
+set the L</Alien mode> directory layout.
+
 =item --change-dir
 
 =item -C
@@ -351,7 +461,7 @@ setting inside the configuration file is ignored.
 
 set name of the configuration file. Defaults to C<dibs.yml>.
 
-In L</External mode>, the configuration file must be in the project
+In L</Alien mode>, the configuration file must be in the project
 directory.
 
 In L<Local mode>, it must be either in the C<src> directory or, as
@@ -370,8 +480,8 @@ setting inside the configuration file is ignored.
 
    $ dibs -l
 
-Boolean option to select between L</External mode> and L</Local mode>
-(latter when the value is true).
+Boolean option to select between L</Alien mode> and L</Local mode> (latter
+when the value is true).
 
 The C<DIBS_LOCAL> environment variable is tested as any Perl boolean, so
 only the following values are I<false>: C<undef> (environment variable is
@@ -379,46 +489,6 @@ missing), empty string, number C<0>. Any other value is considered true.
 
 This option is computed before loading the configuration file and cannot
 be overridden even when missing from environment and/or command line.
-
-=item --local-clone
-
-=item -L
-
-=item --no-local-clone
-
-=item DIBS_LOCAL_CLONE
-   
-   $ dibs -L
-
-Boolean option to select a mode that is halfway between L</External mode>
-and L</Local mode>:
-
-=over
-
-=item *
-
-like L</Local mode>, the project directory is set to the C<.dibs>
-sub-directory and the C<dibs.yml> file is searched in the current
-directory first, then in the project directory
-
-=item *
-
-like L</External mode>, the source directory is taken from inside the
-project directory. In particular, the current directory is assumed to be a
-I<Git> repository, and a fresh clone is taken in the C<src> sub-directory
-of the project directory. This also means that there is no messing with
-empty directories etc.
-
-=back
-
-The C<DIBS_LOCAL_CLONE> environment variable is tested as any Perl
-boolean, so only the following values are I<false>: C<undef> (environment
-variable is missing), empty string, number C<0>. Any other value is
-considered true.
-
-This option is computed before loading the configuration file and cannot
-be overridden even when missing from environment and/or command line.
-
 
 =item --origin
 
@@ -447,14 +517,11 @@ The origin can be set inside the C<dibs.yml> file.
 
 set the base directory of the project.
 
-In L</External mode>, all other files are referred to this directory. By
-default it is the current working directory, but this might be affected by
-L</--change-dir>.
+By default (i.e. L</--alien> is not set) it is the C<dibs> sub-directory
+of the current directory (after L</--change-dir>).
 
-In L</Local mode>, the C<src> directory is external from the project
-directory. Additionally, the main configuration file is searched in the
-C<src> directory before the project directory. In this case, the default
-value for this parameter is C<.dibs> (located inside C<src>).
+In L</Alien mode> it defaults to the current directory (after
+L</--change-dir>).
 
 This option is computed before loading the configuration file and cannot
 be overridden even when missing from environment and/or command line.

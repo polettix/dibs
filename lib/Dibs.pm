@@ -122,12 +122,16 @@ sub ensure_host_directories ($self) {
    my $pd = $self->project_dir;
    my $pds = $self->config('project_dirs');
    my @dirs = (CACHE, DIBSPACKS, ENVIRON);
+
+   # in local-mode the current (development) directory is used directly
+   # as src, which might make it inconvenient because the project dir
+   # would become "visibile" inside it. EMPTY will shadow it.
    push @dirs, EMPTY if $is_local;
 
    # SRC might be special and require to be fetched from somewhere
    my $origin = $self->config('origin');
    if (defined $origin) { $self->origin_onto_src($origin) }
-   else                 { push @dirs, SRC }
+   elsif (!$is_local)   { push @dirs, SRC }
 
    # create missing directories in host
    for my $name (@dirs) {
@@ -342,6 +346,9 @@ sub list_volumes ($self) {
    return map {
       my ($name, @mode) = ref($_) ? $_->@* : $_;
       my @r;
+
+      # local mode has a special treatment of SRC (mounts cwd directly)
+      # and adopts EMPTY to shadow the project_dir if it's inside SRC
       if ($is_local && ($name eq SRC)) {
          @r = (cwd->stringify, $cds->{$name}, @mode);
       }
@@ -355,9 +362,13 @@ sub list_volumes ($self) {
             @r = ($pd->child($pds->{$name})->stringify, $target, @mode);
          }
       }
-      elsif ($name ne EMPTY) { # no EMPTY on "old-style" projects
+      # otherwise everything is looked for inside the project_dir and
+      # EMPTY is ignored
+      elsif ($name ne EMPTY) {
          @r = ($pd->child($pds->{$name})->stringify, $cds->{$name}, @mode);
       }
+
+      # save a reference if there's something to be saved, skip otherwise
       @r ? \@r : ();
    } $self->config('volumes')->@*;
 }
