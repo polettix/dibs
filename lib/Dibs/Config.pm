@@ -215,9 +215,9 @@ sub get_config ($args, $defaults = undef) {
       -exitval => 1,
    ) if $is_local && defined $origin;
    _pod2usage(
-      -message => 'origin configuration allowed only paired with alien',
+      -message => 'origin valid with alien or just as fragment part',
       -exitval => 1
-   ) if !$is_alien && defined $origin;
+   ) if !$is_alien && defined($origin) && $origin !~ m{\A\#.+}mxs;
 
    # by default (no alien and no local) the current directory is where we
    # will take our code from, a.k.a. the "origin". With the defaults, this
@@ -229,7 +229,8 @@ sub get_config ($args, $defaults = undef) {
    # present in the current directory. This optimizes the developer's usage
    # of dibs while still giving ample flexibility and automation knobs to
    # everyone else.
-   $overall->{origin} = cwd->stringify unless $is_local || $is_alien;
+   $overall->{origin} = cwd->stringify . ($origin // '')
+      unless $is_local || $is_alien;
 
    # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);
