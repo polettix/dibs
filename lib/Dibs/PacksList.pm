@@ -10,6 +10,7 @@ use Path::Tiny qw< path >;
 use Dibs::Pack;
 use Dibs::Config ':constants';
 use YAML::XS 'LoadFile';
+use Scalar::Util qw< refaddr >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 has moniker => (is => 'ro', required => 1);
@@ -18,11 +19,25 @@ sub list ($self) { return $self->_list->@* }
 
 sub BUILDARGS ($class, $m, $c) {
    use Data::Dumper; $log->debug(Dumper $c);
-   my @l = map {Dibs::Pack->create($c, $_)} __build_list($c, $m);
+   my @l = map {Dibs::Pack->create($c, $_)}
+      __flatten_list($m, {}, __build_list($c, $m));
    return { moniker => $m, _list => \@l };
 }
 
-sub __build_list($config, $what) {
+sub __flatten_list ($what, $flags, @input) {
+   map {
+      if (ref($_) eq 'ARRAY') {
+         my $addr = refaddr($_);
+         ouch 400, "circular reference in dibspacks for $what"
+            if $flags->{$addr};
+         local $flags->{$addr} = 1;
+         __flatten_list($what, $flags, $_->@*);
+      }
+      else { $_ }
+   } @input;
+}
+
+sub __build_list ($config, $what) {
    # first of all check what comes from the configuration
    my $ds = $config->{definitions}{$what}{dibspacks};
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
