@@ -91,7 +91,7 @@ our %EXPORT_TAGS = (
         INDENT
         >
    ],
-   functions => [qw< get_config yaml_boolean >],
+   functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],
 );
 our @EXPORT_OK = do {
    my %flag;
@@ -138,78 +138,25 @@ sub optname ($specish) {
    return $specish;
 }
 
-sub get_config ($args, $defaults = undef) {
-   $defaults //= {
-      DEFAULTS->%*,
-      map {
-         my ($name, %opts) = $_->@*;
-         $name =~ s{[^-\w].*}{}mxs;
-         $name =~ s{-}{_}gmxs;
-         exists($opts{default}) ? ($name => $opts{default}) : ();
-      } OPTIONS->@*
-   };
-   my $env = get_environment(OPTIONS, {%ENV});
-   my $cmdline = get_cmdline(OPTIONS, $args);
-
-   # first step merge command line and environment, leave defaults out
-   # because they might have to be changed depending on options
-   my $sofar = _merge($cmdline, $env);
-
-   # honor request to change directory as early as possible
-   if (defined $sofar->{change_dir}) {
-      if (length($sofar->{change_dir}) && $sofar->{change_dir} ne '.') {
-         chdir $sofar->{change_dir}
-            or ouch 400, "unable to go in '$sofar->{change_dir}': $!";
-      }
-   }
-
-   # some configurations have mutual exclusions
-   my ($is_alien, $is_local) = $sofar->@{qw< alien local >};
-   _pod2usage(
-      -message => 'alien and local are mutually exclusive',
-      -exitval => 1,
-   ) if $is_alien && $is_local;
-
-   if ($is_alien) {
-      $defaults->{project_dir} = ALIEN_PROJECT_DIR
-         unless defined($sofar->{project_dir}); # otherwise no point
-   }
-   else {
-      $defaults->{project_dir} = LOCAL_PROJECT_DIR
-         unless defined($sofar->{project_dir}); # otherwise no point
-
-      # force absolute version of config_file path if it exists relative to
-      # the current directory, to override search in project dir. This is
-      # valid only because either $is_local (i.e. using the current dir
-      # as src directly) or we are cloning the current directory as src, so
-      # the dibs.yml configuration file might be "here"
-      my $cnfp = path($sofar->{config_file} // CONFIG_FILE)->absolute;
-      $sofar->{config_file} = $cnfp if $cnfp->exists;
-   }
-
-   # now merge everything, including defaults. This will definitely set
-   # where the project dir is located and load the configuration file from
-   # there... maybe
-   $sofar          = _merge($sofar, $defaults);
-   my $project_dir = path($sofar->{project_dir});
-
-   # now look for a configuration file. Absolute paths are taken as-is,
-   # relative ones are referred to the project directory
-   my $cnfp = path($sofar->{config_file});
-   $cnfp = $cnfp->absolute($project_dir) if $cnfp->is_relative;
+sub add_config_file ($sofar, $cnfp) {
+   ouch 400, 'no configuration file found' unless $cnfp->exists;
    my $cnffile = LoadFile($cnfp);
 
+   my ($frozen, $cmdline, $env, $defaults) # revive these variables
+      = $sofar->{_sources}->@{qw< frozen cmdline environment defaults >};
+   
+   # save a few values that are frozen by now
+   $frozen->{has_cloned} = $sofar->{has_cloned};
+   $frozen->{config_file} = $cnfp;
+
    # configurations from the file must have higher precedence with respect
-   # to the defaults. We will keep a couple things anyway, like project_dir
-   # and friends
-   my $overall = _merge($cmdline, $env, $cnffile, $defaults);
-   $overall->{project_dir} = $project_dir;
-   $overall->{config_file} = $cnfp;
-   $overall->{alien}       = $is_alien;
-   $overall->{local}       = $is_local;
+   # to the defaults. The "frozen" stuff takes highest precedence anyway.
+   my $overall = _merge($frozen, $cmdline, $env, $cnffile, $defaults);
 
    # some configurations have mutual exclusions
-   my $origin = $overall->{origin} // undef;
+   my $is_alien = $sofar->{alien};
+   my $is_local = $sofar->{local};
+   my $origin   = $overall->{origin} // undef;
    _pod2usage(
       -message => 'cannot have both origin and local configurations',
       -exitval => 1,
@@ -243,7 +190,80 @@ sub get_config ($args, $defaults = undef) {
          overall     => $overall,
          cmdline     => $cmdline,
          environment => $env,
+         frozen      => $frozen,
          cnffile     => $cnffile,
+         defaults    => $defaults,
+      },
+   };
+}
+
+sub get_config_cmdenv ($args, $defaults = undef) {
+   $defaults //= {
+      DEFAULTS->%*,
+      map {
+         my ($name, %opts) = $_->@*;
+         $name =~ s{[^-\w].*}{}mxs;
+         $name =~ s{-}{_}gmxs;
+         exists($opts{default}) ? ($name => $opts{default}) : ();
+      } OPTIONS->@*
+   };
+   my $env = get_environment(OPTIONS, {%ENV});
+   my $cmdline = get_cmdline(OPTIONS, $args);
+
+   # first step merge command line and environment, leave defaults out
+   # because they might have to be changed depending on options
+   my $sofar = _merge($cmdline, $env);
+
+   # honor request to change directory as early as possible
+   if (defined $sofar->{change_dir}) {
+      if (length($sofar->{change_dir}) && $sofar->{change_dir} ne '.') {
+         chdir $sofar->{change_dir}
+            or ouch 400, "unable to go in '$sofar->{change_dir}': $!";
+      }
+   }
+
+   # some configurations have mutual exclusions
+   my ($is_alien, $is_local) = $sofar->@{qw< alien local >};
+   _pod2usage(
+      -message => 'alien and local are mutually exclusive',
+      -exitval => 1,
+   ) if $is_alien && $is_local;
+
+   # "frozen" stuff is frozen here and cannot be otherwise overridden
+   my %frozen = (
+      alien => $is_alien,
+      local => $is_local,
+      development => (!($is_alien || $is_local)),
+   );
+   $frozen{project_dir} = $sofar->{project_dir}
+      if defined($sofar->{project_dir});
+
+   if ($is_alien) {
+      $frozen{project_dir} = ALIEN_PROJECT_DIR
+         unless defined($sofar->{project_dir}); # otherwise no point
+   }
+   else {
+      $frozen{project_dir} = LOCAL_PROJECT_DIR
+         unless defined($sofar->{project_dir}); # otherwise no point
+
+      # force absolute version of config_file path if it exists relative to
+      # the current directory, to override search in project dir. This is
+      # valid only because either $is_local (i.e. using the current dir
+      # as src directly) or we are cloning the current directory as src, so
+      # the dibs.yml configuration file might be "here"
+      my $cnfp = path($sofar->{config_file} // CONFIG_FILE)->absolute;
+      $sofar->{config_file} = $cnfp if $cnfp->exists;
+   }
+
+   # now merge everything, including defaults. This will definitely set
+   # where the project dir is located and load the configuration file from
+   # there... maybe
+   return {
+      _merge(\%frozen, $sofar, $defaults)->%*,
+      _sources => {
+         frozen      => \%frozen,
+         cmdline     => $cmdline,
+         environment => $env,
          defaults    => $defaults,
       },
    };

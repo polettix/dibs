@@ -113,7 +113,8 @@ sub wipe_directory ($self, $name) {
 
 sub origin_onto_src ($self, $origin) {
    my $src_dir = $self->wipe_directory(SRC);
-   return Dibs::Get::get_origin($origin, $src_dir);
+   Dibs::Get::get_origin($origin, $src_dir);
+   return path($src_dir);
 }
 
 sub ensure_host_directories ($self) {
@@ -130,7 +131,9 @@ sub ensure_host_directories ($self) {
 
    # SRC might be special and require to be fetched from somewhere
    my $origin = $self->config('origin');
-   if (defined $origin) { $self->origin_onto_src($origin) }
+   if (defined $origin) {
+      $self->origin_onto_src($origin) unless $self->config('has_cloned');
+   }
    elsif (!$is_local)   { push @dirs, SRC }
 
    # create missing directories in host
@@ -460,7 +463,38 @@ sub run ($self) {
    };
 }
 
-sub main (@as) { __PACKAGE__->new(_config => get_config(\@as))->run }
+sub main (@as) {
+   my $cmdenv = get_config_cmdenv(\@as);
+
+   # start looking for the configuration file, refer it to the project dir
+   # if relative, otherwise leave it as is
+   my $cnfp = path($cmdenv->{config_file});
+   $cnfp->absolute(path($cmdenv->{project_dir})) if $cnfp->is_relative;
+
+   # development mode is a bit special in that dibs.yml might be *inside*
+   # the repository itself
+   if ($cmdenv->{development} && ! $cnfp->exists) {
+
+      # clone origin anticipately
+      my $origin = $cmdenv->{origin} // '';
+      ouch 400, 'origin in development mode can only set #ref'
+         if length($origin) && $origin !~ m{\A\#.+}mxs;
+
+      # use a temporary object to do the cloning
+      my $tmp = __PACKAGE__->new(_config => $cmdenv);
+      $tmp->set_logger;
+      my $src_dir = $tmp->origin_onto_src(".$origin");
+      $cmdenv->{has_cloned} = 1;
+
+      # there's no last chance, so config_file is set 
+      $cnfp = $src_dir->child($cmdenv->{config_file});
+   }
+
+   ouch 400, 'no configuration file found' unless $cnfp->exists;
+
+   my $overall = add_config_file($cmdenv, $cnfp);
+   __PACKAGE__->new(_config => $overall)->run;
+}
 
 1;
 __END__
