@@ -132,7 +132,10 @@ sub ensure_host_directories ($self) {
    # SRC might be special and require to be fetched from somewhere
    my $origin = $self->config('origin');
    if (defined $origin) {
-      $self->origin_onto_src($origin) unless $self->config('has_cloned');
+      if (! $self->config('has_cloned')) {
+         ARROW_OUTPUT('=', "clone of origin '$origin'");
+         $self->origin_onto_src($origin);
+      }
    }
    elsif (!$is_local)   { push @dirs, SRC }
 
@@ -469,21 +472,21 @@ sub main (@as) {
    # start looking for the configuration file, refer it to the project dir
    # if relative, otherwise leave it as is
    my $cnfp = path($cmdenv->{config_file});
-   $cnfp->absolute(path($cmdenv->{project_dir})) if $cnfp->is_relative;
 
    # development mode is a bit special in that dibs.yml might be *inside*
-   # the repository itself
-   if ($cmdenv->{development} && ! $cnfp->exists) {
-
-      # clone origin anticipately
-      my $origin = $cmdenv->{origin} // '';
-      ouch 400, 'origin in development mode can only set #ref'
-         if length($origin) && $origin !~ m{\A\#.+}mxs;
-
-      # use a temporary object to do the cloning
+   # the repository itself and the origin needs to be cloned beforehand
+   my $is_alien = $cmdenv->{alien};
+   my $is_development = $cmdenv->{development};
+   if ((! $cnfp->exists) && ($is_alien || $is_development)) {
       my $tmp = __PACKAGE__->new(_config => $cmdenv);
-      $tmp->set_logger;
-      my $src_dir = $tmp->origin_onto_src(".$origin");
+      $tmp->set_logger; # ensure we can output stuff on log channel
+
+      my $origin = $cmdenv->{origin} // '';
+      $origin = cwd() . $origin
+         if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
+      ARROW_OUTPUT('=', "early clone of origin '$origin'");
+
+      my $src_dir = $tmp->origin_onto_src($origin);
       $cmdenv->{has_cloned} = 1;
 
       # there's no last chance, so config_file is set 

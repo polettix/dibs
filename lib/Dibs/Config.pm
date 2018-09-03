@@ -161,10 +161,6 @@ sub add_config_file ($sofar, $cnfp) {
       -message => 'cannot have both origin and local configurations',
       -exitval => 1,
    ) if $is_local && defined $origin;
-   _pod2usage(
-      -message => 'origin valid with alien or just as fragment part',
-      -exitval => 1
-   ) if !$is_alien && defined($origin) && $origin !~ m{\A\#.+}mxs;
 
    # by default (no alien and no local) the current directory is where we
    # will take our code from, a.k.a. the "origin". With the defaults, this
@@ -235,24 +231,27 @@ sub get_config_cmdenv ($args, $defaults = undef) {
       local => $is_local,
       development => (!($is_alien || $is_local)),
    );
-   $frozen{project_dir} = $sofar->{project_dir}
-      if defined($sofar->{project_dir});
 
+   my $project_dir = $sofar->{project_dir} // undef;
+   my @searchpaths;
    if ($is_alien) {
-      $frozen{project_dir} = ALIEN_PROJECT_DIR
-         unless defined($sofar->{project_dir}); # otherwise no point
+      $project_dir //= ALIEN_PROJECT_DIR;  # otherwise no point
+      @searchpaths = ($project_dir);
    }
-   else {
-      $frozen{project_dir} = LOCAL_PROJECT_DIR
-         unless defined($sofar->{project_dir}); # otherwise no point
+   else { # local mode, development mode
+      $project_dir //= LOCAL_PROJECT_DIR;  # otherwise no point
+      @searchpaths = (cwd(), $project_dir);
+   }
+   $frozen{project_dir} = path($project_dir);
 
-      # force absolute version of config_file path if it exists relative to
-      # the current directory, to override search in project dir. This is
-      # valid only because either $is_local (i.e. using the current dir
-      # as src directly) or we are cloning the current directory as src, so
-      # the dibs.yml configuration file might be "here"
-      my $cnfp = path($sofar->{config_file} // CONFIG_FILE)->absolute;
-      $sofar->{config_file} = $cnfp if $cnfp->exists;
+   my $cnfp = path($sofar->{config_file} // CONFIG_FILE);
+   if ($cnfp->is_relative) {
+      for my $searchpath (@searchpaths) {
+         my $candidate = path($searchpath)->child($cnfp)->absolute;
+         next unless $candidate->exists;
+         $sofar->{config_file} = $candidate;
+         last;
+      }
    }
 
    # now merge everything, including defaults. This will definitely set
