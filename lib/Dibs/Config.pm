@@ -156,24 +156,17 @@ sub add_config_file ($sofar, $cnfp) {
    # some configurations have mutual exclusions
    my $is_alien = $sofar->{alien};
    my $is_local = $sofar->{local};
+   my $is_development = $sofar->{development}:
    my $origin   = $overall->{origin} // undef;
    _pod2usage(
       -message => 'cannot have both origin and local configurations',
       -exitval => 1,
    ) if $is_local && defined $origin;
 
-   # by default (no alien and no local) the current directory is where we
-   # will take our code from, a.k.a. the "origin". With the defaults, this
-   # is *almost* the same as:
-   #
-   # --alien --config-file "$PWD/dibs.yml" --project-dir dibs --origin .
-   #
-   # except that 'dibs.yml' might be found in the project dir if not
-   # present in the current directory. This optimizes the developer's usage
-   # of dibs while still giving ample flexibility and automation knobs to
-   # everyone else.
-   $overall->{origin} = cwd->stringify . ($origin // '')
-      unless $is_local || $is_alien;
+   # now I can set origin... it will be ignored by local and used by others
+   $origin //= '';
+   $overall->{origin} = cwd() . $origin
+         if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
 
    # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);
