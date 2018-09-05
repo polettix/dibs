@@ -156,7 +156,7 @@ sub add_config_file ($sofar, $cnfp) {
    # some configurations have mutual exclusions
    my $is_alien = $sofar->{alien};
    my $is_local = $sofar->{local};
-   my $is_development = $sofar->{development}:
+   my $is_development = $sofar->{development};
    my $origin   = $overall->{origin} // undef;
    _pod2usage(
       -message => 'cannot have both origin and local configurations',
