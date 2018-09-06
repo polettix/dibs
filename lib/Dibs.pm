@@ -11,7 +11,7 @@ use POSIX qw< strftime >;
 use experimental qw< postderef signatures >;
 use Moo;
 no warnings qw< experimental::postderef experimental::signatures >;
-our $VERSION = '0.001';
+{ our $VERSION = '0.001'; }
 
 use Dibs::Config ':all';
 use Dibs::PacksList;
