@@ -76,7 +76,7 @@ sub steps ($self) {
    return $s->@*;
 }
 
-sub resolve_container_path ($self, $zone, $path) {
+sub resolve_container_path ($self, $zone, $path = undef) {
    defined(my $base = $self->config(container_dirs => $zone))
       or ouch 400, "unknown zone $zone for resolution inside container";
    my $retval = path($base);
