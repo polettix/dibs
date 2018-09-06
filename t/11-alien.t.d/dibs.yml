@@ -1,0 +1,25 @@
+---
+name: dibstest
+defaults:
+   variables:
+      - &one one
+      - &two 'two (2)'
+definitions:
+   bar:
+      from: alpine:latest
+      dibspacks:
+         - type: immediate
+           program: |
+               #!/bin/sh
+               printf '%s\n' 'Hello, world! This is bar'
+   foo:
+      from: alpine:latest
+      commit:
+         name: foo
+         keep: no
+      dibspacks:
+         - type: immediate
+           program: |
+               #!/bin/sh
+               printf '%s\n' 'Hello, world! This is foo'
+
