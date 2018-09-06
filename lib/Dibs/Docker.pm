@@ -76,6 +76,8 @@ sub docker_tag ($src, $dst) {
    return $dst;
 }
 
+sub docker_version { eval { assert_command_out(qw< docker --version >) } }
+
 sub expand_environment ($env) {
    map { -e => "$_=$env->{$_}" } keys $env->%*;
 }
