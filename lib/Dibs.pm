@@ -466,7 +466,7 @@ sub run ($self) {
    };
 }
 
-sub main (@as) {
+sub create_from_cmdline ($package, @as) {
    my $cmdenv = get_config_cmdenv(\@as);
 
    # start looking for the configuration file, refer it to the project dir
@@ -496,8 +496,10 @@ sub main (@as) {
    ouch 400, 'no configuration file found' unless $cnfp->exists;
 
    my $overall = add_config_file($cmdenv, $cnfp);
-   __PACKAGE__->new(_config => $overall)->run;
+	return $package->new(_config => $overall);
 }
+
+sub main (@as) { __PACKAGE__->create_from_cmdline(@as)->run }
 
 1;
 __END__
