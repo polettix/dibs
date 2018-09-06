@@ -45,10 +45,13 @@ like $dibspacks[0]->program, qr{\A\#!/bin/sh\s}mxs,
 
 ok length($dibspacks[0]->name), 'dibspack has a name';
 
-#$dibs->wipe_directory('src');
+$dibs->wipe_directory('src');
+ok !$work_dir->child('src')->exists,
+   'src directory does not exists previously';
 $dibs->ensure_host_directories;
 ok $work_dir->child('src')->exists, 'src directory created';
 
+$dibs->wipe_directory($_) for qw< cache env dibspacks src >;
 done_testing();
 
 sub clean_environment { delete @ENV{(grep {/^DIBS_/} keys %ENV)} }
