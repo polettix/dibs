@@ -71,7 +71,7 @@ sub docker_run (%args) {
    my $retval = run_command(\@command, $args{indent} ? INDENT : 0);
    return $retval unless wantarray;
 
-   my $cid = $args{keep} ? $cidfile->slurp_raw : undef;
+   my $cid = $args{keep} && $cidfile->exists ? $cidfile->slurp_raw : undef;
    $cidfile->remove if $cidfile->exists;
    return ($retval, $cid);
 }
