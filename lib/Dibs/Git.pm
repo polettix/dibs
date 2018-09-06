@@ -12,6 +12,28 @@ no warnings qw< experimental::postderef experimental::signatures >;
 use Dibs::Run qw< assert_command assert_command_out >;
 use Dibs::Output;
 
+sub checkout_ref ($path, $ref = 'master') {
+   local $CWD = path($path)->stringify;
+   assert_command [qw< git checkout >, $ref];
+   my $out = assert_command_out [qw< git branch >];
+   my ($active) = $out =~ m{^ \* \s* (.*?) $}mxs;
+   return if substr($active, 0, 1) eq '(';    # detached head, exact point
+   assert_command [qw< git merge >, "origin/$ref"];
+   return;
+} ## end sub checkout_ref
+
+sub clone ($origin, $dir) {
+   $dir = path($dir)->stringify;
+   assert_command [qw< git clone >, $origin, $dir];
+   return;
+}
+
+sub _current_origin ($path) {
+   local $CWD = path($path)->stringify;
+   my $out = assert_command_out [qw< git remote get-url origin >];
+   return $out =~ s{\s+\z}{}rmxs;
+}
+
 sub fetch ($uri, $path) {
    my $ref = $uri =~ m{\#}mxs ? $uri =~ s{\A.*\#}{}rmxs : 'master';
    _fetch($uri =~ s{\#.*}{}rmxs, $path);
@@ -33,28 +55,10 @@ sub _fetch ($origin, $dir) {
    assert_command [qw< git fetch origin >];
 
    return $dir;
-}
+} ## end sub _fetch
 
-sub clone ($origin, $dir) {
-   $dir = path($dir)->stringify;
-   assert_command [qw< git clone >, $origin, $dir];
-   return;
-}
-
-sub _current_origin ($path) {
-   local $CWD = path($path)->stringify;
-   my $out = assert_command_out [qw< git remote get-url origin >];
-   return $out =~ s{\s+\z}{}rmxs;
-}
-
-sub checkout_ref ($path, $ref = 'master') {
-   local $CWD = path($path)->stringify;
-   assert_command [qw< git checkout >, $ref];
-   my $out = assert_command_out [qw< git branch >];
-   my ($active) = $out =~ m{^ \* \s* (.*?) $}mxs;
-   return if substr($active, 0, 1) eq '('; # detached head, exact point
-   assert_command [qw< git merge >, "origin/$ref"];
-   return;
+sub git_version {
+   eval { assert_command_out(qw< git --version >) }
 }
 
 1;
