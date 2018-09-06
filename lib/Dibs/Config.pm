@@ -164,9 +164,9 @@ sub add_config_file ($sofar, $cnfp) {
    ) if $is_local && defined $origin;
 
    # now I can set origin... it will be ignored by local and used by others
-   $origin //= '';
+   $origin //= '' if $is_development;
    $overall->{origin} = cwd() . $origin
-         if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
+         if defined($origin) && $origin =~ m{\A (?: \#.+ | \z )}mxs;
 
    # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);
