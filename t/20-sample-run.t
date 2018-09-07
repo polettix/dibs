@@ -1,7 +1,11 @@
 use strict;
+use 5.024;
 use Test::More;
 use Path::Tiny qw< path cwd >;
 use Dibs::Run;
+
+use lib path(__FILE__)->parent->stringify;
+use DibsTest;
 
 use Test2::Mock;
 my ($mocker, @collected);
@@ -22,8 +26,8 @@ use Data::Dumper;
 
 clean_environment();
 
-
 my $work_dir = path(__FILE__ . '.d')->absolute;
+my $guard = directory_guard($work_dir);
 my $dibs = Dibs->create_from_cmdline(
    -C => $work_dir,
    qw< foo bar >
@@ -54,10 +58,7 @@ my $out;
 check_collected_actions(@collected);
 is $out, "foo: foo:latest\n", 'output of the whole thing';
 
-$dibs->wipe_directory($_) for qw< cache env dibspacks src >;
 done_testing();
-
-sub clean_environment { delete @ENV{(grep {/^DIBS_/} keys %ENV)} }
 
 sub check_collected_actions (@got) {
    subtest 'collected actions' => sub {
