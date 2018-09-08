@@ -16,33 +16,36 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
-use constant BIN         => 'bin';
-use constant CACHE       => 'cache';
-use constant DIBSPACKS   => 'dibspacks';
-use constant DPFILE      => '.dibspacks';
-use constant EMPTY       => 'empty';
-use constant ENVIRON     => 'env';
-use constant GIT         => 'git';
-use constant INSIDE      => 'inside';
-use constant PROJECT     => 'project';
-use constant IMMEDIATE   => 'immediate';
-use constant SRC         => 'src';
-use constant DETECT_OK   => ((0 << 8) | 0);
-use constant DETECT_SKIP => ((100 << 8) | 0);
-use constant INDENT      => 7;
+use constant BIN               => 'bin';
+use constant CACHE             => 'cache';
+use constant DIBSPACKS         => 'dibspacks';
+use constant DPFILE            => '.dibspacks';
+use constant EMPTY             => 'empty';
+use constant ENVIRON           => 'env';
+use constant GIT               => 'git';
+use constant INSIDE            => 'inside';
+use constant PROJECT           => 'project';
+use constant IMMEDIATE         => 'immediate';
+use constant SRC               => 'src';
+use constant DETECT_OK         => ((0 << 8) | 0);
+use constant DETECT_SKIP       => ((100 << 8) | 0);
+use constant INDENT            => 7;
 use constant ALIEN_PROJECT_DIR => '.';
 use constant LOCAL_PROJECT_DIR => 'dibs';
 use constant CONFIG_FILE       => 'dibs.yml';
 
 use constant DEFAULTS => {
-   project_dirs =>
-     {CACHE, 'cache', DIBSPACKS, 'dibspacks', ENVIRON, 'env', SRC, 'src',
-     EMPTY, 'empty'},
+   project_dirs => {
+      CACHE,   'cache', DIBSPACKS, 'dibspacks',
+      ENVIRON, 'env',   SRC,       'src',
+      EMPTY,   'empty'
+   },
    container_dirs => {
       CACHE,   '/tmp/cache', DIBSPACKS, '/tmp/dibspacks',
       ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
    },
-   volumes => [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
+   volumes =>
+     [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
    dibspack_dirs => [SRC, CACHE, ENVIRON],
 };
 use constant OPTIONS => [
@@ -76,7 +79,11 @@ use constant OPTIONS => [
       default => undef,
       help    => 'get src from specific "location"',
    ],
-   ['project-dir|p=s', default => LOCAL_PROJECT_DIR, help => 'project base directory'],
+   [
+      'project-dir|p=s',
+      default => LOCAL_PROJECT_DIR,
+      help    => 'project base directory'
+   ],
    ['#steps'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
@@ -114,12 +121,12 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    GetOptionsFromArray(
       $cmdline, \%config,
       qw< usage! help! man! version!  >,
-      grep {substr($_, 0, 1) ne '#'} map { $_->[0] } $optspecs->@*,
+      grep { substr($_, 0, 1) ne '#' } map { $_->[0] } $optspecs->@*,
    ) or _pod2usage(-exitval => 1);
    if ($config{version}) {
       my $version = 'unknown';
       $version = main::version() if main->can('version');
-      _pod2usage(-message => $version, -sections => ' ')
+      _pod2usage(-message => $version, -sections => ' ');
    }
    _pod2usage() if $config{usage};
    _pod2usage(-sections => 'USAGE|EXAMPLES|OPTIONS')
@@ -136,17 +143,17 @@ sub optname ($specish) {
    $specish =~ s{[^-\w].*}{}mxs;
    $specish =~ s{-}{_}gmxs;
    return $specish;
-}
+} ## end sub optname ($specish)
 
 sub add_config_file ($sofar, $cnfp) {
    ouch 400, 'no configuration file found' unless $cnfp->exists;
    my $cnffile = LoadFile($cnfp);
 
-   my ($frozen, $cmdline, $env, $defaults) # revive these variables
-      = $sofar->{_sources}->@{qw< frozen cmdline environment defaults >};
-   
+   my ($frozen, $cmdline, $env, $defaults)    # revive these variables
+     = $sofar->{_sources}->@{qw< frozen cmdline environment defaults >};
+
    # save a few values that are frozen by now
-   $frozen->{has_cloned} = $sofar->{has_cloned};
+   $frozen->{has_cloned}  = $sofar->{has_cloned};
    $frozen->{config_file} = $cnfp;
 
    # configurations from the file must have higher precedence with respect
@@ -154,10 +161,10 @@ sub add_config_file ($sofar, $cnfp) {
    my $overall = _merge($frozen, $cmdline, $env, $cnffile, $defaults);
 
    # some configurations have mutual exclusions
-   my $is_alien = $sofar->{alien};
-   my $is_local = $sofar->{local};
+   my $is_alien       = $sofar->{alien};
+   my $is_local       = $sofar->{local};
    my $is_development = $sofar->{development};
-   my $origin   = $overall->{origin} // undef;
+   my $origin         = $overall->{origin} // undef;
    _pod2usage(
       -message => 'cannot have both origin and local configurations',
       -exitval => 1,
@@ -166,7 +173,7 @@ sub add_config_file ($sofar, $cnfp) {
    # now I can set origin... it will be ignored by local and used by others
    $origin //= '' if $is_development;
    $overall->{origin} = cwd() . $origin
-         if defined($origin) && $origin =~ m{\A (?: \#.+ | \z )}mxs;
+     if defined($origin) && $origin =~ m{\A (?: \#.+ | \z )}mxs;
 
    # adjust definitions and variables (that are "expanded" if needed)
    adjust_definitions($overall);
@@ -184,7 +191,7 @@ sub add_config_file ($sofar, $cnfp) {
          defaults    => $defaults,
       },
    };
-}
+} ## end sub add_config_file
 
 sub get_config_cmdenv ($args, $defaults = undef) {
    $defaults //= {
@@ -207,9 +214,9 @@ sub get_config_cmdenv ($args, $defaults = undef) {
    if (defined $sofar->{change_dir}) {
       if (length($sofar->{change_dir}) && $sofar->{change_dir} ne '.') {
          chdir $sofar->{change_dir}
-            or ouch 400, "unable to go in '$sofar->{change_dir}': $!";
+           or ouch 400, "unable to go in '$sofar->{change_dir}': $!";
       }
-   }
+   } ## end if (defined $sofar->{change_dir...})
 
    # some configurations have mutual exclusions
    my ($is_alien, $is_local) = $sofar->@{qw< alien local >};
@@ -220,19 +227,19 @@ sub get_config_cmdenv ($args, $defaults = undef) {
 
    # "frozen" stuff is frozen here and cannot be otherwise overridden
    my %frozen = (
-      alien => $is_alien,
-      local => $is_local,
+      alien       => $is_alien,
+      local       => $is_local,
       development => (!($is_alien || $is_local)),
    );
 
    my $project_dir = $sofar->{project_dir} // undef;
    my @searchpaths;
    if ($is_alien) {
-      $project_dir //= ALIEN_PROJECT_DIR;  # otherwise no point
+      $project_dir //= ALIEN_PROJECT_DIR;    # otherwise no point
       @searchpaths = ($project_dir);
    }
-   else { # local mode, development mode
-      $project_dir //= LOCAL_PROJECT_DIR;  # otherwise no point
+   else {                                    # local mode, development mode
+      $project_dir //= LOCAL_PROJECT_DIR;    # otherwise no point
       @searchpaths = (cwd(), $project_dir);
    }
    $frozen{project_dir} = path($project_dir);
@@ -244,8 +251,8 @@ sub get_config_cmdenv ($args, $defaults = undef) {
          next unless $candidate->exists;
          $sofar->{config_file} = $candidate;
          last;
-      }
-   }
+      } ## end for my $searchpath (@searchpaths)
+   } ## end if ($cnfp->is_relative)
 
    # now merge everything, including defaults. This will definitely set
    # where the project dir is located and load the configuration file from
@@ -259,7 +266,7 @@ sub get_config_cmdenv ($args, $defaults = undef) {
          defaults    => $defaults,
       },
    };
-} ## end sub get_config
+} ## end sub get_config_cmdenv
 
 sub yaml_boolean ($v) {
    return 0 unless defined $v;
@@ -300,14 +307,12 @@ sub adjust_default_variables ($overall) {
       my ($key, $value) = $var->%*;
       next unless ($key eq 'function') && (ref($value) eq 'ARRAY');
       my $function = shift $value->@* // 'undefined';
-      state $cb_for = {
-         join => sub { my $s = shift; join $s, @_ },
-      };
+      state $cb_for = {join => sub { my $s = shift; join $s, @_ },};
       ouch 400, "unhandled expansion function $function"
-         unless exists $cb_for->{$function};
+        unless exists $cb_for->{$function};
       $var->{$key} = $cb_for->{$function}->($value->@*);
-   }
-}
+   } ## end for my $var ($variables...)
+} ## end sub adjust_default_variables ($overall)
 
 sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
    my %config;
