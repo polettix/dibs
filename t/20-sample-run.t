@@ -45,10 +45,10 @@ is_deeply \@collected, [
 
 @collected = ();
 
-my $out;
+my ($err, $out);
 {
    local *STDERR;
-   open STDERR, '>', \my $err;
+   open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
    $dibs->run;
@@ -57,6 +57,8 @@ my $out;
 #diag Dumper \@collected;
 check_collected_actions(@collected);
 is $out, "foo: foo:latest\n", 'output of the whole thing';
+
+diag $err;
 
 done_testing();
 

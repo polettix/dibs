@@ -11,7 +11,7 @@ definitions:
          - type: immediate
            program: |
                #!/bin/sh
-               printf '%s\n' 'Hello, world! This is bar'
+               printf >&2 '%s\n' 'Hello, world! This is bar'
    foo:
       from: alpine:latest
       commit:
