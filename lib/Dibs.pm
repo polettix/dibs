@@ -444,10 +444,11 @@ sub run ($self) {
    $self->set_logger;
    $self->set_run_metadata;
    $self->dump_configuration;
-   $self->ensure_host_directories;
 
    my @tags_lists;
-   return try {
+   try {
+      $self->ensure_host_directories;
+
       for my $step ($self->steps) {
          ARROW_OUTPUT('=', "step $step");
          if (my @tags = $self->run_step($step)) {
@@ -458,13 +459,13 @@ sub run ($self) {
          my ($step, @tags) = $_->@*;
          say "$step: @tags";
       }
-      0;
    }
    catch {
+      my $e = $_;
       $self->cleanup_tags($_->@*) for reverse @tags_lists;
-      $log->fatal(bleep);
-      1;
+      die $e;
    };
+   return 0;
 }
 
 sub create_from_cmdline ($package, @as) {
@@ -500,7 +501,15 @@ sub create_from_cmdline ($package, @as) {
 	return $package->new(_config => $overall);
 }
 
-sub main (@as) { __PACKAGE__->create_from_cmdline(@as)->run }
+sub main (@as) {
+   my $retval = try {
+      __PACKAGE__->create_from_cmdline(@as)->run;
+   }
+   catch {
+      $log->fatal(bleep);
+   };
+   return($retval // 0);
+}
 
 1;
 __END__
