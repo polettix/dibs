@@ -30,6 +30,7 @@ my $work_dir = path(__FILE__ . '.d')->absolute;
 my $guard = directory_guard($work_dir);
 my $dibs = Dibs->create_from_cmdline(
    -C => $work_dir,
+   '-D', # allow dirty, won't be cloning anything anyway
    qw< foo bar >
 );
 isa_ok $dibs, 'Dibs';
