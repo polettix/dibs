@@ -52,14 +52,14 @@ use constant OPTIONS => [
       help => 'package some external project, work in current directory',
    ],
    [
+      'change-dir|C=s',
+      default => undef,
+      help    => 'change to dir as current directory',
+   ],
+   [
       'config-file|config|c=s',
       default => CONFIG_FILE,
       help    => 'name of configfile'
-   ],
-   [
-      'origin|O=s',
-      default => undef,
-      help    => 'get src from specific "location"',
    ],
    [
       'host-project-dir|H=s',
@@ -72,9 +72,9 @@ use constant OPTIONS => [
       help    => 'change convention for directories layout, work in .dibs',
    ],
    [
-      'change-dir|C=s',
+      'origin|O=s',
       default => undef,
-      help    => 'change to dir as current directory',
+      help    => 'get src from specific "location"',
    ],
    ['project-dir|p=s', default => LOCAL_PROJECT_DIR, help => 'project base directory'],
    ['#steps'],
