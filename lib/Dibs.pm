@@ -113,7 +113,8 @@ sub wipe_directory ($self, $name) {
 
 sub origin_onto_src ($self, $origin) {
    my $src_dir = $self->wipe_directory(SRC);
-   Dibs::Get::get_origin($origin, $src_dir);
+   my $dirty = $self->config('dirty') // undef;
+   Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty});
    return path($src_dir);
 }
 

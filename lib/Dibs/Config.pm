@@ -65,6 +65,11 @@ use constant OPTIONS => [
       help    => 'name of configfile'
    ],
    [
+      'dirty|dirty-origin-is-ok|D!',
+      default => undef,
+      help    => 'accept a dirty origin (strongly discouraged)',
+   ],
+   [
       'host-project-dir|H=s',
       default => undef,
       help    => 'project base dir (dind-like)'

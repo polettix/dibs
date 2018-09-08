@@ -9,7 +9,7 @@ use Ouch qw< :trytiny_var >;
 use Dibs::Run qw< assert_command >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-sub get_origin ($source, $target) {
+sub get_origin ($source, $target, $options = {}) {
    # complain loudly if $target exists. Ensure it's a plain string
    $target = path($target);
    ouch 500, "target directory $target exists" if $target->exists;
@@ -30,7 +30,7 @@ sub get_origin ($source, $target) {
    # this is just paranoia, double check that there is something to call
    my $callback = __PACKAGE__->can("_get_origin_$source{type}")
       or ouch 400, "unknown source type $source{type}";
-   $callback->($source{location}, $target);
+   $callback->($source{location}, $target, $options);
 
    # change owner if needed. This generally requires using sudo or root
    assert_command(qw< chown -R >, $source{user}, $target)
@@ -39,15 +39,17 @@ sub get_origin ($source, $target) {
    return;
 }
 
-sub _get_origin_git ($uri, $target) {
+sub _get_origin_git ($uri, $target, $options) {
    my ($origin, $ref) = split m{\#}mxs, $uri;
    require Dibs::Git;
+   ouch 400, "origin $origin is in a dirty state (see manual for --dirty)"
+      if $options->{clean_only} && Dibs::Git::is_dirty($origin);
    Dibs::Git::clone($origin, $target);
    Dibs::Git::checkout_ref($target, $ref) if length($ref // '');
    return;
 }
 
-sub _get_origin_dir ($path, $target) {
+sub _get_origin_dir ($path, $target, $options) {
    $path->is_dir or ouch 400, "origin directory $path does not exist";
    assert_command(qw< cp -a >, path($path)->stringify,
       path($target)->stringify);

@@ -59,5 +59,18 @@ sub _fetch ($origin, $dir) {
 
 sub git_version { eval { assert_command_out([qw< git --version >]) } }
 
+sub is_dirty ($uri) {
+   return eval { # exceptions taken as "not dirty"
+      return if $uri =~ m{\A [a-zA-Z]\w :// }mxs;
+      my $path = path($uri =~ s{\#.*}{}rmxs)->stringify;
+      return unless -d $path;
+      local $CWD = $path;
+      my $is_bare = assert_command_out [qw< git config --local --get core.bare >];
+      return if lc($is_bare) eq 'true';
+      my $dirt = assert_command_out [qw< git status --porcelain >];
+      return length($dirt // '');
+   };
+}
+
 1;
 __END__
