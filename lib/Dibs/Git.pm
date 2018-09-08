@@ -62,11 +62,21 @@ sub git_version { eval { assert_command_out([qw< git --version >]) } }
 sub is_dirty ($uri) {
    return eval { # exceptions taken as "not dirty"
       return if $uri =~ m{\A [a-zA-Z]\w :// }mxs;
-      my $path = path($uri =~ s{\#.*}{}rmxs)->stringify;
+      my ($origin, $ref) = split m{\#}mxs, $uri, 2;
+      my $path = path($origin)->stringify;
       return unless -d $path;
+
+      # examine the (local) origin. Bare repos are OK by definition
       local $CWD = $path;
       my $is_bare = assert_command_out [qw< git config --local --get core.bare >];
       return if lc($is_bare) eq 'true';
+
+      # an exact reference is OK as long as it's not the current branch
+      my $branches = assert_command_out [qw< git branch >];
+      my ($current_branch) = $branches =~ m{^\* \s+ (.*?) \s*$}mxs;
+      return if length($ref // '') && $ref ne $current_branch;
+
+      # check for repo's dirty state
       my $dirt = assert_command_out [qw< git status --porcelain >];
       return length($dirt // '');
    };
