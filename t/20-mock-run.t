@@ -58,8 +58,6 @@ my ($err, $out);
 check_collected_actions(@collected);
 is $out, "foo: foo:latest\n", 'output of the whole thing';
 
-diag $err;
-
 done_testing();
 
 sub check_collected_actions (@got) {
