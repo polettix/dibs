@@ -9,4 +9,8 @@ requires 'IPC::Run',        '20180523.0';
 requires 'File::chdir',     '0.1010';
 requires 'Try::Catch',      '1.1.0';
 requires 'Module::Runtime', '0.016';
-requires 'Test2::Suite',    '0.000115';
+
+on test => sub {
+   requires 'Test2::Suite',    '0.000115';
+   requires 'Test::Exception', '0.43';
+};
