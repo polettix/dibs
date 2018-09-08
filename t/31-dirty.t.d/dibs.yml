@@ -1,0 +1,23 @@
+---
+name: dibstest
+defaults:
+   variables:
+      - &one one
+      - &two 'two (2)'
+definitions:
+   bar:
+      from: alpine:latest
+      dibspacks:
+         - type: immediate
+           program: |
+               #!/bin/sh
+               printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+           args: [*one, *two]
+   foo:
+      from: alpine:latest
+      dibspacks:
+         - type: immediate
+           program: |
+               #!/bin/sh
+               printf '%s\n' 'Hello, world! This is foo'
+
