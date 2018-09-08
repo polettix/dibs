@@ -13,7 +13,7 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Config ':constants';
 use Dibs::Output;
-use Dibs::Run qw< run_command assert_command >;
+use Dibs::Run qw< run_command assert_command assert_command_out >;
 
 sub docker_commit ($cid, $tag, $changes = undef) {
    my @command = qw< docker commit >;
@@ -37,6 +37,7 @@ sub docker_rmi ($tag) {
    OUTPUT("removing tag $tag", INDENT);
    assert_command([qw< docker rmi >, $tag]);
    return;
+
 }
 
 sub docker_run (%args) {
@@ -76,7 +77,7 @@ sub docker_tag ($src, $dst) {
    return $dst;
 }
 
-sub docker_version { eval { assert_command_out(qw< docker --version >) } }
+sub docker_version { eval { assert_command_out([qw< docker --version >]) } }
 
 sub expand_environment ($env) {
    map { -e => "$_=$env->{$_}" } keys $env->%*;

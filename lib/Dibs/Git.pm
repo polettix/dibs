@@ -57,9 +57,7 @@ sub _fetch ($origin, $dir) {
    return $dir;
 } ## end sub _fetch
 
-sub git_version {
-   eval { assert_command_out(qw< git --version >) }
-}
+sub git_version { eval { assert_command_out([qw< git --version >]) } }
 
 1;
 __END__

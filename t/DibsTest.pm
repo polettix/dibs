@@ -8,12 +8,24 @@ no warnings qw< experimental::postderef experimental::signatures >;
 our @EXPORT = our @EXPORT_OK = qw<
    clean_environment
    directory_guard
+   has_docker
+   has_git
 >;
 
 
 sub clean_environment { delete @ENV{(grep {/^DIBS_/} keys %ENV)} }
+
 sub directory_guard ($path) { return DibsTest::FreezeDir->new($path) }
 
+sub has_docker {
+   require Dibs::Docker;
+   return defined Dibs::Docker::docker_version();
+}
+
+sub has_git {
+   require Dibs::Git;
+   return defined Dibs::Git::git_version();
+}
 
 package DibsTest::FreezeDir;
 use strict;
