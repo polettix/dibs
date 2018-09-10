@@ -65,8 +65,17 @@ sub create ($pkg, $config, $spec) {
       $args = $class->parse_specification($data, $config);
    }
    $args = $pkg->validate($pkg->merge_defaults($args, $config));
+   $pkg->expand_dwim($args);
    $class //= $pkg->class_for(delete $args->{type});
    return $class->new($config, $args);
+}
+
+sub expand_dwim ($pkg, $args) {
+   if (exists($args->{run}) && !exists($args->{type})) {
+      $args->{type}    = 'immediate';
+      $args->{program} = delete $args->{run};
+   }
+   return $args;
 }
 
 sub merge_defaults ($pkg, $args, $config) {

@@ -16,8 +16,7 @@ definitions:
    foo:
       from: alpine:latest
       dibspacks:
-         - type: immediate
-           program: |
+         - run: |
                #!/bin/sh
                printf '%s\n' 'Hello, world! This is foo'
 

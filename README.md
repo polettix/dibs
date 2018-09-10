@@ -652,7 +652,25 @@ the ref to checkout). In this case, the repository is supposed to contain
 a program called `operate` in the root directory, which will eventually be
 called as entry point of the dibspack.
 
-Dibpacks of type `immediate` have no shortcut syntax.
+Dibpacks of type `immediate` have the following *shortcut* syntax, which is
+not in the form of a simple string but a very tight associative array instead:
+
+    build:
+      dibspacks:
+        - run: |
+            #!/bin/sh
+            printf '%s\n' 'Hello, world!'
+        ...
+
+The above example is equivalent to the following:
+
+    build:
+      dibspacks:
+        - type: immediate
+          program: |
+            #!/bin/sh
+            printf '%s\n' 'Hello, world!'
+        ...
 
 #### Providing `args` to a dibspack
 
