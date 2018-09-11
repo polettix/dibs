@@ -1,5 +1,4 @@
-dibs - Docker image build system
---------------------------------
+= dibs - Docker image build system
 
 `dibs` aims at automating the process from code to Docker image, with
 flexibility as to the base images used (mainly to enable building on top
@@ -17,16 +16,14 @@ during the process.
 when needed and saving images along the way, when requested to do so
 * automates rollback of saved images if something goes wrong
 
-Introduction
-~~~~~~~~~~~~
+== Introduction
 
 First things first: why `dibs`? The main need is to pack a Docker
 container image starting from some code, much like what can be done with
 a https://docs.docker.com/engine/reference/builder/[Dockerfile]… let’s
 look at a few problems and how `dibs` addresses them.
 
-Trimming Container Images
-^^^^^^^^^^^^^^^^^^^^^^^^^
+=== Trimming Container Images
 
 Just putting the code inside a container is not sufficient, because…
 
