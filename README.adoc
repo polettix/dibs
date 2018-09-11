@@ -81,8 +81,7 @@ In this way, _build_ operations can be performed in the context of a
 _heavier_ container image, while the _bundle_ operation relies on a
 _leaner_ starting container image, providing a _leaner_ result.
 
-Reuse of operations
-^^^^^^^^^^^^^^^^^^^
+=== Reuse of operations
 
 Another common problem with
 https://docs.docker.com/engine/reference/builder/[Dockerfile]s has to do
@@ -104,13 +103,11 @@ the same spirit, `dibs` leverages _dibspacks_ to accomplish operations;
 these can be shared and loaded easily and automatically, so that the
 user only has to select and configure the right ones.
 
-Basics
-~~~~~~
+== Basics
 
 Some basic concepts to understand how to use `dibs`.
 
-Directory Layouts
-^^^^^^^^^^^^^^^^^
+=== Directory Layouts
 
 `dibs` assumes that there is a _project directory_ where things are kept
 nicely. The basic structure of a project is the following:
@@ -168,8 +165,7 @@ passing artifacts through the different stages
 coded directly, or automatically downloaded via
 https://git-scm.com/[Git])
 
-Dibspacks
-^^^^^^^^^
+=== Dibspacks
 
 The actual operations are performed through __dibspack__s. The starting
 idea is taken from https://www.heroku.com/[Heroku]’s
@@ -227,8 +223,7 @@ rm -rf "$cache_dir/local" &&
 cp -a local "$cache_dir"
 ....
 
-Source
-~~~~~~
+== Source
 
 Depending on which _mode_ is set, the directory layout is different.
 
@@ -258,8 +253,7 @@ directory itself, so it’s assumed to be already there. This can be
 useful when doing local development, for example, with local generation
 of images.
 
-Dibspacks
-~~~~~~~~~
+== Dibspacks
 
 Dibspacks are at the real core of `dibs`; it would be able to do very
 little without. We already touched upon what a dibspack is: a program to
@@ -308,8 +302,7 @@ the future.
 A full selection of dibspacks can be found in
 https://github.com/polettix/dibspack-basic[dibspack-basic].
 
-Configuration
-~~~~~~~~~~~~~
+== Configuration
 
 The configuration is kept, by default, inside YAML file `dibs.yml`; it’s
 possible to change this though, so that multiple alternative
@@ -377,8 +370,7 @@ In this way it’s possible to prepare (and maintain) a build and a bundle
 images, and leverage them for doing the actual needed work, generating a
 lean output Docker image.
 
-Running
-~~~~~~~
+== Running
 
 When run, `dibs` looks for the steps to be executed, and runs them.
 
@@ -406,15 +398,13 @@ include build tools, like a compiler;
 image that only contains the needed tools for running (but does not
 include building tools)
 
-Examples
-~~~~~~~~
+== Examples
 
 `dibs` allows taking a flexible approach to building images, which might
 be overwhelming. Here are a few examples that might apply in different
 situations.
 
-`dibs` itself
-^^^^^^^^^^^^^
+=== `dibs` itself
 
 This was the `dibs.yml` file for building the `dibs` image at some stage
 of its life:
@@ -503,8 +493,7 @@ of its life:
 This leverages both remote and local dibspacks. The following
 sub-sections add some considerations on the above example.
 
-Defaults
-++++++++
+==== Defaults
 
 The `defaults` section has two sub-sections, one (`variables`), mostly
 used internally in a _YAML-way_, the other one (`dibspack`) consumed by
@@ -567,8 +556,7 @@ case, the default is also assigned a YAML label for later direct reuse.
 28             path: dibspacks/user-docker.sh
 ....
 
-Structure
-+++++++++
+==== Structure
 
 The definition contains four definitions, two for _base images_, one for
 building the code and the last one for bundling the final output image.
@@ -662,8 +650,7 @@ respectively inside `build` and `bundle`. Keeping them separate allows
 reducing the time for installing pre-requisites, which is a form of
 controlled caching.
 
-Steps
-+++++
+==== Steps
 
 The `steps` section only runs for `build` and `bundle` because these are
 the _recurrent_ operations. These two definitions leverage on the
@@ -675,7 +662,7 @@ Generating the images is easy anyway, because the `dibs.yml` file
 contains the relevant definitions:
 
 ....
-$ dibs --local --steps builder,runner
+$ dibs --local builder,runner
 ....
 
 After this, the regular _build&bundle_ process can be run simply as
@@ -685,8 +672,7 @@ this:
 $ dibs --local
 ....
 
-Shortcut syntax for dibspacks
-+++++++++++++++++++++++++++++
+==== Shortcut syntax for dibspacks
 
 Line 54 shows a shortcut syntax for including a dibspack in the list for
 a definition:
@@ -747,8 +733,7 @@ build:
     ...
 ....
 
-Providing `args` to a dibspack
-++++++++++++++++++++++++++++++
+==== Providing `args` to a dibspack
 
 The arguments passed to a dibspack during invocation are:
 
@@ -850,8 +835,7 @@ args:
   - path_cache: whatever
 ....
 
-Setting defaults
-++++++++++++++++
+==== Setting defaults
 
 If a dibspack is reused over and over (e.g. leveraging a suite of
 dibspacks collected in a single git repository, much like
@@ -895,8 +879,7 @@ definitions:
            user: root
 ....
 
-Environment Variables Handling
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=== Environment Variables Handling
 
 It is possible to specify environment variables in multiple places; the
 following list gives the priority (the higher in the list, the more it
