@@ -114,61 +114,63 @@ Some basic concepts to understand how to use `dibs`.
 
 === Directory Layouts
 
-`dibs` assumes that there is a _project directory_ where things are kept
-nicely. The basic structure of a project is the following:
+`dibs` sets the base in a _project directory_ where things are kept nicely.
+There are a few ways the whole directory tree can be organized though.
+
+By default there is the _development mode_, where the project directory is the
+`dibs` sub-directory of the current directory:
 
 ....
-<PROJECT_DIR>
+<git-repo>
+    - dibs
+        - cache
+        - dibspacks
+        - [dibs.yml]
+        - env
+        - src
+    - [dibs.yml]
+....
+
+This comes particularly handy when developing and the main directory is also
+the root for a git repository; alternatively, it might also fit nicely within
+a git bare repository.
+
+The `dibs.yml` file contains the
+configurations, and can be placed either in the git repo itself or inside the
+`dibs` project directory.
+
+An alternative setup is the so-called _alien mode_, which can be selected
+through an option (`--alien`) and has the following layout:
+
+....
+<dibs-project-dir>
     - cache
-    - dibs.yml
     - dibspacks
+    - dibs.yml
     - env
     - src
 ....
 
-`dibs` expects to find a configuration file. By default, it’s the
-`dibs.yml` file you see in the directory structure above, but you have
-means to provide an alternative one.
-
-To be completely fair, the layout above is not the only one out of the
-box. That is the way to go if there is a clear separation between the
-development and the packaging phases (e.g. different teams, or setting
-up a generic system like https://www.heroku.com/[Heroku] or
-http://dokku.viewdocs.io/dokku/[Dokku]), because it will be up to the
-packaging _team_ to make sure that the code to use for building the
-image ends up in the `src` directory.
-
-If simplicity is preferred (e.g. for single-person developments, or
-small teams), it is also possible to work in _local_ mode and have a
-slighly different layout:
-
-....
-<SOURCE_DIR>
-    - dibs.yml
-    - .dibs
-        - cache
-        - dibspacks
-        - env
-....
-
-Here, the role of `PROJECT_DIR` is taken by the sub-directory `.dibs`,
-with the exception that the code is at the root of the whole setup. As a
-matter of fact, it’s not even necessary to create the `.dibs` directory
-in this case, because `dibs` will do this as needed.
+The assumption here is that the code to package is taken from somewhere else
+or is already inside `src`. An example use case would be a team packaging
+somebody else's repository. Again, there is a `dibs.yml' to keep al different
+configurations.
 
 Whatever the layout, anyway, the following directories are of interest:
 
-* _project_ directory (`<PROJECT_DIR>` or `.dibs` in the two layouts) is
-a basecamp for `dibs` operations
-* _source_ directory (`src` or `<SOURCE_DIR>` in the two layouts) is
-where the source code is
+* _project_ directory is a basecamp for `dibs` operations
+
+* `src` is where the source code is or is put and then made available to
+* containers
+
 * `cache` is a read-write directory that is available through all steps
-of a `dibs` run, as well as different invocations, and useful for
-passing artifacts through the different stages
+of a `dibs` run, as well as different invocations, and useful for passing
+artifacts through the different stages
+
 * `env` is a read-only directory that might be useful to have around
+
 * `dibspacks` is where most of the dibspacks will be available (either
-coded directly, or automatically downloaded via
-https://git-scm.com/[Git])
+coded directly, or automatically downloaded via https://git-scm.com/[Git])
 
 === Dibspacks
 
