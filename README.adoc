@@ -1,4 +1,7 @@
 = dibs - Docker image build system
+// vim: ts=4 sts=4 sw=4 et ai colorcolumn=79 tw=78 :
+:toc:
+:toc-placement!:
 
 `dibs` aims at automating the process from code to Docker image, with
 flexibility as to the base images used (mainly to enable building on top
@@ -15,6 +18,8 @@ during the process.
 * automates lookup of code to execute in each step, calling `docker`
 when needed and saving images along the way, when requested to do so
 * automates rollback of saved images if something goes wrong
+
+toc::[]
 
 == Introduction
 
