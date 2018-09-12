@@ -59,9 +59,9 @@ image can be broken into _steps_:
 
 * each step runs a sequence of operations that stack upon a container
 image much like a
-https://docs.docker.com/engine/reference/builder/[Dockerfile]
+https://docs.docker.com/engine/reference/builder/[Dockerfile] does;
 * different steps can pass artifacts around thanks to some shared
-directories
+directories;
 * only the containers of the steps of interest are kept, others are
 thrown away.
 
@@ -70,10 +70,10 @@ steps like this:
 
 ....
   _____________     +-------------+
- /             \    |             | - start from "build"-ready image
- | Shared dirs |----| Build Step  | - compile in container
- | ----------- |    |             | - save in cache
- |             |    +-------------+
+ /             \    |             | - start from "build"-ready image, with
+ | Shared dirs |----| Build Step  |   compiler & other build tools inside
+ | ----------- |    |             | - compile in container
+ |             |    +-------------+ - save in cache
  |       src - |    
  |     cache - |    +-------------+
  |       env - |    |             | - start from "runtime"-ready image
@@ -111,6 +111,42 @@ user only has to select and configure the right ones.
 == Basics
 
 Some basic concepts to understand how to use `dibs`.
+
+=== Workflow
+
+When run, `dibs` goes through two main phases: the setup and the execution of
+_steps_.
+
+The setup phase collects all available information for the specific run. It
+merges together different sources (command line parameters, environment
+variables, and the configuration file), making also sure that the source code
+is fetched and made ready for operating the different steps.
+
+The steps phase runs through a customized series of steps. Each step runs
+a series of operations starting from a container image and operating in layers
+on top of it; these operations are performed through _dibspacks_ (see below).
+When the series is complete, the step might just through away the resulting
+pile of container layers, or save them in a container image. This makes it
+possible to ditch away container layers for _build_ steps, and keep those for
+_bundle_ steps (where the target image is packaged).
+
+=== Dibspacks
+
+The actual operations are performed through __dibspack__s. The starting
+idea is taken from https://www.heroku.com/[Heroku]’s
+https://devcenter.heroku.com/articles/buildpacks[buildpacks], but there
+is actually little resemblance left as of now.
+
+A _dibspack_ is a program (whose location can be specified flexibly);
+this program can be used to perform an action within a container. This
+is more or less what the `build` program in a buildpack is for; the
+other programs are not supported (either because they can be embedded in
+the main dibspack program, like `detect`, or because they are not used
+by `dibs`).
+
+The program will be executed inside containers. The resulting container
+is then used as a base for further dibspacks executions inside the same
+step and also for saving a final image (if so configured).
 
 === Directory Layouts
 
@@ -153,7 +189,7 @@ through an option (`--alien`) and has the following layout:
 
 The assumption here is that the code to package is taken from somewhere else
 or is already inside `src`. An example use case would be a team packaging
-somebody else's repository. Again, there is a `dibs.yml' to keep al different
+somebody else's repository. Again, there is a `dibs.yml` to keep al different
 configurations.
 
 Whatever the layout, anyway, the following directories are of interest:
@@ -171,64 +207,6 @@ artifacts through the different stages
 
 * `dibspacks` is where most of the dibspacks will be available (either
 coded directly, or automatically downloaded via https://git-scm.com/[Git])
-
-=== Dibspacks
-
-The actual operations are performed through __dibspack__s. The starting
-idea is taken from https://www.heroku.com/[Heroku]’s
-https://devcenter.heroku.com/articles/buildpacks[buildpacks], but there
-is actually little resemblance left as of now.
-
-A _dibspack_ is a program (whose location can be specified flexibly);
-this program can be used to perform an action within a container. This
-is more or less what the `build` program in a buildpack is for; the
-other programs are not supported (either because they can be embedded in
-the main dibspack program, like `detect`, or because they are not used
-by `dibs`).
-
-The program will be executed inside containers. The resulting container
-is then used as a base for further dibspacks executions inside the same
-step and also for saving a final image (if so configured).
-
-Each _dibspack_ is passed some command line arguments. The first three
-are _always_ the same, namely (in order):
-
-* the absolute path to the _source_ directory from within the container;
-* the absolute path to the cache directory, from within the container;
-* the absolute path to the env directory, from within the container.
-
-It’s the same as what is provided to the `build` program of a
-https://devcenter.heroku.com/articles/buildpacks[buildpack]. `dibs` also
-allows passing additional arguments though, whose definition and
-semantics are specific to each dibspack.
-
-Dibspacks can be located in many different positions:
-
-* within the `dibs.yml` file itself
-* inside the `dibspacks` directory (that is also available inside the
-container, although its position is not passed on the command line)
-* in some location inside the source directory
-* in a git repository, either local or remote
-
-Depending on the type of dibspack, `dibs` will first fetch the
-associated code and then run it, all automatically. For a collection of
-basic dibspack, it’s possible to look at the
-https://github.com/polettix/dibspack-basic[dibspack-basic] repository. A
-simple example program might be the following (assuming that the build
-tools are already available in the container):
-
-....
-#!/bin/sh
-src_dir="$1"
-cache_dir="$2"
-
-cd "$src_dir" &&
-rm -rf local &&
-cp -a "$cache_dir/local" . &&
-carton install --deployment &&
-rm -rf "$cache_dir/local" &&
-cp -a local "$cache_dir"
-....
 
 == Source
 
@@ -263,8 +241,52 @@ of images.
 == Dibspacks
 
 Dibspacks are at the real core of `dibs`; it would be able to do very
-little without. We already touched upon what a dibspack is: a program to
-execute some task.
+little without.
+
+We already touched upon what a dibspack is: a program to execute some task.
+When run, a _dibspack_ is passed some command line arguments. The first three
+are _always_ the same, namely (in order):
+
+* the absolute path to the _source_ directory from within the container;
+* the absolute path to the _cache_ directory, from within the container;
+* the absolute path to the _env_ directory, from within the container.
+
+It’s the same as what is provided to the `build` program of a
+https://devcenter.heroku.com/articles/buildpacks[buildpack]. `dibs` also
+allows passing additional arguments though, whose definition and
+semantics are specific to each dibspack; these additional parameters can be
+thought as the parameters normally passed to a custom function.
+
+Dibspacks can be located in many different positions:
+
+* within the `dibs.yml` file itself
+* inside the `dibspacks` directory (that is also available inside the
+container, although its position is not passed on the command line)
+* in some location inside the source directory
+* in a git repository, either local or remote
+
+Depending on the type of dibspack, `dibs` will first fetch the
+associated code and then run it, all automatically. For a collection of
+basic dibspack, it’s possible to look at the
+https://github.com/polettix/dibspack-basic[dibspack-basic] repository. A
+simple example program might be the following (assuming that the build
+tools are already available in the container):
+
+....
+#!/bin/sh
+src_dir="$1"
+cache_dir="$2"
+
+# make any error complain loudly and fail the dibspack
+set -e
+
+cd "$src_dir"
+rm -rf local
+cp -a "$cache_dir/local" .
+carton install --deployment
+rm -rf "$cache_dir/local"
+cp -a local "$cache_dir"
+....
 
 `dibs` supports different ways for you to configure the location of
 dibspacks, which should cover a wide range of needs. They are documented
