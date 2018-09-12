@@ -21,7 +21,7 @@ when needed and saving images along the way, when requested to do so
 
 toc::[]
 
-== Introduction
+== But... _why_?
 
 First things first: why `dibs`? The main need is to pack a Docker
 container image starting from some code, much like what can be done with
@@ -48,8 +48,8 @@ https://docs.docker.com/engine/reference/builder/[Dockerfile], there are
 two choices:
 
 * keep the tools around, or get rid of them while still having a _fat_
-image (due to how filesystem overlays work, what is _deleted_ in a layer
-only hides it from lower layers, but the space is still needed)
+image.footnote:[ Due to how filesystem overlays work, what is _deleted_ in a layer
+only hides it from lower layers, but the space is still needed];
 * install the tools and remove them in the same phase of the
 https://docs.docker.com/engine/reference/builder/[Dockerfile], thus
 making it difficult to cache or pinpoint the tools themselves.
