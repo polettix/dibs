@@ -12,17 +12,22 @@ definitions:
       from: alpine:latest
       dibspacks:
          - type: immediate
+           envile:
+             BAR: baaaz
            program: |
-               #!/bin/sh
-               printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+             #!/bin/sh
+             env_dir="$3/iles"
+             printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+             BAR="$(cat "$env_dir/BAR")"
+             printf >&2 '%s\n' "Here BAR is <$BAR>"
            args: [*one, *two]
    foo:
       from: alpine:latest
       dibspacks:
          - run: |
-               #!/bin/sh
-               env_dir="$3/iles"
-               printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
-               FOO="$(cat "$env_dir/FOO")"
-               printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
+             #!/bin/sh
+             env_dir="$3/iles"
+             printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
+             FOO="$(cat "$env_dir/FOO")"
+             printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
 
