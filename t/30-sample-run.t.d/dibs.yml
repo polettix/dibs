@@ -1,6 +1,9 @@
 ---
 name: dibstest
 defaults:
+   envile:
+      - FOO: bar
+        BAR: baz
    variables:
       - &one one
       - &two 'two (2)'
@@ -18,5 +21,8 @@ definitions:
       dibspacks:
          - run: |
                #!/bin/sh
-               printf '%s\n' 'Hello, world! This is foo'
+               env_dir="$3/iles"
+               printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
+               FOO="$(cat "$env_dir/FOO")"
+               printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
 
