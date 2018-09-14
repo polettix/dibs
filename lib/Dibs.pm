@@ -10,6 +10,7 @@ use Try::Catch;
 use POSIX qw< strftime >;
 use experimental qw< postderef signatures >;
 use Moo;
+use Guard;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
@@ -76,12 +77,20 @@ sub steps ($self) {
    return $s->@*;
 }
 
-sub resolve_container_path ($self, $zone, $path = undef) {
-   defined(my $base = $self->config(container_dirs => $zone))
+sub _resolve_path ($self, $space, $zone, $path) {
+   defined (my $base = $self->config($space => $zone))
       or ouch 400, "unknown zone $zone for resolution inside container";
    my $retval = path($base);
    $retval = $retval->child($path) if length($path // '');
    return $retval->stringify;
+}
+
+sub resolve_project_path ($self, $zone, $path = undef) {
+   $self->project_dir($self->_resolve_path(project_dirs => $zone, $path));
+}
+
+sub resolve_container_path ($self, $zone, $path = undef) {
+   return $self->_resolve_path(container_dirs => $zone, $path);
 }
 
 sub set_logger($self) {
@@ -170,7 +179,8 @@ sub iterate_dibspacks ($self, $step) {
          my $name = $dp->name;
          ARROW_OUTPUT('+', "dibspack $name");
 
-         $args->{env} = $self->coalesce_envs($dp, $step, $args);
+         $args->{$_} = $self->coalesce_envs($dp, $step, $args, $_)
+            for qw< env envile >;
 
          if ($dp->needs_fetch) {
             ARROW_OUTPUT('-', 'fetch dibspack');
@@ -193,6 +203,9 @@ sub call_dibspack ($self, $dp, $step, $args) {
    my $stepname = $self->dconfig($step, 'step') // $step;
    my ($exitcode, $cid, $out);
    try {
+      my $enviles = $self->write_enviles($args->{envile});
+      scope_guard { $enviles->remove_tree({safe => 0}) if $enviles };
+
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
          $args->%*,
          $dp->docker_run_args,
@@ -216,12 +229,30 @@ sub call_dibspack ($self, $dp, $step, $args) {
    return;
 }
 
-sub coalesce_envs ($self, $dp, $step, $args) {
+sub write_enviles ($self, $spec) {
+   my $env_dir = path($self->resolve_project_path(ENVIRON), 'iles');
+   if ($env_dir->exists && !$env_dir->is_dir) {
+      if ($env_dir->is_dir) {
+         $env_dir->remove_tree({safe => 0});
+      }
+      else {
+         $log->info("skipping writing enviles");
+         return;
+      }
+   }
+   $env_dir->mkpath;
+   while (my ($name, $value) = each $spec->%*) {
+      $env_dir->child($name)->spew_raw($value);
+   }
+   return $env_dir;
+}
+
+sub coalesce_envs ($self, $dp, $step, $args, $key = 'env') {
    my $stepc = $self->dconfig($step);
    return __merge_envs(
-      $self->config(defaults => 'env'),
-      $stepc->{env},
-      $dp->env,
+      $self->config(defaults => $key),
+      $stepc->{$key},
+      $dp->$key,
       $self->all_metadata,
       {
          DIBS_FROM_IMAGE => $stepc->{from},

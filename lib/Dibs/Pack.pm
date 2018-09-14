@@ -16,6 +16,7 @@ use Dibs::Config qw< :constants :functions >;
 
 has name           => (is => 'ro', required => 1);
 has env            => (is => 'ro', default => sub { return {} });
+has envile         => (is => 'ro', default => sub { return {} });
 has indent         => (is => 'ro', default => sub { return 42 });
 has _args          => (
    coerce   => \&__parse_args,

@@ -50,6 +50,12 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       vars 0
+  Guard-1.023
+    pathname: M/ML/MLEHMANN/Guard-1.023.tar.gz
+    provides:
+      Guard 1.023
+    requirements:
+      ExtUtils::MakeMaker 0
   IPC-Run-20180523.0
     pathname: T/TO/TODDR/IPC-Run-20180523.0.tar.gz
     provides:
