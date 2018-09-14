@@ -247,17 +247,25 @@ sub write_enviles ($self, $spec) {
    return $env_dir;
 }
 
+sub metadata_for_envile ($self, $dp, $step, $args) {
+   return (
+      $self->all_metadata,
+      {
+         DIBS_FROM_IMAGE => ($self->dconfig($step, 'from') // ''),
+         DIBS_WORK_IMAGE => $args->{image},
+         DIBS_STEP       => $step,
+      },
+   );
+}
+
 sub coalesce_envs ($self, $dp, $step, $args, $key = 'env') {
    my $stepc = $self->dconfig($step);
+   my $method = $self->can("metadata_for_$key");
    return __merge_envs(
       $self->config(defaults => $key),
       $stepc->{$key},
       $dp->$key,
-      $self->all_metadata,
-      {
-         DIBS_FROM_IMAGE => $stepc->{from},
-         DIBS_WORK_IMAGE => $args->{image},
-      },
+      ($method ? $self->$method($dp, $step, $args) : ()),
    );
 }
 
@@ -538,6 +546,7 @@ sub main (@as) {
    }
    catch {
       $log->fatal(bleep);
+      1;
    };
    return($retval // 0);
 }
