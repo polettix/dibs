@@ -36,14 +36,13 @@ ok ! $dibs->config('local'), 'local not set';
 
 is $dibs->config('origin'), $work_dir, 'origin set for development';
 
-my @dibspacks = $dibs->dibspacks_for('foo');
-is scalar(@dibspacks), 1, 'one dibspack defined for foo';
-isa_ok $dibspacks[0], $_ for qw< Dibs::Pack Dibs::Pack::Immediate >;
-like $dibspacks[0]->program, qr{\A\#!/bin/sh\s}mxs,
-   'program probably as expected';
+my @actions = $dibs->actions_for('foo');
+is scalar(@actions), 1, 'one dibspack defined for foo';
+isa_ok $actions[0], $_ for qw< Dibs::Action >;
 
-ok length($dibspacks[0]->name), 'dibspack has a name';
+ok length($actions[0]->name), 'dibspack has a name';
 
+$work_dir->child('dibs')->remove_tree({safe => 0});
 done_testing();
 
 sub clean_environment { delete @ENV{(grep {/^DIBS_/} keys %ENV)} }

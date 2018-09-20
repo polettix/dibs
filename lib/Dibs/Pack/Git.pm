@@ -16,21 +16,15 @@ use Dibs::Git;
 extends 'Dibs::Pack';
 has origin     => (is => 'ro', required => 1);
 has _full_orig => (is => 'lazy');
-has local_path => (is => 'ro', required => 1);
-has path       => (is => 'ro', default => 'operate');
 has ref        => (is => 'ro', required => 1);
-has fetched    => (is => 'rw', default => 0);
 
-sub BUILDARGS ($class, $config, @args) {
-   my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
+sub BUILDARGS ($class, $args, $dibs) {
+   my %spec = ref($args) ? $args->%* : (origin => $args);
 
    my $origin = $spec{origin};
    ouch 400, 'no origin provided' unless length($origin // '');
 
-   if (! defined $spec{name}) {
-      $spec{name} = $origin;
-      $spec{name} .= " -> $spec{path}" if length($spec{path} // '');
-   }
+   $spec{name} //= $origin;
 
    if ($origin =~ m{\#}mxs) {
       ouch 400, 'cannot specify ref and fragment in URL'
@@ -39,34 +33,30 @@ sub BUILDARGS ($class, $config, @args) {
       $origin = $spec{origin};
    }
 
-   $spec{ref} = 'master' unless length($spec{ref} // '');
-   
-   my $p = Path::Tiny::path(GIT, md5_hex($origin));
-   $spec{local_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
-   $p = $p->child($spec{path}) if length($spec{path} //= '');
-   $spec{host_path} = $class->resolve_host_path($config, DIBSPACKS, $p);
-   $spec{container_path} =
-      $class->resolve_container_path($config, DIBSPACKS, $p);
+   delete $spec{ref} unless length($spec{ref} // '');
 
+   my $path = Path::Tiny::path(GIT, md5_hex($origin));
+   $spec{host_path} = $dibs->resolve_project_path(DIBSPACKS, $path);
+   $spec{container_path} = $dibs->resolve_container_path(DIBSPACKS, $path);
+   
    return \%spec;
 }
 
-sub parse_specification ($c, $origin, @rest) { return {origin => $origin} }
-
-sub needs_fetch ($self) { return ! $self->fetched }
-
-sub fetch ($self) {
-   Dibs::Git::fetch($self->_full_orig, $self->local_path);
-   $self->fetched(1);
+sub materialize ($self) {
+   Dibs::Git::fetch($self->_full_orig, $self->host_path);
 }
 
+around resolve_paths => sub ($super, $self, $path) {
+   return $self->$super($path // 'operate');
+};
+
 sub _build__full_orig ($self) {
-   my $ref = $self->ref // '';
-   return $self->origin unless length $ref;
+   my $ref = $self->ref;
+   return $self->origin unless length($ref // '');
    return $self->origin . '#' . $ref;
 }
 
-sub _build_id ($self) { return $self->_full_orig }
+sub _build_id ($self) { return GIT . ':' . $self->_full_orig }
 
 1;
 __END__

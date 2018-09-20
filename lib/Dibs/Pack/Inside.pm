@@ -11,17 +11,29 @@ use Dibs::Config ':constants';
 
 extends 'Dibs::Pack';
 
-sub BUILDARGS ($class, $config, @args) {
-   my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
+sub BUILDARGS ($class, $args, $dibs) {
+   if (ref($args) ne 'HASH') {
+      my $type = $class->type;
+      ouch 400,
+         "dibspack of type '$type' does not accept inline specification";
+   }
+   my %spec = ref($args) ? $args->%* : (path => $args);
    my $path = delete $spec{path};
    ouch 400, 'no path' unless length($path // '');
-   $spec{name} //= INSIDE . ':' . $path;
+   $spec{id} = INSIDE . ':' . $path; # not really important...
+   $spec{name} //= $spec{id};
    $spec{host_path} = undef;
    $spec{container_path} = $path;
    return \%spec;
 }
 
-sub parse_specification ($class, $path, @rest) { return {path => $path} }
+around resolve_paths => sub ($super, $self, $path) {
+   if (defined $path) { # by default there's no subpath support
+      my $type = $self->type;
+      ouch 400, "dibspack of type '$type' does not accept paths";
+   }
+   return $self->$super;
+};
 
 1;
 __END__

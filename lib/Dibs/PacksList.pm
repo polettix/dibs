@@ -28,7 +28,7 @@ sub __flatten_list ($what, $flags, @input) {
    map {
       if (ref($_) eq 'ARRAY') {
          my $addr = refaddr($_);
-         ouch 400, "circular reference in dibspacks for $what"
+         ouch 400, "circular reference in actions for $what"
             if $flags->{$addr};
          local $flags->{$addr} = 1;
          __flatten_list($what, $flags, $_->@*);
@@ -39,7 +39,8 @@ sub __flatten_list ($what, $flags, @input) {
 
 sub __build_list ($config, $what) {
    # first of all check what comes from the configuration
-   my $ds = $config->{definitions}{$what}{dibspacks};
+   my $ds = $config->{definitions}{$what}{actions}
+      // $config->{definitions}{$what}{dibspacks};
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
 
    # now check for a .dibspacks in the source directory

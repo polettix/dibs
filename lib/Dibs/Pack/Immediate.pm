@@ -14,8 +14,8 @@ extends 'Dibs::Pack';
 
 has program => (is => 'ro', required => 1);
 
-sub BUILDARGS ($class, $config, @args) {
-   my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
+sub BUILDARGS ($class, $args, $dibs) {
+   my %spec = $args->%*;
 
    ouch 400, 'no program provided' unless defined $spec{program};
    ouch 400, 'empty program provided' unless length $spec{program};
@@ -25,29 +25,23 @@ sub BUILDARGS ($class, $config, @args) {
       $spec{program} =~ s{^$prefix}{}gmxs;
    }
 
-   my $id = $spec{id} = md5_hex($spec{program});
+   my $id = $spec{id} = IMMEDIATE . ':' . md5_hex($spec{program});
    $spec{name} //= $id;
 
-   my @as = ($config, DIBSPACKS, Path::Tiny::path(IMMEDIATE, $id));
-   $spec{host_path} = $class->resolve_host_path(@as);
-   $spec{container_path} = $class->resolve_container_path(@as);
+   my $path = Path::Tiny::path(IMMEDIATE, $id);
+   $spec{host_path} = $dibs->resolve_project_path(DIBSPACKS, $path);
+   $spec{container_path} = $dibs->resolve_container_path(DIBSPACKS, $path);
 
    return \%spec;
 }
 
-sub parse_specification {
-   ouch 400, 'cannot use inline specification with Immediate dibspacks';
-}
-
-sub needs_fetch ($self) { return ! -e $self->host_path }
-
-sub fetch ($self) {
+sub materialize ($self) {
    my $path = Path::Tiny::path($self->host_path);
    $path->parent->mkpath;
    $path->spew_utf8($self->program);
    $path->chmod('a+x');
+   return;
 }
-
 
 1;
 __END__

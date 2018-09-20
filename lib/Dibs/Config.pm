@@ -18,12 +18,15 @@ our $VERSION = '0.001';
 
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
+use constant DEFAULTS_FIELD    => 'defaults';
+use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
-use constant DPFILE            => '.dibspacks';
+use constant DPFILE            => '.dibsactions';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
+use constant OPERATE           => 'operate';
 use constant PROJECT           => 'project';
 use constant IMMEDIATE         => 'immediate';
 use constant SRC               => 'src';
@@ -97,8 +100,8 @@ use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [
       qw<
-        BIN CACHE DIBSPACKS DPFILE EMPTY ENVIRON GIT IMMEDIATE
-        INSIDE PROJECT SRC
+        BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
+        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DETECT_OK DETECT_SKIP
         INDENT
         >

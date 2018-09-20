@@ -1,6 +1,7 @@
 use strict;
 use 5.024;
 use Test::More;
+use Test::Exception;
 use Path::Tiny qw< path cwd >;
 use Dibs::Run;
 
@@ -47,13 +48,13 @@ is_deeply \@collected, [
 @collected = ();
 
 my ($err, $out);
-{
+lives_ok {
    local *STDERR;
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
    $dibs->run;
-}
+} '$dibs->run lives';
 
 #diag Dumper \@collected;
 check_collected_actions(@collected);

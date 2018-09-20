@@ -7,9 +7,8 @@ defaults:
 definitions:
    bar:
       from: alpine:latest
-      dibspacks:
-         - type: immediate
-           program: |
+      actions:
+         - run: |
                #!/bin/sh
                printf >&2 '%s\n' 'Hello, world! This is bar'
    foo:
@@ -17,9 +16,8 @@ definitions:
       commit:
          name: foo
          tags: ['latest']
-      dibspacks:
-         - type: immediate
-           program: |
+      actions:
+         - run: |
                #!/bin/sh
                printf '%s\n' 'Hello, world! This is foo'
 

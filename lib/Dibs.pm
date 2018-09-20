@@ -15,7 +15,8 @@ no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
 use Dibs::Config ':all';
-use Dibs::PacksList;
+use Dibs::Pack;
+use Dibs::ActionsList;
 use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
@@ -27,8 +28,57 @@ our @EXPORT = ();
 has _config => (is => 'ro', required => 1);
 has _project_dir => (is => 'lazy');
 has _host_project_dir => (is => 'lazy');
-has _dibspacks_for => (is => 'ro', default => sub { return {} });
+has _actions_for => (is => 'ro', default => sub { return {} });
+has _dibspack_for => (is => 'ro', default => sub { return {} });
 has all_metadata => (is => 'ro', default => sub { return {} });
+
+sub dibspack_for ($self, $spec) {
+   my $defaults_for = $self->config(DEFAULTS_FIELD, DIBSPACK) // {};
+   if (! ref($spec)) {
+      my $ns = $defaults_for->{$spec}
+         or ouch 400, "no dibspack '$spec' in defaults, typo?";
+      $spec = $ns;
+   }
+   $self->expand_defaults($spec, $defaults_for)
+      if ref($spec) eq 'HASH'; # in-place expansion of hash specifications
+   my $dibspack = Dibs::Pack->create($spec, $self);
+
+   # materialize and cache dibspack if needed
+   my $id = $dibspack->id;
+   my $df = $self->_dibspack_for;
+   if (! exists($df->{$id})) {
+      if ($dibspack->can('materialize')) {
+         ARROW_OUTPUT('-', 'materialize dibspack');
+         $dibspack->materialize;
+      }
+      $df->{$id} = $dibspack;
+   }
+
+   return $df->{$id};
+}
+
+sub expand_defaults ($self, $hash, $defaults_for, $flags = {}) {
+   defined(my $ds = delete($hash->{defaults})) or return;
+   $defaults_for = $self->config(DEFAULTS_FIELD, $defaults_for)
+      unless ref $defaults_for;
+   for my $name (ref($ds) ? $ds->@* : $ds) {
+      ouch 400, "circular reference involving dibspack '$name'"
+         if $flags->{$name}++;
+
+      # $defaults will hold the defaults to be merged into $hash. Make
+      # sure to recursively resolve its defaults though
+      my $defaults = $defaults_for->{$name}
+         or ouch 500, "no dibspack '$name' in defaults, typo?";
+      $self->expand_defaults($defaults, $defaults_for, $flags);
+
+      # merge hashes and proceed to next default
+      $hash->%* = ($defaults->%*, $hash->%*);
+
+      # the same default might be ancestor to multiple things
+      delete $flags->{$name};
+   }
+   return $hash;
+}
 
 sub add_metadata ($self, %pairs) {
    my $md = $self->all_metadata;
@@ -158,34 +208,29 @@ sub ensure_host_directories ($self) {
    return;
 }
 
-sub dibspacks_for ($self, $step) {
-   my $dfor = $self->_dibspacks_for;
-   $dfor->{$step} //= Dibs::PacksList->new($step, $self->config);
-   return $dfor->{$step}->list;
+sub actions_for ($self, $step) {
+   my $afor = $self->_actions_for;
+   $afor->{$step} //= [Dibs::ActionsList::create($self, $step)];
+   return $afor->{$step}->@*;
 }
 
-sub iterate_dibspacks ($self, $step) {
+sub iterate_actions ($self, $step) {
    # continue only if it makes sense...
    ouch 400, "no definitions for $step"
       unless defined $self->dconfig($step);
-   my @dibspacks = $self->dibspacks_for($step) or return;
+   my @actions = $self->actions_for($step) or return;
 
    # these "$args" (anon hash) contain arguments that are reused across all
-   # dibspacks in this specific step
+   # actions in this specific step
    my $args = $self->prepare_args($step);
    try {
       DIBSPACK:
-      for my $dp (@dibspacks) {
+      for my $dp (@actions) {
          my $name = $dp->name;
          ARROW_OUTPUT('+', "dibspack $name");
 
          $args->{$_} = $self->coalesce_envs($dp, $step, $args, $_)
             for qw< env envile >;
-
-         if ($dp->needs_fetch) {
-            ARROW_OUTPUT('-', 'fetch dibspack');
-            $dp->fetch;
-         }
 
          ARROW_OUTPUT('-', 'run');
          $self->call_dibspack($dp, $step, $args);
@@ -466,7 +511,7 @@ sub run_step ($self, $name) {
    my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
 
    # "do the thing"
-   my $image = $self->iterate_dibspacks($name);
+   my $image = $self->iterate_actions($name);
 
    # check if commit is required, otherwise default to ditch this container
    if ($pc->{keep}) {

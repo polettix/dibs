@@ -1,5 +1,5 @@
 ---
-name: dibs
+name: dibsy
 steps:
    - qbuild
    - qbundle
@@ -14,7 +14,7 @@ defaults:
       - function: &version_maj_min
          ['join', '.', *version_major, *version_minor]
       - commit: &commit
-         name: dibs
+         name: dibsy
          tags: [ 'latest', *version ]
          entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
                "--", "/profilexec", "/app/bin/dibs" ]
@@ -24,82 +24,87 @@ defaults:
          type:   git
          origin: https://github.com/polettix/dibspack-basic.git
          user:   user
-      prereqs_build: &prereqs_build
-         type:   git
-         origin: https://github.com/polettix/dibspack-basic.git
-         path:   prereqs
-         args:   ['-s', 'build']
-         user:   root
-      prereqs_bundle: &prereqs_bundle
-         type:   git
-         origin: https://github.com/polettix/dibspack-basic.git
-         path:   prereqs
-         args:   ['-s', 'bundle']
-         user:   root
+   action:
       user: &user
-         type:   git
-         origin: https://github.com/polettix/dibspack-basic.git
-         path:   wrapexec/stripexec
-         args:   ['suexec', '-u', 'user', '-h', '/app']
-         user:   root
+         dibspack: basic
+         path:     wrapexec/stripexec
+         args:     ['suexec', '-u', 'user', '-h', '/app']
+         user:     root
+      prereqs: &prereqs
+         dibspack: basic
+         path:     prereqs
+         user:     root
+   step:
+      buildish:
+         commit: no
+         envile:
+            - DIBS_STEP: build
+      bundlish:
+         envile:
+            - DIBS_STEP: bundle
+
 definitions:
    builder:
+      defaults: buildish
       from: *base_image
-      commit:
+      commit: # explicit caching: persist although buildish
          name: 'dibs-builder'
          tags: [ 'latest', *version_maj_min ]
-      dibspacks:
+      actions:
          - *user
          - *prereqs_build
    runner:
+      defaults: bundlish
       from: *base_image
       commit:
          name: 'dibs-runner'
          tags: [ 'latest', *version_maj_min ]
-      dibspacks:
+      actions:
          - *user
-         - *prereqs_bundle
-         - default: basic
-           path:    wrapexec/install
-           args:    ['suexec', 'profilexec']
-           user:    root
+         - *prereqs
+         - dibspack: basic
+           path:     wrapexec/install
+           args:     ['suexec', 'profilexec']
+           user:     root
    build:
+      defaults: buildish
       from: 'dibs-builder:0.2'
-      commit: no
-      dibspacks:
-         - *prereqs_build
+      actions:
+         - *prereqs
          - 'src:dibspacks/src-in-app.sh'
-         - default: basic
-           path:    perl/build
-           args:    ['-w', '/app', '-V', *version]
-         - default: basic
-           path:    install/with-dibsignore
-           args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
+         - dibspack: basic
+           path:     perl/build
+           args:     ['-w', '/app', '-V', *version]
+         - dibspack:  basic
+           path:     install/with-dibsignore
+           args:     ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    bundle:
+      defaults: bundlish
       from: 'dibs-runner:0.2'
       commit: *commit
-      dibspacks:
-         - *prereqs_bundle
-         - default: basic
-           path:    install/plain-copy
-           args:    [{path_cache: 'perl-app'}, '/app']
-           user:    root
+      actions:
+         - *prereqs
+         - dibspack: basic
+           path:     install/plain-copy
+           args:     [{path_cache: 'perl-app'}, '/app']
+           user:     root
    qbuild:
+      default: buildish
       from: 'dibs-builder:0.2'
-      commit: no
-      dibspacks:
+      actions:
          - 'src:dibspacks/src-in-app.sh'
-         - default: basic
-           path:    perl/build
-           args:    ['-w', '/app', '-V', *version]
-         - default: basic
-           path:    install/with-dibsignore
-           args:    ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
+         - dibspack: basic
+           path:     perl/build
+           args:     ['-w', '/app', '-V', *version]
+         - dibspack: basic
+           path:     install/with-dibsignore
+           args:     ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
    qbundle:
+      default: bundlish
       from: 'dibs-runner:0.2'
       commit: *commit
-      dibspacks:
-         - default: basic
-           path:    install/plain-copy
-           args:    [{path_cache: 'perl-app'}, '/app']
-           user:    root
+      actions:
+         - dibspack: basic
+           path:     install/plain-copy
+           args:     [{path_cache: 'perl-app'}, '/app']
+           user:     root

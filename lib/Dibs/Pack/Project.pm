@@ -11,18 +11,16 @@ use Dibs::Config ':constants';
 
 extends 'Dibs::Pack';
 
-sub BUILDARGS ($class, $config, @args) {
-   my %spec = (@args && ref($args[0])) ? $args[0]->%* : @args;
+sub BUILDARGS ($class, $args, $dibs) {
+   my %spec = ref($args) ? $args->%* : (path => $args);
    my $path = delete $spec{path};
    ouch 400, 'no path' unless length($path // '');
-   $spec{name} //= PROJECT . ':' . $path;
-   $spec{host_path} = $class->resolve_host_path($config, DIBSPACKS, $path);
-   $spec{container_path} =
-      $class->resolve_container_path($config, DIBSPACKS, $path);
+   $spec{id} = PROJECT . ':' . $path;
+   $spec{name} //= $spec{id};
+   $spec{host_path} = $dibs->resolve_project_path(DIBSPACKS, $path);
+   $spec{container_path} = $dibs->resolve_container_path(DIBSPACKS, $path);
    return \%spec;
 }
-
-sub parse_specification ($class, $path, @rest) { return {path => $path} }
 
 1;
 __END__

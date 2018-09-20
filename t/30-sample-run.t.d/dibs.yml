@@ -10,20 +10,19 @@ defaults:
 definitions:
    bar:
       from: alpine:latest
-      dibspacks:
-         - type: immediate
-           envile:
-             BAR: baaaz
-           program: |
+      actions:
+         - run: |
              #!/bin/sh
              env_dir="$3/iles"
              printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
              BAR="$(cat "$env_dir/BAR")"
              printf >&2 '%s\n' "Here BAR is <$BAR>"
+           envile:
+             BAR: baaaz
            args: [*one, *two]
    foo:
       from: alpine:latest
-      dibspacks:
+      actions:
          - run: |
              #!/bin/sh
              env_dir="$3/iles"
