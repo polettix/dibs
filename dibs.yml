@@ -37,11 +37,7 @@ defaults:
    step:
       buildish:
          commit: no
-         envile:
-            - DIBS_STEP: build
-      bundlish:
-         envile:
-            - DIBS_STEP: bundle
+      bundlish: {}
 
 definitions:
    builder:
@@ -52,7 +48,7 @@ definitions:
          tags: [ 'latest', *version_maj_min ]
       actions:
          - *user
-         - *prereqs_build
+         - *prereqs
    runner:
       defaults: bundlish
       from: *base_image

@@ -16,6 +16,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
+use constant ACTION            => 'action';
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
 use constant DEFAULTS_FIELD    => 'defaults';
@@ -101,7 +102,7 @@ our %EXPORT_TAGS = (
    constants => [
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
-        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
+        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION
         DETECT_OK DETECT_SKIP
         INDENT
         >

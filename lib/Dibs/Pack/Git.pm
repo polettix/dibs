@@ -16,7 +16,7 @@ use Dibs::Git;
 extends 'Dibs::Pack';
 has origin     => (is => 'ro', required => 1);
 has _full_orig => (is => 'lazy');
-has ref        => (is => 'ro', required => 1);
+has ref        => (is => 'ro', default => sub { return undef });
 
 sub BUILDARGS ($class, $args, $dibs) {
    my %spec = ref($args) ? $args->%* : (origin => $args);

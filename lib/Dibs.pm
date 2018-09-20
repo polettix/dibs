@@ -61,6 +61,7 @@ sub expand_defaults ($self, $hash, $defaults_for, $flags = {}) {
    defined(my $ds = delete($hash->{defaults})) or return;
    $defaults_for = $self->config(DEFAULTS_FIELD, $defaults_for)
       unless ref $defaults_for;
+   $defaults_for //= {};
    for my $name (ref($ds) ? $ds->@* : $ds) {
       ouch 400, "circular reference involving dibspack '$name'"
          if $flags->{$name}++;
@@ -143,10 +144,16 @@ sub resolve_container_path ($self, $zone, $path = undef) {
    return $self->_resolve_path(container_dirs => $zone, $path);
 }
 
-sub set_logger($self) {
-   my $logger = $self->config('logger') // ['Stderr', log_level => 'info'];
-   my @logger = ref($logger) ? $logger->@* : $logger;
+sub __set_logger (@args) {
+   state $set = 0;
+   return if $set++;
+   my @logger = scalar(@args) ? @args : ('Stderr', log_level => 'info');
    Log::Any::Adapter->set(@logger);
+}
+
+sub set_logger($self = undef) {
+   my $logger = $self->config('logger') // [];
+   __set_logger($logger->@*);
 }
 
 sub set_run_metadata ($self) {
@@ -505,9 +512,13 @@ sub target_name ($self, $step) {
 }
 
 sub run_step ($self, $name) {
+   my $sc = $self->dconfig($name);
+
+   # allow for recursive defaulting
+   $self->expand_defaults($sc, ACTION);
+
    # normalize the configuration for "commit" in the step before going on,
    # it might be a full associative array or some DWIM stuff
-   my $sc = $self->dconfig($name);
    my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
 
    # "do the thing"
@@ -590,6 +601,7 @@ sub main (@as) {
       __PACKAGE__->create_from_cmdline(@as)->run;
    }
    catch {
+      __set_logger();
       $log->fatal(bleep);
       1;
    };
