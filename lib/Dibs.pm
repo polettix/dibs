@@ -8,6 +8,7 @@ use Path::Tiny qw< path cwd >;
 use Ouch qw< :trytiny_var >;
 use Try::Catch;
 use POSIX qw< strftime >;
+use YAML::XS 'LoadFile';
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
@@ -15,8 +16,8 @@ no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
 use Dibs::Config ':all';
+use Dibs::Action;
 use Dibs::Pack;
-use Dibs::ActionsList;
 use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
@@ -31,6 +32,53 @@ has _host_project_dir => (is => 'lazy');
 has _actions_for => (is => 'ro', default => sub { return {} });
 has _dibspack_for => (is => 'ro', default => sub { return {} });
 has all_metadata => (is => 'ro', default => sub { return {} });
+
+sub __flatten_list ($step, $flags, @input) {
+   return map {
+      if (ref($_) eq 'ARRAY') {
+         my $addr = refaddr($_);
+         ouch 400, "circular reference in actions for $step"
+            if $flags->{$addr}++;
+         __flatten_list($step, $flags, $_->@*);
+         delete $flags->{$addr};
+      }
+      else { $_ }
+   } @input;
+}
+
+sub _build_actions_list ($self, $step) {
+   # first of all check what comes from the configuration
+   my $ds = $self->dconfig($step => 'actions');
+   return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
+
+   # now check for a .dibsactions in the source directory
+   my $src_dir = $self->resolve_project_path(SRC);
+   my $ds_path = $src_dir->child(DPFILE);
+
+   # if a plain file, just take whatever is written inside
+   if ($ds_path->is_file) {
+      $ds = LoadFile($ds_path->stringify)->{$step};
+      return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds);
+   }
+
+   # if dir, iterate over its contents
+   if ($ds_path->child($step)->is_dir) {
+      return  map {
+         my $child = $_;
+         my $bn = $child->basename;
+         next if ($bn eq '_') || (substr($bn, 0, 1) eq '.');
+         $child->child(OPERATE) if $child->is_dir;
+         next unless $child->is_file && -x $child;
+         {
+            type => SRC,
+            path => $child->relative($src_dir),
+         };
+      } sort { $a cmp $b } $ds_path->child($step)->children;
+   }
+
+   ouch 400, "no actions found for step $step";
+   return; # unreached
+}
 
 sub dibspack_for ($self, $spec) {
    my $defaults_for = $self->config(DEFAULTS_FIELD, DIBSPACK) // {};
@@ -217,7 +265,10 @@ sub ensure_host_directories ($self) {
 
 sub actions_for ($self, $step) {
    my $afor = $self->_actions_for;
-   $afor->{$step} //= [Dibs::ActionsList::create($self, $step)];
+   $afor->{$step} //= [
+      map { Dibs::Action->create($_, $self) }
+         __flatten_list($step, {}, $self->_build_actions_list($step))
+   ];
    return $afor->{$step}->@*;
 }
 
