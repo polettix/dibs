@@ -19,11 +19,17 @@ defaults:
          entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
                "--", "/profilexec", "/app/bin/dibs" ]
          cmd: [ '--help' ]
+      - buildish: &buildish
+         step: build
+      - bundlish: &bundlish
+         step: bundle
+
    dibspack:
       basic:
          type:   git
          origin: https://github.com/polettix/dibspack-basic.git
          user:   user
+
    action:
       user: &user
          dibspack: basic
@@ -34,9 +40,6 @@ defaults:
          dibspack: basic
          path:     prereqs
          user:     root
-      user_and_prereqs: &user_and_prereqs
-         - *user
-         - *prereqs
       build_bare: &build_bare
          - 'src:dibspacks/src-in-app.sh'
          - dibspack: basic
@@ -51,47 +54,38 @@ defaults:
            args:     [{path_cache: 'perl-app'}, '/app']
            user:     root
 
-   step:
-      buildish:
-         commit: no
-      bundlish: {}
-
 definitions:
    builder:
-      defaults: buildish
+      defaults: *buildish
       from: *base_image
       commit: # explicit caching: persist although buildish
          name: 'dibs-builder'
          tags: [ 'latest', *version_maj_min ]
-      actions:
-         - *user_and_prereqs
+      actions: [*user, *prereqs]
    runner:
-      defaults: bundlish
+      defaults: *bundlish
       from: *base_image
       commit:
          name: 'dibs-runner'
          tags: [ 'latest', *version_maj_min ]
       actions:
-         - *user_and_prereqs
+         - [*user, *prereqs]
          - dibspack: basic
            path:     wrapexec/install
            args:     ['suexec', 'profilexec']
            user:     root
-   build:
-      defaults: buildish
+   build: &build
+      defaults: [*buildish]
       from:    'dibs-builder:0.2'
       actions: [*prereqs, *build_bare]
-   qbuild:
-      default: buildish
-      from:    'dibs-builder:0.2'
-      actions: [*build_bare]
-   bundle:
-      defaults: bundlish
+   bundle: &bundle
+      defaults: *bundlish
       from:     'dibs-runner:0.2'
       commit:   *commit
       actions:  [*prereqs, *bundle_bare]
+   qbuild:
+      defaults: [*build]
+      actions:  [*build_bare]
    qbundle:
-      default:  bundlish
-      from:     'dibs-runner:0.2'
-      commit:   *commit
+      defaults: *bundle
       actions:  [*bundle_bare]

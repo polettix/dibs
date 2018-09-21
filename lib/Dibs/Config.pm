@@ -20,6 +20,7 @@ use constant ACTION            => 'action';
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
 use constant DEFAULTS_FIELD    => 'defaults';
+use constant DEFINITIONS       => 'definitions';
 use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
 use constant DPFILE            => '.dibsactions';
@@ -102,7 +103,7 @@ our %EXPORT_TAGS = (
    constants => [
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
-        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION
+        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION DEFINITIONS
         DETECT_OK DETECT_SKIP
         INDENT
         >

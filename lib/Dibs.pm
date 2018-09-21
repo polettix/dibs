@@ -52,21 +52,26 @@ sub __flatten_array ($step, $aref, $flags = {}) {
 sub __expand_defaults ($hash, $type, $defaults_for, $flags = {}) {
    defined(my $ds = delete($hash->{defaults})) or return;
    $defaults_for //= {};
-   for my $name (ref($ds) ? $ds->@* : $ds) {
-      ouch 400, "circular reference involving $type '$name'"
-         if $flags->{$name}++;
+   for my $source (ref($ds) ? $ds->@* : $ds) {
+      my $defaults = (ref($source) ? $source : $defaults_for->{$source})
+         or ouch 500, "no $type '$source', typo?";
+
+      # protect aginst circular dependencies
+      my $id  = refaddr($defaults);
+      if ($flags->{$id}++) {
+         my $name = ref($source) ? 'internal reference' : $source;
+         ouch 400, "circular reference involving $type ($name)";
+      }
 
       # $defaults will hold the defaults to be merged into $hash. Make
       # sure to recursively resolve its defaults though
-      my $defaults = $defaults_for->{$name}
-         or ouch 500, "no $type '$name' in defaults, typo?";
       __expand_defaults($defaults, $type, $defaults_for, $flags);
 
       # merge hashes and proceed to next default
       $hash->%* = ($defaults->%*, $hash->%*);
 
       # the same default might be ancestor to multiple things
-      delete $flags->{$name};
+      delete $flags->{$id};
    }
    return $hash;
 }
@@ -275,8 +280,6 @@ sub actions_for ($self, $step) {
 
 sub iterate_actions ($self, $step) {
    # continue only if it makes sense...
-   ouch 400, "no definitions for $step"
-      unless defined $self->dconfig($step);
    my @actions = $self->actions_for($step) or return;
 
    # these "$args" (anon hash) contain arguments that are reused across all
@@ -352,12 +355,13 @@ sub write_enviles ($self, $spec) {
 }
 
 sub metadata_for_envile ($self, $action, $step, $args) {
+   my $step_name = $self->dconfig($step, 'step') // $step;
    return (
       $self->all_metadata,
       {
          DIBS_FROM_IMAGE => ($self->dconfig($step, 'from') // ''),
          DIBS_WORK_IMAGE => $args->{image},
-         DIBS_STEP       => $step,
+         DIBS_STEP       => $step_name,
       },
    );
 }
@@ -563,27 +567,29 @@ sub target_name ($self, $step) {
    join ':', $self->name($step), $self->metadata_for('DIBS_ID');
 }
 
-sub run_step ($self, $name) {
-   my $sc = $self->dconfig($name);
+sub run_step ($self, $step) {
+   my $definitions_for = $self->dconfig;
+   defined(my $sc = $definitions_for->{$step})
+      or ouch 400, "no definitions for $step";
 
    # allow for recursive defaulting
-   __expand_defaults($sc, ACTION, $self->config(DEFAULTS_FIELD, ACTION));
+   __expand_defaults($sc, DEFINITIONS, $definitions_for);
 
    # normalize the configuration for "commit" in the step before going on,
    # it might be a full associative array or some DWIM stuff
    my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
 
    # "do the thing"
-   my $image = $self->iterate_actions($name);
+   my $image = $self->iterate_actions($step);
 
    # check if commit is required, otherwise default to ditch this container
    if ($pc->{keep}) {
       ARROW_OUTPUT('+', 'saving working image, commit required');
-      return $self->additional_tags($name, $image, $pc->{tags})
+      return $self->additional_tags($step, $image, $pc->{tags})
    }
    else {
       ARROW_OUTPUT('+', 'removing working image, no commit required');
-      return $self->cleanup_tags($name, $image);
+      return $self->cleanup_tags($step, $image);
    }
 }
 
