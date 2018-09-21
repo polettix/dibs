@@ -75,7 +75,7 @@ definitions:
            args:     ['suexec', 'profilexec']
            user:     root
    build: &build
-      defaults: [*buildish]
+      defaults: *buildish
       from:    'dibs-builder:0.2'
       actions: [*prereqs, *build_bare]
    bundle: &bundle
@@ -84,7 +84,7 @@ definitions:
       commit:   *commit
       actions:  [*prereqs, *bundle_bare]
    qbuild:
-      defaults: [*build]
+      defaults: *build
       actions:  [*build_bare]
    qbundle:
       defaults: *bundle

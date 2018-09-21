@@ -52,7 +52,7 @@ sub __flatten_array ($step, $aref, $flags = {}) {
 sub __expand_defaults ($hash, $type, $defaults_for, $flags = {}) {
    defined(my $ds = delete($hash->{defaults})) or return;
    $defaults_for //= {};
-   for my $source (ref($ds) ? $ds->@* : $ds) {
+   for my $source (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) {
       my $defaults = (ref($source) ? $source : $defaults_for->{$source})
          or ouch 500, "no $type '$source', typo?";
 
