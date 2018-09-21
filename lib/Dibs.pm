@@ -8,7 +8,8 @@ use Path::Tiny qw< path cwd >;
 use Ouch qw< :trytiny_var >;
 use Try::Catch;
 use POSIX qw< strftime >;
-use YAML::XS 'LoadFile';
+use Scalar::Util qw< refaddr >;
+use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
@@ -33,20 +34,51 @@ has _actions_for => (is => 'ro', default => sub { return {} });
 has _dibspack_for => (is => 'ro', default => sub { return {} });
 has all_metadata => (is => 'ro', default => sub { return {} });
 
-sub __flatten_list ($step, $flags, @input) {
-   return map {
+sub __flatten_array ($step, $aref, $flags = {}) {
+   my @retval = map {
       if (ref($_) eq 'ARRAY') {
          my $addr = refaddr($_);
          ouch 400, "circular reference in actions for $step"
             if $flags->{$addr}++;
-         __flatten_list($step, $flags, $_->@*);
+         my $flattened = __flatten_array($step, $_, $flags);
          delete $flags->{$addr};
+         $flattened->@*;
       }
       else { $_ }
-   } @input;
+   } $aref->@*;
+   return \@retval;
 }
 
-sub _build_actions_list ($self, $step) {
+sub __expand_defaults ($hash, $type, $defaults_for, $flags = {}) {
+   defined(my $ds = delete($hash->{defaults})) or return;
+   $defaults_for //= {};
+   for my $name (ref($ds) ? $ds->@* : $ds) {
+      ouch 400, "circular reference involving $type '$name'"
+         if $flags->{$name}++;
+
+      # $defaults will hold the defaults to be merged into $hash. Make
+      # sure to recursively resolve its defaults though
+      my $defaults = $defaults_for->{$name}
+         or ouch 500, "no $type '$name' in defaults, typo?";
+      __expand_defaults($defaults, $type, $defaults_for, $flags);
+
+      # merge hashes and proceed to next default
+      $hash->%* = ($defaults->%*, $hash->%*);
+
+      # the same default might be ancestor to multiple things
+      delete $flags->{$name};
+   }
+   return $hash;
+}
+
+sub __set_logger (@args) {
+   state $set = 0;
+   return if $set++;
+   my @logger = scalar(@args) ? @args : ('Stderr', log_level => 'info');
+   Log::Any::Adapter->set(@logger);
+}
+
+sub build_actions_array ($self, $step) {
    # first of all check what comes from the configuration
    my $ds = $self->dconfig($step => 'actions');
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
@@ -87,7 +119,7 @@ sub dibspack_for ($self, $spec) {
          or ouch 400, "no dibspack '$spec' in defaults, typo?";
       $spec = $ns;
    }
-   $self->expand_defaults($spec, $defaults_for)
+   __expand_defaults($spec, DIBSPACK, $defaults_for)
       if ref($spec) eq 'HASH'; # in-place expansion of hash specifications
    my $dibspack = Dibs::Pack->create($spec, $self);
 
@@ -103,30 +135,6 @@ sub dibspack_for ($self, $spec) {
    }
 
    return $df->{$id};
-}
-
-sub expand_defaults ($self, $hash, $defaults_for, $flags = {}) {
-   defined(my $ds = delete($hash->{defaults})) or return;
-   $defaults_for = $self->config(DEFAULTS_FIELD, $defaults_for)
-      unless ref $defaults_for;
-   $defaults_for //= {};
-   for my $name (ref($ds) ? $ds->@* : $ds) {
-      ouch 400, "circular reference involving dibspack '$name'"
-         if $flags->{$name}++;
-
-      # $defaults will hold the defaults to be merged into $hash. Make
-      # sure to recursively resolve its defaults though
-      my $defaults = $defaults_for->{$name}
-         or ouch 500, "no dibspack '$name' in defaults, typo?";
-      $self->expand_defaults($defaults, $defaults_for, $flags);
-
-      # merge hashes and proceed to next default
-      $hash->%* = ($defaults->%*, $hash->%*);
-
-      # the same default might be ancestor to multiple things
-      delete $flags->{$name};
-   }
-   return $hash;
 }
 
 sub add_metadata ($self, %pairs) {
@@ -190,13 +198,6 @@ sub resolve_project_path ($self, $zone, $path = undef) {
 
 sub resolve_container_path ($self, $zone, $path = undef) {
    return $self->_resolve_path(container_dirs => $zone, $path);
-}
-
-sub __set_logger (@args) {
-   state $set = 0;
-   return if $set++;
-   my @logger = scalar(@args) ? @args : ('Stderr', log_level => 'info');
-   Log::Any::Adapter->set(@logger);
 }
 
 sub set_logger($self = undef) {
@@ -267,7 +268,7 @@ sub actions_for ($self, $step) {
    my $afor = $self->_actions_for;
    $afor->{$step} //= [
       map { Dibs::Action->create($_, $self) }
-         __flatten_list($step, {}, $self->_build_actions_list($step))
+         __flatten_array($step, [$self->build_actions_array($step)])->@*
    ];
    return $afor->{$step}->@*;
 }
@@ -283,15 +284,15 @@ sub iterate_actions ($self, $step) {
    my $args = $self->prepare_args($step);
    try {
       DIBSPACK:
-      for my $dp (@actions) {
-         my $name = $dp->name;
-         ARROW_OUTPUT('+', "dibspack $name");
+      for my $action (@actions) {
+         my $name = $action->name;
+         ARROW_OUTPUT('+', "action $name");
 
-         $args->{$_} = $self->coalesce_envs($dp, $step, $args, $_)
+         $args->{$_} = $self->coalesce_envs($action, $step, $args, $_)
             for qw< env envile >;
 
          ARROW_OUTPUT('-', 'run');
-         $self->call_dibspack($dp, $step, $args);
+         $self->call_action($action, $step, $args);
       }
    }
    catch {
@@ -301,8 +302,8 @@ sub iterate_actions ($self, $step) {
    return $args->{image};
 }
 
-sub call_dibspack ($self, $dp, $step, $args) {
-   my $p = path($dp->container_path)->stringify;
+sub call_action ($self, $action, $step, $args) {
+   my $p = path($action->container_path)->stringify;
    my $stepname = $self->dconfig($step, 'step') // $step;
    my ($exitcode, $cid, $out);
    try {
@@ -311,13 +312,13 @@ sub call_dibspack ($self, $dp, $step, $args) {
 
       ($exitcode, $cid, $out) = Dibs::Docker::docker_run(
          $args->%*,
-         $dp->docker_run_args,
+         $action->docker_run_args,
 
          # overriding everything above
          keep    => 1,
          volumes => [ $self->list_volumes ],
          command => [ $p, $self->list_dirs,
-            $self->expand_command_args($step, $dp->args)],
+            $self->expand_command_args($step, $action->args)],
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
@@ -350,7 +351,7 @@ sub write_enviles ($self, $spec) {
    return $env_dir;
 }
 
-sub metadata_for_envile ($self, $dp, $step, $args) {
+sub metadata_for_envile ($self, $action, $step, $args) {
    return (
       $self->all_metadata,
       {
@@ -361,14 +362,14 @@ sub metadata_for_envile ($self, $dp, $step, $args) {
    );
 }
 
-sub coalesce_envs ($self, $dp, $step, $args, $key = 'env') {
+sub coalesce_envs ($self, $action, $step, $args, $key = 'env') {
    my $stepc = $self->dconfig($step);
    my $method = $self->can("metadata_for_$key");
    return __merge_envs(
       $self->config(defaults => $key),
       $stepc->{$key},
-      $dp->$key,
-      ($method ? $self->$method($dp, $step, $args) : ()),
+      $action->$key,
+      ($method ? $self->$method($action, $step, $args) : ()),
    );
 }
 
@@ -566,7 +567,7 @@ sub run_step ($self, $name) {
    my $sc = $self->dconfig($name);
 
    # allow for recursive defaulting
-   $self->expand_defaults($sc, ACTION);
+   __expand_defaults($sc, ACTION, $self->config(DEFAULTS_FIELD, ACTION));
 
    # normalize the configuration for "commit" in the step before going on,
    # it might be a full associative array or some DWIM stuff
