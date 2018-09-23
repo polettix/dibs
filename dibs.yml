@@ -76,11 +76,11 @@ definitions:
            user:     root
    build: &build
       defaults: *buildish
-      from:    'dibs-builder:0.2'
+      from:    'dibs-builder:0.3'
       actions: [*prereqs, *build_bare]
    bundle: &bundle
       defaults: *bundlish
-      from:     'dibs-runner:0.2'
+      from:     'dibs-runner:0.3'
       commit:   *commit
       actions:  [*prereqs, *bundle_bare]
    qbuild:
