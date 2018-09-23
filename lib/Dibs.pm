@@ -23,10 +23,6 @@ use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
 
-use Exporter qw< import >;
-our @EXPORT_OK = qw< main >;
-our @EXPORT = ();
-
 has _config => (is => 'ro', required => 1);
 has _project_dir => (is => 'lazy');
 has _host_project_dir => (is => 'lazy');
@@ -654,9 +650,10 @@ sub create_from_cmdline ($package, @as) {
 	return $package->new(_config => $overall);
 }
 
-sub main (@as) {
+sub main ($pkg, @as) {
    my $retval = try {
-      __PACKAGE__->create_from_cmdline(@as)->run;
+      my $dibs = $pkg->create_from_cmdline(@as);
+      $dibs->run;
    }
    catch {
       __set_logger();

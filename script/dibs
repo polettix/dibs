@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 use 5.024;
 use warnings;
-use Dibs 'main';
+use Dibs;
 use Path::Tiny;
 
-exit main(@ARGV);
+exit Dibs->main(@ARGV);
 
 sub version {
    my $version = $ENV{VERSION};
