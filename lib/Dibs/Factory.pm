@@ -15,10 +15,10 @@ no warnings qw< experimental::postderef experimental::signatures >;
 # this factory. Pristine factory has this empty, then...
 has ancestors => (is => 'ro', default => sub { return [] });
 
-has dibspack_factory => (is => 'ro', required => 1);
-has context          => (is => 'ro', default  => undef);
-has name             => (is => 'ro', default  => undef);
-has zone_factory     => (is => 'lazy');
+has context      => (is => 'ro', default  => undef);
+has name         => (is => 'ro', default  => undef);
+has pack_factory => (is => 'ro', required => 1);
+has zone_factory => (is => 'lazy');
 
 with 'Dibs::Role::Factory';
 
@@ -165,6 +165,6 @@ sub _clone_ancestors ($self, $override) {
    return [($override // $self->ancestors)->@*];
 }
 
-sub _build_zone_factory ($self) { $self->dibspack_factory->zone_factory }
+sub _build_zone_factory ($self) { $self->pack_factory->zone_factory }
 
 1;
