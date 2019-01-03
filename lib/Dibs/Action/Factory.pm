@@ -1,7 +1,8 @@
 package Dibs::Action::Factory;
 use 5.024;
-use Dibs::Action::Instance;
 use Ouch ':trytiny_var';
+use Dibs::Action::Instance;
+use Dibs::Inflater; # work around a bug in order of inclusions...
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
