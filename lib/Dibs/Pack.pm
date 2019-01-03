@@ -6,7 +6,7 @@ use experimental qw< postderef signatures >;
 use Ouch qw< :trytiny_var >;
 use Log::Any qw< $log >;
 use Moo;
-use Path::Tiny qw< path >;
+use Path::Tiny ();
 use List::Util qw< any >;
 use Try::Catch;
 use Module::Runtime qw< use_module >;
@@ -18,13 +18,14 @@ has container_path => (coerce => \&_path, is => 'ro', required => 1);
 has host_path      => (coerce => \&_path, is => 'ro', required => 1);
 has id             => (is => 'lazy');
 has name           => (is => 'ro', required => 1);
+has path           => (is => 'ro', default => sub { return undef } );
 
 sub _build_id ($self) {
    our $__id //= 0;
    return ++$__id;
 }
 
-sub _path ($p) { defined($p) ? path($p) : undef }
+sub _path ($p) { defined($p) ? Path::Tiny::path($p) : undef }
 
 sub class_for ($package, $type) {
    ouch 400, 'undefined type for dibspack' unless defined $type;
@@ -48,10 +49,11 @@ sub expand_dwim ($pkg, $args) {
    return $args;
 }
 
-sub resolve_paths ($self, $path = undef) {
+sub resolve_paths ($self, $path = \undef) {
+   $path = $self->path if ref($path) eq 'SCALAR' && !defined($$path);
    return map {
       my $p = $self->$_;
-      $p = $p->child($path) if defined $path;
+      $p = $p->child($path) if defined($p) && defined($path);
       ($_ => $p);
    } qw< container_path host_path >;
 }

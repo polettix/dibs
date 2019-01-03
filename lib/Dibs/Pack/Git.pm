@@ -14,8 +14,9 @@ use Dibs::Config ':constants';
 use Dibs::Git;
 
 extends 'Dibs::Pack';
-has origin     => (is => 'ro', required => 1);
 has _full_orig => (is => 'lazy');
+has origin     => (is => 'ro', required => 1);
+has '+path'    => (default => sub { OPERATE });
 has ref        => (is => 'ro', default => sub { return undef });
 
 sub BUILDARGS ($class, $args, $dibs) {
@@ -47,7 +48,7 @@ sub materialize ($self) {
 }
 
 around resolve_paths => sub ($super, $self, $path) {
-   return $self->$super($path // 'operate');
+   return $self->$super($path // $self->path // OPERATE);
 };
 
 sub _build__full_orig ($self) {

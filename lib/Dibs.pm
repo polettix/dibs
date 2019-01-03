@@ -71,7 +71,7 @@ sub __set_logger (@args) {
 
 sub build_actions_array ($self, $step) {
    # first of all check what comes from the configuration
-   my $ds = $self->sconfig($step => 'actions');
+   my $ds = $self->sconfig($step => ACTIONS);
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
 
    # now check for a .dibsactions in the source directory

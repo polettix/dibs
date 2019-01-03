@@ -68,7 +68,7 @@ sub create ($pkg, $spec, $dibs) {
          program => scalar(delete($args->{run})),
       };
    my $dibspack = $dibs->dibspack_for($dibspack_spec);
-   my $path = delete $args->{path};
+   my $path = delete($args->{path}) // $dibspack->path;
    my $name = delete($args->{name});
    if (! defined($name)) {
       $name = $dibspack->name;

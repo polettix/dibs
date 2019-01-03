@@ -85,7 +85,7 @@ steps:
       commit:  *commit
       actions: [*prereqs, *bundle_bare]
    qbuild:
-      extends: *build
+      extends: build
       actions: build_bare
    qbundle:
       extends: *bundle
