@@ -26,6 +26,7 @@ use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
 use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsactions';
+use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
@@ -108,7 +109,7 @@ our %EXPORT_TAGS = (
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
-        DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW
+        DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
         INDENT
         >
    ],
