@@ -85,7 +85,7 @@ sub inflate ($self, $x, %args) {
    elsif ($ref eq 'HASH') {
       $rv = { $spec->%* };
       if (exists $rv->{extends}) {
-         my @extensions = $self->_extensions($rv, %args);
+         my @extensions = $self->_extensions($rv->{extends}, %args);
          $rv->%* = ((map { $_->%* } reverse @extensions), $rv->%*);
       }
    }
