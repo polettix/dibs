@@ -38,14 +38,16 @@ sub cleanup_tags (@tags) {
    return $cleanup_ok;
 } ## end sub cleanup_tags
 
-sub docker_commit ($cid, $tag, $changes = undef) {
+sub docker_commit ($cid, $tag, $meta = undef) {
    my @command = qw< docker commit >;
-   $changes //= {};
+   $meta //= {};
    for my $c (qw< entrypoint cmd workdir user >) {
-      defined(my $cd = $changes->{$c}) or next;
+      defined(my $cd = $meta->{$c}) or next;
       my $change = uc($c) . ' ' . (ref($cd) ? encode_json($cd) : $cd);
       push @command, -c => $change;
    }
+   push @command, -a => $meta->{author} if defined $meta->{author};
+   push @command, -m => $meta->{message} if defined $meta->{message};
    OUTPUT("committing working container to $tag", INDENT);
    assert_command([@command, $cid, $tag]);
    return $tag;

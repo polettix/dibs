@@ -3,6 +3,7 @@ use 5.024;
 use Log::Any '$log';
 use Dibs::Config ':constants';
 use Dibs::Docker qw< docker_commit docker_rm docker_run >;
+use Dibs::Action::Stroke::Commit;
 use Ouch ':trytiny_var';
 use Try::Catch;
 use Guard;
@@ -15,11 +16,14 @@ with 'Dibs::Role::EnvCarrier';
 
 has '+output_char' => (default => '-');
 has args => (is => 'ro', default => sub { return [] });
+has commit => (is => 'ro', default => undef, coerce => \&_commit);
 has indent => (is => 'ro', default => 42); # FIXME understand/comment!
 has pack => (is => 'ro', required => 1);
 has path => (is => 'ro', required => 1); # path inside container
 has user => (is => 'ro', default => undef);
 has zone_factory => (is => 'ro', required => 1);
+
+sub _commit ($arg) { return Dibs::Action::Stroke::Commit->new($arg // {}) }
 
 around create => sub ($orig, $class, %args) {
    my ($factory, $factory_args) = @args{qw< factory args >};
@@ -41,8 +45,6 @@ around create => sub ($orig, $class, %args) {
 
    return $class->$orig(%args, spec => \%spec);
 };
-
-sub changes_for_commit ($self) { return }
 
 sub _command ($self, $args) {
    my @args = map {
@@ -99,14 +101,14 @@ sub execute ($self, $args = undef) {
 
    my $enviles = $self->_write_enviles($run_args{envile});
    scope_guard { $enviles->remove_tree({safe => 0}) if $enviles };
-   
+
    my $cid;
    try {
       my ($ecode, $out);
       ($ecode, $cid, $out) = docker_run(%run_args);
       ouch 500, "stroke failed (exit code $ecode)" if $ecode;
 
-      docker_commit($cid, $args->{image}, $self->changes_for_commit);
+      docker_commit($cid, $args->{image}, $self->commit->as_hash);
 
       (my $__cid, $cid) = ($cid, undef);
       docker_rm($__cid);
