@@ -18,7 +18,12 @@ local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
+use Dibs::Config::Slice;
+use Dibs::Cache;
 use Dibs::Config ':all';
+use Dibs::Inflater ':all';
+
+#use Dibs::Process;
 use Dibs::Action;
 use Dibs::Pack;
 use Dibs::Docker;
@@ -26,176 +31,158 @@ use Dibs::Output;
 use Dibs::Get;
 use Dibs::ZoneFactory;
 
-has _actions_for => (is => 'ro', default => sub { return {} });
-
 has allow_dirty => (
-   is => 'ro',
-   default => 0,
+   is       => 'ro',
+   default  => 0,
    init_arg => 'dirty',
-   coerce => sub ($x) { $x ? 1 : 0 },
+   coerce   => sub ($x) { $x ? 1 : 0 },
 );
 
 has project_dir => (
-   is => 'ro',
+   is       => 'ro',
    required => 1,
-   coerce => sub ($path) { return path($path)->absolute },
-);
-
-has _raw_actions => (
-   is => 'ro',
-   default => sub { return {} },
-   init_arg => 'actions',
-);
-
-has _steps => (
-   is => 'ro',
-   default => sub { return {} },
-   init_arg => 'steps',
-);
-
-has workflow => (
-   is => 'ro',
-   required => 1,
-   isa => sub ($v) {
-      ouch 400, 'invalid workflow' unless ref($v) eq 'ARRAY' && $v->@*;
-   },
+   coerce   => sub ($path) { return path($path)->absolute },
 );
 
 has zone_factory => (
-   is => 'ro',
+   is       => 'ro',
    required => 1,
-   coerce => sub ($def) {
+   coerce   => sub ($def) {
       return $def if blessed($def) && $def->isa('Dibs::ZoneFactory');
       return Dibs::ZoneFactory->new($def);
    },
 );
 
-has _dibspack_for     => (is => 'ro', default => sub { return {} });
-has all_metadata      => (is => 'ro', default => sub { return {} });
+{    # generate members & methods:
+       #
+       # - action_cache    (member)
+       # - action_config   (member)
+       # - action          (method)
+       #
+       # - dibspack_cache  (member)
+       # - dibspack_config (member)
+       # - dibspack        (method)
+       #
+       # - process_cache   (member)
+       # - process_config  (member)
+       # - process         (method)
 
-sub actions_for ($self, $step) {
-   my $afor = $self->_actions_for;
-   if (!$afor->{$step}) {
+   for my $type (qw< action dibspack process >) {
+      has "${type}_cache" => (is => 'lazy');
+      has "${type}_config" => (
+         is      => 'ro',
+         default => sub { return {} },
+         coerce  => sub ($config) {
+            blessed($config)
+              ? $config
+              : Dibs::Config::Slice->new(type => $type, items => $config);
+         },
+      );
+      my $instancer = sub ($self, $name) {
+         my $cache_method = $self->can("${type}_cache");
+         my $cache        = $self->$cache_method;
+         my $retval       = $cache->item($name);
+         $retval = $cache->item($name, $retval->())
+           if ref($retval) eq 'CODE';    # fulfill promise to compute
+         return $retval;
+      };
 
-      # build the flattened list of actions for this step. We have to
-      # simulate a stack of recursive calls so that we can allow nested
-      # definitions; on the way we will check for circular inclusions
-      # and complain about them
-      my $adf = $self->_raw_actions;
-      my @stack = {queue => [$self->build_actions_array($step)]};
-      $afor->{$step} = \my @retval;
-      my %seen;    # circular inclusion avoidance
-    ITEM:
-      while (@stack) {
-         my $queue = $stack[-1]{queue};
-         if (scalar($queue->@*) == 0) {
-            my $exhausted_frame = pop @stack;
-
-            # the "parent" of this frame can be removed from circular
-            # inclusion avoidance
-            delete $seen{$exhausted_frame->{parent}}
-              if exists $exhausted_frame->{parent};
-
-            next ITEM;
-         } ## end if (scalar($queue->@*)...)
-
-         my $item = shift $queue->@*;
-         my $ref  = ref $item;
-         if ($ref eq 'ARRAY') {    # array -> do "recursive" flattening
-            my $id = refaddr($item);
-            ouch 400, "circular reference in actions for $step"
-              if $seen{$id}++;
-
-            # this $id will trigger circular inclusion error from now
-            # until the stack frame is eventually removed
-            push @stack, {parent => $id, queue => [$item->@*]};
-
-            next ITEM;
-         } ## end if ($ref eq 'ARRAY')
-         elsif ($ref eq 'HASH') {
-            __expand_extends($item, ACTIONS, $adf);
-            push @retval, Dibs::Action->create($item, $self);
-            next ITEM;
-         }
-         elsif ((!$ref) && exists($adf->{$item})) {
-            unshift $queue->@*, $adf->{$item};
-            next ITEM;
-         }
-         elsif (!$ref) {
-            push @retval, Dibs::Action->create($item, $self);
-            next ITEM;
-         }
-         else {
-            ouch 400, "unknown action of type $ref";
-         }
-      } ## end ITEM: while (@stack)
-   } ## end if (!$afor->{$step})
-
-   return $afor->{$step}->@*;
-} ## end sub actions_for
-
-sub BUILDARGS ($self, @as) {
-   my %args = (@as && ref($as[0])) ? $as[0]->%* : @as;
-
-   ouch 400, 'missing project_dir' unless length($args{project_dir} // '');
-
-   $args{zone_factory} //= Dibs::ZoneFactory->new(
-      {
-         project_dir    => $args{project_dir},
-         zone_specs_for => $args{zone_specs_for},
-      }
-   ) if exists $args{zone_specs_for};
-   ouch 400, 'missing zone_factory' unless defined($args{zone_factory});
-
-   return \%args;
+      # this comes last to restrict rule relaxing
+      no strict 'refs';
+      *{__PACKAGE__ . '::' . $type} = $instancer;
+   } ## end for my $type (qw< action dibspack process >)
 }
 
-sub step_for ($self, $name) {
+sub _build_action_cache ($self) {
+   my $cache = Dibs::Cache->new(type => 'action');
+   my $cfg   = $self->action_config;
+   my $dc    = $self->dibspack_cache;
+   $cache->item($_, sub { __realize_action($cfg, $dc, $_) })
+     for $cfg->names;
+   return $cache;
+} ## end sub _build_action_cache ($self)
 
+sub _build_dibspack_cache ($self) {
+   my $cache = Dibs::Cache->new(type => 'dibspack');
+   my $cfg   = $self->dibspack_config;
+   my $zf    = $self->zone_factory;
+   $cache->item($_, sub { __realize_dibspack($cfg, $zf, $_) })
+     for $cfg->names;
+   return $cache;
+} ## end sub _build_dibspack_cache ($self)
+
+sub _build_process_cache ($self) {
+   my $cache = Dibs::Cache->new(type => 'process');
+   my $cfg   = $self->process_config;
+   my $ac    = $self->action_cache;
+   my $dc    = $self->dibspack_cache;
+   my $zf    = $self->zone_factory;
+   $cache->item($_, sub { __realize_process($cfg, $ac, $dc, $zf, $_) })
+     for $cfg->names;
+   return $cache;
+} ## end sub _build_process_cache ($self)
+
+# this can be moved inside its own factory class
+sub __realize_action ($config, $dibspack_cache, $name) { ... }
+
+sub __realize_dibspack ($config, $zone_factory, $x) {
+   return Dibs::Pack::create_dibspack(
+      $config->expanded_item($x),
+      zone_factor => $zone_factory,
+      dynamic_zone => HOST_DIBSPACKS, # default zone FIXME double check
+      # cloner = sub { ... }, # FIXME add cloner maybe?
+   );
 }
 
-sub zone_for ($self, $name) { $self->zone_factory->zone_for($name) }
+sub __realize_process ($config, $zone_factory, $name) { ... }
 
-sub __expand_extends ($hash, $type, $definition_for, $flags = {}) {
-   defined(my $ds = delete($hash->{extends})) or return;
-   $definition_for //= {};
-   for my $source (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) {
-      my $defaults = (ref($source) ? $source : $definition_for->{$source})
-        or ouch 500, "no $type '$source', typo?";
+__END__
+has _steps => (
+   is       => 'ro',
+   default  => sub { return {} },
+   init_arg => 'steps',
+);
 
-      # protect aginst circular dependencies
-      my $id = refaddr($defaults);
-      if ($flags->{$id}++) {
-         my $name = ref($source) ? 'internal reference' : $source;
-         ouch 400, "circular reference involving $type ($name)";
-      }
+has workflow => (
+   is       => 'ro',
+   required => 1,
+   isa      => sub ($v) {
+      ouch 400, 'invalid workflow' unless ref($v) eq 'ARRAY' && $v->@*;
+   },
+);
 
-      # $defaults will hold the defaults to be merged into $hash. Make
-      # sure to recursively resolve its defaults though
-      __expand_extends($defaults, $type, $definition_for, $flags);
 
-      # merge hashes and proceed to next default
-      $hash->%* = ($defaults->%*, $hash->%*);
+has _dibspack_for => (is => 'ro', default => sub { return {} });
+has all_metadata  => (is => 'ro', default => sub { return {} });
 
-      # the same default might be ancestor to multiple things
-      delete $flags->{$id};
-   } ## end for my $source (ref($ds...))
-   return $hash;
-} ## end sub __expand_extends
+sub process ($self, $name) {
+   my $pf = $self->_process_for;
+   if (! exists $pf->{$name}) {
+      my $rpf = $self->_raw_process_for;
+      my $def = $rpf->{$name} or ouch 404, "missing process '$name'";
+      expand_hash($def, $rpf); # manage extends...
 
-sub build_actions_array ($self, $step) {
+      my @as = $self->build_actions_array($name, delete $def->{&ACTIONS});
+      $pf->{$name} = Dibs::Process->new(
+         $def->%*,
+         actions => flatten_array(\@as, $self->_raw_actions),
+      );
+   }
+   return $pf->{$name};
+}
+
+sub build_actions_array ($self, $name, $ds) {
 
    # first of all check what comes from the configuration
-   my $ds = $self->sconfig($step => ACTIONS);
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
 
-   # now check for a .dibsactions in the source directory
-   my $src_dir = $self->resolve_project_path(SRC);
-   my $ds_path = $src_dir->child(DPFILE);
+   # now check for a .dibsactions (&DPFILE) in the source directory
+   my $src_dir = $self->zone(SRC)->host_base;
+   my $das_path = $src_dir->child(DPFILE);
 
    # if a plain file, just take whatever is written inside
-   if ($ds_path->is_file) {
-      $ds = LoadFile($ds_path->stringify)->{$step};
+   if ($das_path->is_file) {
+      $ds = LoadFile($das_path->stringify)->{$name};
       return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds);
    }
 
@@ -217,6 +204,26 @@ sub build_actions_array ($self, $step) {
    ouch 400, "no actions found for step $step";
    return;    # unreached
 } ## end sub build_actions_array
+
+sub BUILDARGS ($self, @as) {
+   my %args = (@as && ref($as[0])) ? $as[0]->%* : @as;
+
+   ouch 400, 'missing project_dir' unless length($args{project_dir} // '');
+
+   $args{zone_factory} //= Dibs::ZoneFactory->new(
+      {
+         project_dir    => $args{project_dir},
+         zone_specs_for => $args{zone_specs_for},
+      }
+   ) if exists $args{zone_specs_for};
+   ouch 400, 'missing zone_factory' unless defined($args{zone_factory});
+
+   $args{cache} //= delete $args{config};
+
+   return \%args;
+} ## end sub BUILDARGS
+
+sub zone ($self, $name) { $self->zone_factory->zone_for($name) }
 
 sub dibspack_for ($self, $spec) {
    my $dibspack_for = $self->config(DIBSPACKS) // {};
@@ -311,9 +318,10 @@ sub dump_configuration ($self) {
 } ## end sub dump_configuration ($self)
 
 sub origin_onto_src ($self, $origin) {
-   my $src_dir = $self->zone_for(SRC)->host_base;
+   my $src_dir = $self->zone(SRC)->host_base;
    my $dirty   = $self->allow_dirty // undef;
-   Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty, wipe => 1});
+   Dibs::Get::get_origin($origin, $src_dir,
+      {clean_only => !$dirty, wipe => 1});
    return $src_dir;
 } ## end sub origin_onto_src
 
@@ -730,7 +738,7 @@ sub run ($self) {
          if (my @tags = $self->run_step($step)) {
             push @tags_lists, [$step, @tags];
          }
-      } ## end for my $step ($self->workflow->@*)
+      } ## end for my $step ($self->workflow...)
       for (@tags_lists) {
          my ($step, @tags) = $_->@*;
          say "$step: @tags";
