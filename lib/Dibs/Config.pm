@@ -66,7 +66,7 @@ use constant DEFAULTS => {
       [EMPTY, 'ro']
    ],
    dibspack_dirs  => [SRC, CACHE, ENVILE, ENVIRON],
-   logger         => [qw< Stderr log_level info >],
+   logger         => [qw< Stderr log_level debug >],
    zone_specs_for => {
       CACHE,
       {

@@ -10,6 +10,7 @@ __PACKAGE__->_proxy_methods(
    'id',        #
    'name',      #
    'draw',      #
+   'sketches',  #
 );
 
 1;

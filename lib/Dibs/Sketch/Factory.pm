@@ -26,8 +26,4 @@ sub instance ($self, $x, %args) {
    );
 }
 
-sub parse ($self, $x) {
-   ouch 400, "cannot parse sketch '$x'";
-}
-
 1;

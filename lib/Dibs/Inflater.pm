@@ -3,6 +3,8 @@ use 5.024;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< refaddr blessed >;
 use Log::Any '$log';
+use Data::Dumper;
+use Try::Catch;
 use Moo;
 use Dibs::Config ':constants';
 use Dibs::Pack::Factory;
@@ -26,50 +28,62 @@ sub key_for($x) {
       :                ouch 400, 'invalid undefined element for key';
 }
 
+sub _trace_inflate_key ($key, $flags) {
+   $flags //= {};
+   my $list = join ', ', keys $flags->%*;
+   $log->trace("inflate, key<$key> against flags{$list}");
+}
+
 sub inflate ($spec, %args) {
    defined $spec or ouch 400, "undefined specification for $args{type}";
 
    # check circular dependencies, complain if present
    my $key  = key_for($spec);
+   _trace_inflate_key($key, $args{flags}) if $log->is_trace;
    ouch 400, "circular reference resolving $args{type} $key"
       if $args{flags}{$key}++;
 
-   my $rv;
-   my $ref = ref $spec;
-   if (! $ref) { # scalar, treat as string
-      if (substr($spec, 0, 1) eq '@') { # import from somewhere
-         $rv = load_from_dibspack($spec, %args);
+   my ($rv, $exception);
+   try {
+      my $ref = ref $spec;
+      if (! $ref) { # scalar, treat as string
+         if (substr($spec, 0, 1) eq '@') { # import from somewhere
+            $rv = load_from_dibspack($spec, %args);
+         }
+         else {
+            $rv = $args{config}{$spec} if exists $args{config}{$spec};
+            $rv = $args{parser}->($rv // $spec) if exists $args{parser};
+            defined $rv or ouch 400, "unknown $args{type} $spec";
+            $rv = inflate($rv, %args);
+         }
       }
-      else {
-         $rv = exists $args{config}{$spec} ? $args{config}{$spec}
-            :  exists $args{parser}        ? $args{parser}->($spec)
-            :                                undef;
-         defined $rv or ouch 400, "unknown $args{type} $spec";
-         $rv = inflate($rv, %args);
+      elsif ($ref eq 'ARRAY') {
+         $rv = [
+            map {
+               my $item = inflate($_, %args);
+               ref($item) eq 'ARRAY' ? $item->@* : $item; # "flatten"
+            } $spec->@*
+         ];
       }
-   }
-   elsif ($ref eq 'ARRAY') {
-      $rv = [
-         map {
-            my $item = inflate($_, %args);
-            ref($item) eq 'ARRAY' ? $item->@* : $item; # "flatten"
-         } $spec->@*
-      ];
-   }
-   elsif ($ref eq 'HASH') {
-      if (exists $spec->{extends}) {
-         my $exts = inflate(delete($spec->{extends}), %args);
-         my %exts = map { $_->%* }
-            ref($exts) eq 'ARRAY' ? reverse($exts->@*) : $exts;
-         $spec->%* = (%exts, $spec->%*);
+      elsif ($ref eq 'HASH') {
+         if (exists $spec->{extends}) {
+            my $exts = inflate(delete($spec->{extends}), %args);
+            my %exts = map { $_->%* }
+               ref($exts) eq 'ARRAY' ? reverse($exts->@*) : $exts;
+            $spec->%* = (%exts, $spec->%*);
+         }
+         $rv = $spec;
       }
-      $rv = $spec;
+      else { ouch 500, 'something still not implemented here?'; }
    }
-   else { ouch 500, 'something still not implemented here?'; }
+   catch { # hold on now, let's cleanup first
+      $exception = $_;
+   };
 
-   # free this item up for possible reuse
-   delete $args{flags}{$key};
+   delete $args{flags}{$key}; # free this $key up for possible reuse
 
+   # cleanup done, either rethrow a pending exception or return
+   die $exception if $exception;
    return $rv;
 }
 

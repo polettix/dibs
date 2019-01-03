@@ -5,7 +5,7 @@ use Scalar::Util qw< blessed refaddr >;
 use Module::Runtime 'use_module';
 use Path::Tiny 'path';
 use Dibs::Config ':constants';
-use Dibs::Inflater qw< key_for >;
+use Dibs::Inflater ();
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -20,7 +20,7 @@ sub instance ($self, $x, %args) {
    # no circular references so far, protect from creation too
    # FIXME double check this is really needed, although it does
    # not harm really
-   my $key = key_for($x);
+   my $key = Dibs::Inflater::key_for($x);
    $args{flags}{$key}++;
    my $instance = $self->_create($spec, %args);
    delete $args{flags}{$key};

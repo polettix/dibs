@@ -14,15 +14,13 @@ with 'Dibs::Role::Factory';
 sub instance ($self, $x, %args) {
    my $dibspack_factory = $self->dibspack_factory;
    my $spec = $self->inflate($x, %args);
+   state $id = 0;
    return Dibs::Stroke::Instance->new(
+      id               => $id++,
       $spec->%*,
       dibspack => $dibspack_factory->item($spec->{dibspack}, %args),
       zone_factory => $dibspack_factory->zone_factory,
    );
-}
-
-sub parse ($self, $x) {
-   ouch 400, "cannot parse stroke '$x'";
 }
 
 1;

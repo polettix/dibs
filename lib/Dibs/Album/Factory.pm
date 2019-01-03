@@ -27,7 +27,15 @@ sub instance ($self, $x, %args) {
    );
 } ## end sub instance
 
-sub parse ($self, $x) {
+around parse => sub ($orig, $self, $x) {
+   return {sections => $x} if ref($x) eq 'ARRAY';
+   return $self->$orig($x);
+};
+
+sub parsex ($self, $x) {
+   my $ref = ref $x;
+   return $x if $ref eq 'HASH';
+   return {sections => $x} if $ref eq 'ARRAY';
    ouch 400, "cannot parse album '$x'";
 }
 

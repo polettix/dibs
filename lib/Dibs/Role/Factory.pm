@@ -1,12 +1,13 @@
 package Dibs::Role::Factory;
 use 5.024;
 use Dibs::Inflater ();
+use Ouch ':trytiny_var';
 use Module::Runtime ();
 use Moo::Role;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-requires qw< dibspack_factory instance parse >;
+requires qw< dibspack_factory instance >;
 
 has _config => (
    is => 'ro',
@@ -37,6 +38,12 @@ sub item ($self, $x, %args) {
          };
       },
    );
+}
+
+sub parse ($self, $x) {
+   return $x if ref($x) eq 'HASH';
+   my $type = $self->type;
+   ouch 400, "cannot parse $type '$x'";
 }
 
 sub proxy_class ($self) {
