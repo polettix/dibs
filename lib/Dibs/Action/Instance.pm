@@ -20,45 +20,46 @@ has zone_factory => (is => 'ro', required => 1);
 has user => (is => 'ro', default => undef);
 has indent => (is => 'ro', default => 42);
 
-sub _container_path ($self, @args) { $self->_resolve_path(@args) }
-sub _host_path      ($self, @args) { $self->_resolve_path(@args) }
-sub _location ($self) {
-   my @allowed_zones = $self->zones_factory->items('dibspacks_host');
-   return $self->dibspack->location(@allowed_zones);
+sub container_path ($self, @args) {
+   @args = $self->path if (!@args) && defined($self->path);
+   return $self->_location->container_path(@args);
 }
 
-sub _resolve_path ($self, @subpath) {
-   @subpath = $self->path if (!@subpath) && defined($self->path);
-   my $method = $self->can((caller 1) =~ s{.*::_}{}rmxs);
-   return $self->_location->$method(@subpath);
+sub _location ($self) { # this is something executed inside the container!
+   my @allowed_zones = $self->zone_factory->items('dibspacks_container');
+   return $self->dibspack->location(@allowed_zones);
 }
 
 sub run ($self, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
    ARROW_OUTPUT('+', 'action ' . $self->name);
 
-   %args = (%args, $self->_coalesce_envs(\%args));
-   my $p = $self->_container_path;
+   my @carriers = ( # $self is considered implicitly
+      ($args{env_carriers} // [])->@*,
+      $self->dibspack, # this comes as last choice!
+   );
+   %args = (
+      keep => 1, # keep by default, %args can override
+      %args,
+      env     => $self->merge_envs(@carriers),
+      envile  => $self->merge_enviles(@carriers),
+      indent  => $self->indent,
+      workdir => $self->_workdir,
+      command => $self->_command(\%args),
+   );
+   $args{user} = $self->user if defined $self->user;
    my ($exitcode, $cid, $out);
 
    my $enviles = $self->_write_enviles($args{envile});
-   my $envile_zone = $self->zone_factory->item(ENVILE);
    scope_guard { $enviles->remove_tree({safe => 0}) if $enviles };
 
-   return docker_run(
-      %args,
-      $self->_docker_run_args,
-
-      # overriding everything above
-      keep    => 1,
-      volumes => $args{volumes},
-      workdir => $envile_zone->container_base,
-      command => [$p, $self->_command_args(\%args)]
-   );
+   return docker_run(%args);
 }
 
-sub _command_args ($self, $args) {
-   map {
+sub _workdir ($self) { $self->zone_factory->item(ENVILE)->container_base }
+
+sub _command ($self, $args) {
+   my @args = map {
       my $ref = ref $_;
       if ($ref eq 'HASH') {
          my %data = $_->%*;
@@ -66,7 +67,7 @@ sub _command_args ($self, $args) {
            (scalar(keys %data) == 1)
            ? %data
            : (delete $data{type}, \%data);
-         ouch 400, 'unknown type for arg of dibspack' unless defined $type;
+         ouch 400, 'unknown type for arg of action' unless defined $type;
          ($type, $data) = ($data, undef) if $type eq 'type';
          if (my ($ptype) = $type =~ m{\A path_ (.+) \z}mxs) {
             $type = 'path';
@@ -82,38 +83,18 @@ sub _command_args ($self, $args) {
          elsif ($type eq 'process_id') { $args->{process}->id }
          elsif ($type eq 'process_name') { $args->{process}->name }
          else {
-            ouch 400, "unrecognized arg for dibspack (type: $type)";
+            ouch 400, "unrecognized arg for action (type: $type)";
          }
       } ## end if ($ref eq 'HASH')
       elsif (!$ref) {
          $_;
       }
       else {
-         ouch 400, "invalid arg for dibspack (ref: $ref)";
+         ouch 400, "invalid arg for action (ref: $ref)";
       }
    } $self->args->@*;
-} ## end sub expand_command_args
-
-sub _docker_run_args ($self) {
-   my @retval = (
-      indent => $self->indent,
-   );
-   push @retval, user => $self->user if defined $self->user;
-   return @retval;
-}
-
-sub _coalesce_envs ($self, $args) {
-   my @carriers = (
-      # $self is considered implicitly by merge_envs/merge_enviles
-      $args->{process},
-      $self->dibspack,
-      ($args->{env_carriers} // [])->@*
-   );
-   return (
-      env    => $self->merge_envs(@carriers),
-      envile => $self->merge_enviles(@carriers),
-   );
-}
+   return [$self->container_path, @args];
+} ## end sub _command
 
 sub _write_enviles ($self, $spec) {
    my $env_dir = $self->zone_factory->item(ENVILE)->host_path;
@@ -178,135 +159,6 @@ export_all_enviles
 
 END
 } ## end sub write_enviles
-
-1;
-__END__
-
-package Dibs::Action::Instance;
-use 5.024;
-use Ouch qw< :trytiny_var >;
-use Log::Any qw< $log >;
-use Moo;
-use Path::Tiny qw< path >;
-use List::Util qw< any >;
-use Try::Catch;
-use Module::Runtime qw< use_module >;
-use experimental qw< postderef signatures >;
-no warnings qw< experimental::postderef experimental::signatures >;
-
-use Dibs::Config qw< :constants :functions >;
-
-has _args          => (
-   coerce   => \&__parse_args,
-   default  => sub { return [] },
-   init_arg => 'args',
-   is       => 'ro',
-);
-has container_path => (is => 'ro', required => 1);
-has env            => (is => 'ro', default => sub { return {} });
-has envile         => (is => 'ro', default => sub { return {} });
-has host_path      => (is => 'ro', required => 1);
-has indent         => (is => 'ro', default => sub { return 42 });
-has name           => (is => 'ro', required => 1);
-has user           => (is => 'ro', default => sub { return });
-
-sub args ($self) { return $self->_args->@* }
-
-
-sub create ($pkg, $spec, $dibs) {
-   my $args;
-   ouch 400, 'invalid undefined action' unless defined $spec;
-   my $sref = ref $spec;
-   ouch 400, 'invalid empty action' unless ($sref || length($spec));
-   if ($sref) {
-      ouch 400, "invalid reference of type '$sref' for action"
-         unless $sref eq 'HASH';
-      $args = {$spec->%*};
-   }
-   elsif (substr($spec, 0, 1) eq '/') {
-      $args = {
-         dibspack => {
-            type => INSIDE,
-            path => $spec,
-         }
-      };
-   }
-   else {
-      my ($type, $data) = 
-         ($spec =~ m{\A (?: http s? | git | ssh ) :// }imxs)
-         ? (git => $spec) : split(m{:}mxs, $spec, 2);
-      $args = { dibspack => [$data, type => $type] };
-   }
-   my $dibspack_spec = delete($args->{dibspack}) //
-      {
-         type => IMMEDIATE,
-         program => scalar(delete($args->{run})),
-      };
-   my $dibspack = $dibs->dibspack_for($dibspack_spec);
-   my $path = delete($args->{path}) // $dibspack->path;
-   my $name = delete($args->{name});
-   if (! defined($name)) {
-      $name = $dibspack->name;
-      $name .= " -> $path" if defined $path;
-   }
-   return $pkg->new(
-      $args->%*, # env, envile, ...
-      name => $name,
-      $dibspack->resolve_paths($path), # returns key-value pairs
-   );
-}
-
-sub __parse_args ($value) {
-   return $value if ref $value;
-
-   $value =~ s{\\\n}{}gmxs;
-   $value =~ s{\A\s+|\s*\z}{ }gmxs;
-   my ($in_single, $in_double, $is_escaped, $is_function, @args, $buffer);
-   for my $c (split m{}mxs, $value) {
-      if ($is_escaped) {
-         $is_escaped = 0;
-      }
-      elsif ($in_single) {
-         next unless $in_single = ($c ne "'");
-         # otherwise just get the char
-      }
-      elsif ($c eq '\\') { # escape can happen in plain or dquote
-         $is_escaped = 1;
-         next; # ignore escape char
-      }
-      elsif ($in_double) {
-         next unless $in_double = ($c ne '"');
-         # otherwise just get the char
-      }
-      elsif ($c =~ m{\s}mxs) {
-         if (defined $buffer) {
-            push @args,
-               $is_function
-               ? { split m{:}mxs, substr($buffer, 1), 2 }
-               : $buffer;
-         }
-         ($buffer, $is_function) = ();
-         next; # remove spacing chars
-      }
-      elsif ($c eq "'") {
-         $in_single = 1;
-         next; # ignore quote char
-      }
-      elsif ($c eq '"') {
-         $in_double = 1;
-         next; # ignore quote char
-      }
-      elsif ($c eq '@' && ! defined($buffer)) {
-         $is_function = 1;
-      }
-      ($buffer //= '') .= $c;
-   }
-
-   ouch 400, 'missing closing single quote' if $in_single;
-   ouch 400, 'missing closing double quote' if $in_double;
-   ouch 400, 'stray escape character at end' if $is_escaped;
-   return \@args;
-}
 
 1;
 __END__

@@ -7,36 +7,38 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 has "_$_" => (
-   is => 'ro',
-   default => sub { return [] },
-   coerce => sub ($v) { ref($v) eq 'ARRAY' ? $v : [$v] },
+   is       => 'ro',
+   default  => sub { return [] },
+   coerce   => sub ($v) { ref($v) eq 'ARRAY' ? $v : [$v] },
    init_arg => $_,
 ) for qw< env envile >;
 
-sub __as_hash ($name, $first, @objects) {
-   unshift @objects, $first if ref $first; # use as class method too
-   my $method = "_$name";
+sub __as_hash ($aref) {
    my %retval;
-   for my $instance (@objects) {
-      for my $item ($instance->$method->@*) {
-         my $ref = ref $item;
-         if ($ref eq 'HASH') {
-            %retval = (%retval, $item->%*);
-         }
-         elsif ($ref) {
-            ouch 400, "invalid item in $name: $ref";
-         }
-         elsif (exists $ENV{$item}) {
-            $retval{$item} = $ENV{$item};
-         }
+   for my $item ($aref->@*) {
+      my $ref = ref $item;
+      if ($ref eq 'HASH') {
+         %retval = (%retval, $item->%*);
       }
-   }
+      elsif ($ref) {
+         my $caller = (caller 1)[3] =~ s{.*::}{}rmxs;
+         ouch 400, "invalid item in $caller: $ref";
+      }
+      elsif (exists $ENV{$item}) {
+         $retval{$item} = $ENV{$item};
+      }
+   } ## end for my $item ($aref->@*)
    return \%retval;
+} ## end sub _as_hash
+
+sub __merge_hashes ($method, @objects) {
+   shift @objects unless @objects && ref $objects[0];
+   return {map { $_->$method->%* } reverse @objects};    # first wins!
 }
 
-sub env    ($self) { return __as_hash(env => $self)    }
-sub envile ($self) { return __as_hash(envile => $self) }
-sub merge_envs     { return __as_hash(env => @_)       }
-sub merge_enviles  { return __as_hash(envile => @_)    }
+sub env ($self)    { return __as_hash($self->_env) }
+sub envile ($self) { return __as_hash($self->_envile) }
+sub merge_envs     { return __merge_hashes(env => @_) }
+sub merge_enviles  { return __merge_hashes(envile => @_) }
 
 1;

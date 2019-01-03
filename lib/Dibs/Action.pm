@@ -6,6 +6,7 @@ with 'Dibs::Role::Proxy';
 
 __PACKAGE__->_proxy_methods(
    'id',                #
+   'container_path',    #
    'name',              #
    'run',               #
 );

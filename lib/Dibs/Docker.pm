@@ -11,9 +11,12 @@ use File::Temp qw< tempfile >;
 use Try::Catch;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+use Exporter 'import';
+our @EXPORT_OK = qw< docker_commit docker_rm docker_rmi docker_run docker_tag docker_version >;
+
 use Dibs::Config ':constants';
 use Dibs::Output;
-use Dibs::Run qw< run_command assert_command assert_command_out >;
+use Dibs::Run qw< run_command run_command_out assert_command assert_command_out >;
 
 sub docker_commit ($cid, $tag, $changes = undef) {
    my @command = qw< docker commit >;
@@ -60,12 +63,12 @@ sub docker_run (%args) {
    push @command, '--workdir' => $args{workdir} if defined $args{workdir};
    push @command, $args{image}, $args{command}->@*;
 
-   my $retval = run_command(\@command, $args{indent} ? INDENT : 0);
+   my ($retval, $out) = run_command_out(\@command, $args{indent} ? INDENT : 0);
    return $retval unless wantarray;
 
    my $cid = $args{keep} && $cidfile->exists ? $cidfile->slurp_raw : undef;
    $cidfile->remove if $cidfile->exists;
-   return ($retval, $cid);
+   return ($retval, $cid, $out);
 } ## end sub docker_run (%args)
 
 sub docker_tag ($src, $dst) {
