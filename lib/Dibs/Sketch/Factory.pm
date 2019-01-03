@@ -17,7 +17,9 @@ with 'Dibs::Role::Factory';
 
 sub instance ($self, $x, %args) {
    my $spec = $self->inflate($x, %args);
+   state $id = 0;
    return Dibs::Sketch::Instance->new(
+      id               => $id++,
       $spec->%*,
       stroke_factory   => $self->stroke_factory,
       dibspack_factory => $self->dibspack_factory,
@@ -25,7 +27,7 @@ sub instance ($self, $x, %args) {
 }
 
 sub parse ($self, $x) {
-   ouch 400, "cannot parse process '$x'";
+   ouch 400, "cannot parse sketch '$x'";
 }
 
 1;

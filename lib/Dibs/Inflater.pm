@@ -145,8 +145,9 @@ sub flatten_array ($aref, $flags = {}) {
          my $key = refaddr $_;
          ouch 400, 'circular dependency flattening array'
             if $flags->{$key}++;
-         flatten_array($_, $flags);
+         my @retval = flatten_array($_, $flags);
          delete $flags->{$key};
+         @retval;
       }
       else { $_ }
    } $aref->@*;

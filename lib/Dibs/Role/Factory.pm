@@ -1,7 +1,7 @@
 package Dibs::Role::Factory;
 use 5.024;
-use Dibs::Inflater qw< key_for >;
-use Module::Runtime qw< use_module >;
+use Dibs::Inflater ();
+use Module::Runtime ();
 use Moo::Role;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -31,10 +31,9 @@ sub item ($self, $x, %args) {
    return $self->proxy_class->new( # "promise" to do something when needed
       factory => sub {
          my $inventory = $self->_inventory;
-         $inventory->{key_for($x)} //= do {
+         $inventory->{Dibs::Inflater::key_for($x)} //= do {
             my $instance = $self->instance($x, %args);
-            $inventory->{key_for($instance)} //= $instance;
-            $instance;
+            $inventory->{Dibs::Inflater::key_for($instance)} //= $instance;
          };
       },
    );
@@ -42,7 +41,7 @@ sub item ($self, $x, %args) {
 
 sub proxy_class ($self) {
    my $package = ref($self) || $self;
-   return use_module($package =~ s{::Factory}{}rmxs);
+   return Module::Runtime::use_module($package =~ s{::Factory}{}rmxs);
 }
 
 sub type ($self) {

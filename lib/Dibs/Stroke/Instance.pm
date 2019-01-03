@@ -81,8 +81,8 @@ sub _command ($self, $args) {
             my ($name, $path) = $data->%*;
             $self->zone_factory->item($name)->container_path($path);
          } ## end if ($type eq 'path')
-         elsif ($type eq 'process_id') { $args->{process}->id }
-         elsif ($type eq 'process_name') { $args->{process}->name }
+         elsif ($type eq 'sketch_id') { $args->{sketch}->id }
+         elsif ($type eq 'sketch_name') { $args->{sketch}->name }
          else {
             ouch 400, "unrecognized arg for stroke (type: $type)";
          }

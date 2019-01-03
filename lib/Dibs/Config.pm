@@ -16,6 +16,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
+use constant ALBUM             => 'album';
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
 use constant DEFAULTS_FIELD    => 'defaults';
@@ -35,7 +36,9 @@ use constant INSIDE            => 'inside';
 use constant OPERATE           => 'operate';
 use constant PROJECT           => 'project';
 use constant IMMEDIATE         => 'immediate';
+use constant SKETCH            => 'sketch';
 use constant SRC               => 'src';
+use constant STROKE            => 'stroke';
 use constant DETECT_OK         => ((0 << 8) | 0);
 use constant DETECT_SKIP       => ((100 << 8) | 0);
 use constant INDENT            => 7;
@@ -170,6 +173,7 @@ our %EXPORT_TAGS = (
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
         HOST_DIBSPACKS INDENT DEFAULTS
+        ALBUM SKETCH STROKE
         >
    ],
    functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],
@@ -207,7 +211,7 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
      if $config{help};
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
-   $config{workflow} = [map { split m{[,\s]}mxs } $cmdline->@*]
+   $config{draw} = [map { split m{[,\s]}mxs } $cmdline->@*]
      if scalar $cmdline->@*;
    return \%config;
 } ## end sub get_cmdline

@@ -21,11 +21,11 @@ defaults:
       - bundlish: &bundlish
          step: bundle
 
-workflow:
+draw:
    - qbuild
    - qbundle
 
-actions:
+strokes:
    user: &user
       dibspack: basic
       path:     wrapexec/stripexec
@@ -55,7 +55,7 @@ dibspacks:
       origin: https://github.com/polettix/dibspack-basic.git
       user:   user
 
-steps:
+sketches:
    builder:
       extends: *buildish
       from:    *base_image
@@ -86,13 +86,13 @@ steps:
       actions: [*prereqs, *bundle_bare]
    qbuild:
       extends: build
-      actions: build_bare
+      strokes: build_bare
    qbundle:
       extends: *bundle
-      actions: [*bundle_bare]
+      strokes: [*bundle_bare]
    tester:
       from: *base_image
-      actions:
+      strokes:
          - run: |
             #!/bin/sh
             printf 'I am in %s, #params = %d\n' "$PWD" "$#"

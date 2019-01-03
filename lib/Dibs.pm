@@ -9,7 +9,6 @@ use Ouch qw< :trytiny_var >;
 use Try::Catch;
 use POSIX qw< strftime >;
 use Scalar::Util qw< refaddr blessed >;
-use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
@@ -18,43 +17,22 @@ local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
-use Dibs::Output;
 use Dibs::Config ':all';
-use Dibs::Stroke::Factory;
+use Dibs::Album::Factory;
 use Dibs::Pack::Factory;
 use Dibs::Sketch::Factory;
+use Dibs::Stroke::Factory;
 use Dibs::Zone::Factory;
 
-has stroke_factory => (is => 'ro', required => 1);
+with 'Dibs::Role::EnvCarrier';
 
-has allow_dirty => (
-   is       => 'ro',
-   default  => 0,
-   init_arg => 'dirty',
-   coerce   => sub ($x) { $x ? 1 : 0 },
-);
-
+has album_factory    => (is => 'ro', required => 1);
+has allow_dirty      => (is => 'ro', default  => 0);
 has dibspack_factory => (is => 'ro', required => 1);
-
-has sketch_factory => (is => 'ro', required => 1);
-
-has project_dir => (
-   is       => 'ro',
-   required => 1,
-   coerce   => sub ($path) { return path($path)->absolute },
-);
-
-has zone_factory => (
-   is      => 'lazy',
-   coerce  => sub ($def) {
-      return $def if blessed($def) && $def->isa('Dibs::ZoneFactory');
-      return Dibs::Zone::Factory->new($def);
-   },
-);
-
-sub _build_zone_factory ($self) {
-   return Dibs::Zone::Factory->default($self->project_dir);
-}
+has project_dir      => (is => 'ro', required => 1);
+has sketch_factory   => (is => 'ro', required => 1);
+has stroke_factory   => (is => 'ro', required => 1);
+has zone_factory     => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
@@ -65,39 +43,48 @@ sub BUILDARGS ($class, @args) {
 
    # Project directory
    ouch 400, 'missing required value for project_dir'
-      unless defined $args{project_dir};
+     unless defined $args{project_dir};
    my $pd = $retval{project_dir} = path($args{project_dir})->absolute;
 
    # Zones factory
-   my $zone_specs = $args{zone_specs} // DEFAULTS->{zone_specs_for};
+   my $zone_specs  = $args{zone_specs} // DEFAULTS->{zone_specs_for};
    my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
-   my $zf = $retval{zone_factory} = Dibs::Zone::Factory->new(
-      project_dir => $pd,
+   my $zf          = $retval{zone_factory} = Dibs::Zone::Factory->new(
+      project_dir    => $pd,
       zone_specs_for => $zone_specs,
       zone_names_for => $zone_groups,
    );
 
    # Dibspack factory
    my $df = $retval{dibspack_factory} = Dibs::Pack::Factory->new(
-      config => ($args{dibspacks} // {}),
+      config       => ($args{dibspacks} // {}),
       zone_factory => $zf,
    );
 
-   # Action factory
-   my $af = $retval{stroke_factory} = Dibs::Action::Factory->new(
-      config => ($args{strokes} // {}),
+   # Stroke factory
+   my $tf = $retval{stroke_factory} = Dibs::Stroke::Factory->new(
+      config           => ($args{strokes} // {}),
       dibspack_factory => $df,
    );
 
-   # Process factory
-   my $pf = $retval{sketch_factory} = Dibs::Process::Factory->new(
-      stroke_factory => $af,
-      config => ($args{sketches} // {}),
+   # Sketch factory
+   my $kf = $retval{sketch_factory} = Dibs::Sketch::Factory->new(
+      stroke_factory   => $tf,
+      config           => ($args{sketches} // {}),
+      dibspack_factory => $df,
+   );
+
+   # Album factory
+   my $af = $retval{album_factory} = Dibs::Album::Factory->new(
+      sketch_factory   => $kf,
+      config           => ($args{albums} // {}),
       dibspack_factory => $df,
    );
 
    return \%retval;
-}
+} ## end sub BUILDARGS
+
+sub album ($self, $spec) { $self->album_factory->item($spec) }
 
 1;
 

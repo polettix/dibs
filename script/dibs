@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 use 5.024;
 use warnings;
-use Dibs;
+use Dibs::App 'main';
 use Path::Tiny;
 
-exit Dibs->main(@ARGV);
+exit main(@ARGV);
 
 sub version {
    my $version = $ENV{VERSION};
@@ -15,7 +15,7 @@ sub version {
    }
 
    # last resort, a default value
-   $version //= '0.001972';
+   $version //= '0.011972';
 
    for my $key (qw< GIT_REF DIBS_ID DIBS_FROM_IMAGE >) {
       next unless defined $ENV{$key};

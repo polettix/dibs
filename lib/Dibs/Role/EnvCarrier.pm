@@ -29,7 +29,7 @@ sub __as_hash ($aref) {
       }
    } ## end for my $item ($aref->@*)
    return \%retval;
-} ## end sub _as_hash
+} ## end sub __as_hash ($aref)
 
 sub __merge_hashes ($method, @objects) {
    shift @objects unless @objects && ref $objects[0];
@@ -40,5 +40,8 @@ sub env ($self)    { return __as_hash($self->_env) }
 sub envile ($self) { return __as_hash($self->_envile) }
 sub merge_envs     { return __merge_hashes(env => @_) }
 sub merge_enviles  { return __merge_hashes(envile => @_) }
+
+sub append_env ($self, @s) { push $self->_env->@*, @s }
+sub append_envile ($self, @s) { push $self->_envile->@*, @s }
 
 1;

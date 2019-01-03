@@ -5,6 +5,7 @@ use Log::Any qw< $log >;
 use Log::Any::Adapter;
 use Ouch qw< :trytiny_var >;
 use Path::Tiny qw< path cwd >;
+use POSIX 'strftime';
 
 use Exporter 'import';
 our @EXPORT_OK = qw< main create_from_cmdline >;
@@ -13,13 +14,15 @@ use Dibs ();
 use Dibs::Config ':all';
 use Dibs::Get ();
 use Dibs::Output;
-use Dibs::Zone        ();
-use Dibs::ZoneFactory ();
+use Dibs::Zone          ();
+use Dibs::Zone::Factory ();
 
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-sub create_from_cmdline (@as) {
+sub initialize (@as) {
+   set_logger();    # initialize with defaults
+
    my $cmdenv = get_config_cmdenv(\@as);
    set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
 
@@ -51,20 +54,34 @@ sub create_from_cmdline (@as) {
    # last touch to the logger if needed
    set_logger($overall->{logger}->@*) if $overall->{logger};
 
-   return Dibs->new($overall);
-} ## end sub create_from_cmdline (@as)
+   $overall->{run_variables} = {
+      DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime),
+   };
+
+   return $overall;
+} ## end sub initialize (@as)
 
 sub main (@as) {
-   my $retval = try {
-      set_logger();    # initialize with defaults
-      my $dibs = create_from_cmdline(@as);
-      $dibs->run;
-   }
+   try {
+      my $config = initialize(@as);
+      my $dibs   = Dibs->new($config);
+      $dibs->append_envile($config->{run_variables});
+      my $album  = $dibs->album(
+         {
+            id       => 'main',
+            sections => $config->{draw},
+         }
+      );
+      $album->draw(
+         env_carriers => [$dibs],
+         run_tag => $config->{run_variables}{DIBS_ID},
+      );
+      return 0;
+   } ## end try
    catch {
-      $log->fatal(bleep);
-      1;
+      $log->fatal(ref $_ ? $_->trace : $_);
+      return 1;
    };
-   return ($retval // 0);
 } ## end sub main (@as)
 
 sub origin_onto_src ($config) {
@@ -74,10 +91,8 @@ sub origin_onto_src ($config) {
 
    # save $src_zone in $config->{has_cloned} so that we will not clone
    # again later AND src will not be overridden
-   my $src_zone = $config->{has_cloned} = Dibs::ZoneFactory->new(
-      project_dir    => $config->{project_dir},
-      zone_specs_for => $config->{zone_specs_for},
-   )->zone_for(SRC);
+   my $src_zone = $config->{has_cloned} =
+     Dibs::Zone::Factory->new($config->%*)->zone_for(SRC);
    my $src_dir = $src_zone->host_base;
    my $dirty   = $config->{dirty} // undef;
 

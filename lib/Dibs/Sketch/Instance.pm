@@ -110,6 +110,10 @@ sub image ($self, $to) {
    catch { ouch 400, "Cannot tag $from to $to. Build $from maybe?" };
 }
 
+sub working_image_name ($self, $tag) {
+   return $self->name . ':' . $tag;
+}
+
 sub remove_working ($self, $image) {
    ARROW_OUTPUT('+', 'removing working image, not needed');
    $self->cleanup_tags($image)
@@ -118,11 +122,12 @@ sub remove_working ($self, $image) {
 }
 
 sub draw ($self, %args) {
-   ARROW_OUTPUT('=', 'process ' . $self->name);
-   $args{process} = $self;    # self-explanatory...
+   ARROW_OUTPUT('=', 'sketch ' . $self->name);
+   $args{sketch} = $self;    # self-explanatory...
    $args{env_carriers} = [ $self, ($args{env_carriers} // [])->@* ];
 
    # "clone" image so that we will work on it over and over
+   my $win = $args{working_image_name} //= $self->working_image_name($args{run_tag});
    my $image = $self->image($args{working_image_name});
 
    my %retval;
