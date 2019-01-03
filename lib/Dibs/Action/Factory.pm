@@ -118,6 +118,8 @@ sub dwim_type ($self, $spec) {
 
    # FIXME probably remove the following one, move into a pack
    return IMMEDIATE if exists($spec->{run}) || exists($spec->{program});
+
+   return;
 }
 
 sub _instance_for_name ($self, $name, $args) {
