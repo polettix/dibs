@@ -2,7 +2,6 @@ use strict;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Test::More;
-use Test::Exception;
 
 use Path::Tiny qw< path cwd >;
 use lib path(__FILE__)->parent->stringify;
@@ -13,7 +12,6 @@ plan skip_all => "both docker and git MUST be available for this test"
 
 diag 'takes a bit...';
 
-use Test::Exception;
 use Dibs::App ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -25,15 +23,15 @@ my $work_dir = path(__FILE__ . '.d')->absolute;
 my $guard = directory_guard($work_dir);
 init_git($work_dir);
 
-my ($err, $out);
-lives_ok {
+my ($retval, $err, $out);
+{
    local *STDERR;
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   Dibs::App::main(-C => $work_dir, qw< foo bar >);
-} 'call to Dibs::App::main survives'
-   or diag bleep();
+   $retval = Dibs::App::main(-C => $work_dir, qw< foo bar >);
+}
+is $retval, 0, 'main() outcome';
 
 is $out, undef, 'output of the whole thing';
 #diag Dumper $err;
