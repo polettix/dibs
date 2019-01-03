@@ -12,6 +12,7 @@ __PACKAGE__->_proxy_methods(
    'name', #
    'output_marked', #
    'output', #
+   'type', #
 );
 
 sub create ($class, $target, $factory, %args) {

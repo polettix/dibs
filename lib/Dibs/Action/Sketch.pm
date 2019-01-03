@@ -71,14 +71,17 @@ sub execute ($self, $args = undef) {
    $args //= {};
    my $name = $self->name('(unknown)');
    my $id = 0;
+   my @outputs;
    for my $action ($self->actions->@*) {
       $id++;
       $action->output_marked(
          verbose => $args->{verbose},
          name => "($name/$id)"
       );
-      $action->execute($args);
+      my $oargs = $action->execute($args);
+      push @outputs, [$action->type, delete $oargs->{out}];
    }
+   $args->{out} = \@outputs;
    return $args;
 }
 

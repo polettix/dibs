@@ -51,7 +51,7 @@ sub new ($package, $path) {
    my $flags_file = $path->child('flags.json');
    my ($flags, $do_cleanup);
    if ($flags_file->exists) {
-      $flags = decode_json($flags_file->slurp_raw);
+      $flags = { map { $_ => 1 } decode_json($flags_file->slurp_raw)->@* };
       $do_cleanup = 1;
    }
    else {
@@ -61,7 +61,7 @@ sub new ($package, $path) {
          {recurse => 1},
       );
       my $tmp = $flags_file->sibling($flags_file->basename . '.tmp');
-      $tmp->spew_raw(encode_json($flags));
+      $tmp->spew_raw(encode_json([keys $flags->%*]));
       $tmp->move($flags_file);
    }
    my $self = bless {path => $path, flags => $flags}, $package;

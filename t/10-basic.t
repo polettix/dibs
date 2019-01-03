@@ -1,8 +1,10 @@
 use strict;
 use Test::More;
+use Test::Exception;
 use Path::Tiny qw< path cwd >;
 use Dibs;
 use Dibs::Config ':all';
+use Dibs::App ();
 use experimental qw< postderef signatures >;
 use lib path(__FILE__)->parent->stringify;
 use DibsTest;
@@ -10,13 +12,13 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 my $work_dir = path(__FILE__ . '.d')->absolute;
 clean_environment();
+my $guard = directory_guard($work_dir);
+
 my $config = get_config_cmdenv([ -C => $work_dir, qw< foo bar > ]);
 is cwd->stringify, $work_dir->stringify, 'changed directory';
 is_deeply $config->{do}, [qw< foo bar >], 'config positionals';
 
 $config = add_config_file($config, $work_dir->child('dibs.yml'));
-use Data::Dumper;
-diag Dumper $config;
 
 my $dibs = Dibs->new($config);
 isa_ok $dibs, 'Dibs';
@@ -33,7 +35,29 @@ is scalar(@$actions), 2, 'right number of actions in sketch';
 isa_ok $_, 'Dibs::Action' for @$actions;
 can_ok $actions->[0], qw< execute output output_marked >;
 
+$config->{run_variables} = {
+   DIBS_ID => 'testing',
+};
 
+my $out;
+lives_ok { $out = Dibs::App::draw($config) } 'call to Dibs::App::draw';
+
+is_deeply $out->{out}, [
+  [
+    'sketch',
+    [
+      [ 'prepare', undef ],
+      [ 'stroke', "Hello, world! This is foo (one two (2))\n" ]
+    ]
+  ],
+  [
+    'sketch',
+    [
+      [ 'prepare', undef ],
+      [ 'stroke', "Hello, world! This is bar (one two (2))\n" ]
+    ]
+  ]
+], 'output from call to draw';
 
 done_testing();
 __END__

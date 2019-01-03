@@ -72,22 +72,6 @@ sub _build_name ($self) {
    return Dibs::RandomName::random_name();
 }
 
-sub draw ($self, $config) {
-   $self->append_envile($config->{run_variables});
-   my $sketch = $self->sketch($config->{do});
-   my $name = $self->name;
-   my $run_tag = $config->{run_variables}{DIBS_ID};
-   $sketch->draw(
-      env_carriers => [$self],
-      project_dir  => $self->project_dir,
-      zone_factory => $self->zone_factory,
-      run_tag => $run_tag,
-      to => "$name:$run_tag",
-      verbose => $config->{verbose},
-   );
-   return;
-}
-
 sub instance ($self, $args) { $self->action_factory->instance($args) }
 
 sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }

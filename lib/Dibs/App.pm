@@ -10,7 +10,7 @@ use Data::Dumper;
 use POSIX 'strftime';
 
 use Exporter 'import';
-our @EXPORT_OK = qw< main initialize >;
+our @EXPORT_OK = qw< main initialize draw >;
 
 use Dibs ();
 use Dibs::Config ':all';
@@ -67,9 +67,8 @@ sub initialize (@as) {
 sub main (@as) {
    my $config = {};
    try {
-      $config  = initialize(@as);
-      my $dibs = Dibs->new($config);
-      $dibs->draw($config);
+      $config = initialize(@as);
+      draw($config);
       return 0;
    } ## end try
    catch {
@@ -77,6 +76,23 @@ sub main (@as) {
       return 1;
    };
 } ## end sub main (@as)
+
+sub draw ($config) {
+   my $dibs = Dibs->new($config);
+   my $run_variables = $config->{run_variables};
+   my $run_tag = $run_variables->{DIBS_ID};
+   my $name = $dibs->name;
+
+   $dibs->append_envile($run_variables);
+   return $dibs->sketch($config->{do})->draw(
+      env_carriers => [$dibs],
+      project_dir  => $dibs->project_dir,
+      zone_factory => $dibs->zone_factory,
+      run_tag => $run_tag,
+      to => "$name:$run_tag",
+      verbose => $config->{verbose},
+   );
+}
 
 sub origin_onto_src ($config, $early = '') {
    my $origin = $config->{origin} // '';
