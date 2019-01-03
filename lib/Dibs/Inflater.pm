@@ -48,7 +48,7 @@ sub inflate ($spec, %args) {
    my $ref = ref $spec;
    if ($ref eq '') { # scalar, treat as string
       if (substr($spec, 0, 1) eq '@') { # import from somewhere
-         $rv = load_from_dibspack($spec, %args);
+         $rv = load_from_pack($spec, %args);
       }
       else {
          $rv = $args{config}{$spec} if exists $args{config}{$spec};
@@ -79,41 +79,41 @@ sub inflate ($spec, %args) {
    return $rv;
 }
 
-sub resolve_dibspack ($spec, %args) {
+sub resolve_pack ($spec, %args) {
    if (!ref $spec) {
       my ($name, $path, $datapath) = $spec =~ m{
          \A \@            # this can be removed
-         ([^/#]+)         # name of dibspack
+         ([^/#]+)         # name of pack
          (?: /  ([^#]*))? # path (optional
          (?: \# (.*))?    # fragment -> datapath
          \z
       }mxs;
-      ouch 400, "invalid dibspack locator $spec" unless defined $name;
+      ouch 400, "invalid pack locator $spec" unless defined $name;
       $path = undef unless length($path // '');
       $datapath = undef unless length ($datapath // '');
       $spec = { '@' => $name, path => $path, datapath => $datapath };
    }
-   elsif (exists($spec->{dibspack}) && blessed($spec->{dibspack})) {
+   elsif (exists($spec->{pack}) && blessed($spec->{pack})) {
       return $spec;
    }
    return {
-      dibspack => $args{dibspack_factory}->item($spec->{'@'}, %args),
+      pack => $args{pack_factory}->item($spec->{'@'}, %args),
       path     => $spec->{path},
       datapath => $spec->{datapath},
    };
 }
 
-sub load_from_dibspack ($spec, %as) {
-   my $p = resolve_dibspack($spec, dynamic_zone => HOST_DIBSPACKS, %as);
+sub load_from_pack ($spec, %as) {
+   my $p = resolve_pack($spec, dynamic_zone => HOST_DIBSPACKS, %as);
    my @path = defined($p->{path}) ? $p->{path} : ();
-   my $path = $p->{dibspack}->location->host_path(@path);
+   my $path = $p->{pack}->location->host_path(@path);
    ouch 404, "missing file $path" unless $path->exists;
    my $whole = LoadFile($path);
 
    # ensure the needed data are there
    my $data = data_in($whole, $p->{datapath});
 
-   my $zf = $as{zone_factory} // $as{dispack_factory}->zone_factory;
+   my $zf = $as{zone_factory} // $as{pack_factory}->zone_factory;
    my $cf = $whole->{&DIBSPACKS} // {};
    require Dibs::Pack::Factory;
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);

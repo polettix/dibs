@@ -26,13 +26,14 @@ use Dibs::Zone::Factory;
 
 with 'Dibs::Role::EnvCarrier';
 
-has album_factory    => (is => 'ro', required => 1);
-has allow_dirty      => (is => 'ro', default  => 0);
-has dibspack_factory => (is => 'ro', required => 1);
-has project_dir      => (is => 'ro', required => 1);
-has sketch_factory   => (is => 'ro', required => 1);
-has stroke_factory   => (is => 'ro', required => 1);
-has zone_factory     => (is => 'ro', required => 1);
+has action_factory => (is => 'ro', required => 1);
+has allow_dirty    => (is => 'ro', default  => 0);
+has pack_factory   => (is => 'ro', required => 1);
+has project_dir    => (is => 'ro', required => 1);
+has zone_factory   => (
+   is => 'lazy',
+   default => sub { Dibs::Zone::Factory->default($self->project_dir) },
+);
 
 sub BUILDARGS ($class, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
@@ -56,35 +57,13 @@ sub BUILDARGS ($class, @args) {
    );
 
    # Dibspack factory
-   my $df = $retval{dibspack_factory} = Dibs::Pack::Factory->new(
-      config       => ($args{dibspacks} // {}),
+   my $df = $retval{pack_factory} = Dibs::Pack::Factory->new(
+      config       => ($args{packs} // $args{dibspacks} // {}),
       zone_factory => $zf,
-   );
-
-   # Stroke factory
-   my $tf = $retval{stroke_factory} = Dibs::Stroke::Factory->new(
-      config           => ($args{strokes} // {}),
-      dibspack_factory => $df,
-   );
-
-   # Sketch factory
-   my $kf = $retval{sketch_factory} = Dibs::Sketch::Factory->new(
-      stroke_factory   => $tf,
-      config           => ($args{sketches} // {}),
-      dibspack_factory => $df,
-   );
-
-   # Album factory
-   my $af = $retval{album_factory} = Dibs::Album::Factory->new(
-      sketch_factory   => $kf,
-      config           => ($args{albums} // {}),
-      dibspack_factory => $df,
    );
 
    return \%retval;
 } ## end sub BUILDARGS
-
-sub album ($self, $spec) { $self->album_factory->item($spec) }
 
 sub volumes ($self) {
    return [

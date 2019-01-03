@@ -35,7 +35,7 @@ sub __assert_location ($location) {
 sub __inflate_location ($spec) {
    return $spec if blessed($spec) && $spec->isa('Dibs::Location');
    return Dibs::Location->new($spec) if ref($spec) eq 'HASH';
-   ouch 400, "invalid location '$spec' for dibspack";
+   ouch 400, "invalid location '$spec' for pack";
 }
 
 1;

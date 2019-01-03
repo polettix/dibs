@@ -23,7 +23,7 @@ has zone_factory => (is => 'ro', required => 1);
 
 around create => sub ($orig, $class, %args) {
    my ($factory, $factory_args) = @args{qw< factory args >};
-   my $dibspack_factory = $factory->dibspack_factory;
+   my $pack_factory = $factory->pack_factory;
 
    my %spec =
       (ref($args{spec}) ? $args{spec} : $class->parse($args{spec}))->%*;
@@ -34,7 +34,7 @@ around create => sub ($orig, $class, %args) {
    my $zf = $spec{zone_factory} = $args{factory}->zone_factory;
    my $zone = $zf->item(PROJECT);
 
-   my $pk = $spec{pack} = $dibspack_factory->item(
+   my $pk = $spec{pack} = $pack_factory->item(
       $pack_definition,
       dynamic_zone => $zone,
       $factory_args->%*,

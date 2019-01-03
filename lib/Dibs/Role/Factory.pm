@@ -7,7 +7,7 @@ use Moo::Role;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-requires qw< dibspack_factory instance >;
+requires qw< pack_factory instance >;
 
 has _config => (
    is => 'ro',
@@ -21,11 +21,11 @@ sub inflate ($self, $x, %args) {
    return Dibs::Inflater::inflate(
       $x,
       %args,
-      config           => $self->_config,
-      dibspack_factory => $self->dibspack_factory,
-      normalizer       => sub ($v) { $self->normalize($v) },
-      parser           => sub ($v) { $self->parse($v) },
-      type             => $self->type,
+      config       => $self->_config,
+      pack_factory => $self->pack_factory,
+      normalizer   => sub ($v) { $self->normalize($v) },
+      parser       => sub ($v) { $self->parse($v) },
+      type         => $self->type,
    );
 }
 

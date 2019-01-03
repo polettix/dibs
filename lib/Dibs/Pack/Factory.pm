@@ -30,13 +30,13 @@ sub instance ($self, $x, %args) {
    return $instance;
 }
 
-sub dibspack_factory ($self) { return $self }
+sub pack_factory ($self) { return $self }
 
 sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 
 sub _create ($self, $spec, %args) {
    my $type = $spec->{type} #self->dwim_type($spec)
-     or ouch 400, 'no type present in dibspack';
+     or ouch 400, 'no type present in pack';
 
    # native types lead to static stuff in a zone named after the type
    return $self->_create_static($spec, %args)
@@ -59,7 +59,7 @@ sub _create_dynamic ($self, $spec, %args) {
       fetcher  => $fetcher,
       location => {base => $id, zone => $zone},
    );
-} ## end sub _create_dynamic_dibspack
+} ## end sub _create_dynamic_pack
 
 sub _create_static ($self, $spec, @ignore) {
    my $type = $spec->{type};
@@ -67,7 +67,7 @@ sub _create_static ($self, $spec, @ignore) {
    # %location is affected by base (aliased as "raw") and path. Either
    # MUST be present, both is possible
    my %location = (zone => $self->zone_factory->zone_for($type));
-   my $fullpath; # useful for assigning an identifier to this dibspack
+   my $fullpath; # useful for assigning an identifier to this pack
 
    if (defined(my $base = $spec->{base} // $spec->{raw} // undef)) {
       $location{base} = $base;
@@ -80,7 +80,7 @@ sub _create_static ($self, $spec, @ignore) {
    }
 
    # if $fullpath is not true, none of base(/raw) or path was set
-   $fullpath or ouch 400, "invalid base/path for $type dibspack";
+   $fullpath or ouch 400, "invalid base/path for $type pack";
 
    # build %subargs for call to Dibs::Pack::Instance
    my %args = (
@@ -93,7 +93,7 @@ sub _create_static ($self, $spec, @ignore) {
    $args{name} = $spec->{name} if exists $spec->{name};
 
    return Dibs::Pack::Instance->new(%args);
-} ## end sub _create_static_dibspack
+} ## end sub _create_static_pack
 
 around normalize => sub ($orig, $self, $spec) {
    $spec = $self->$orig($spec);
@@ -135,7 +135,7 @@ sub parse ($self, $spec) {
          $hash{raw}  = $raw;
       }
       else {
-         ouch 400, "cannot parse dibspack specification '$spec'";
+         ouch 400, "cannot parse pack specification '$spec'";
       }
 
       $spec = \%hash;

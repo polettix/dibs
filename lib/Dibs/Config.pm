@@ -70,7 +70,7 @@ use constant DEFAULTS => {
       SRC,
       [EMPTY, 'ro']
    ],
-   dibspack_dirs  => [SRC, CACHE, ENVILE, ENVIRON],
+   pack_dirs  => [SRC, CACHE, ENVILE, ENVIRON],
    logger         => [qw< Stderr log_level debug >],
    zone_specs_for => {
       CACHE,
@@ -122,9 +122,9 @@ use constant DEFAULTS => {
       },
    },
    zone_names_for => {
-      dibspacks_host      => [HOST_DIBSPACKS, PROJECT, SRC],
-      dibspacks_container => [PROJECT, SRC, INSIDE],
-      &VOLUMES            => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
+      host      => [HOST_DIBSPACKS, PROJECT, SRC],
+      container => [PROJECT, SRC, INSIDE],
+      &VOLUMES  => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
    },
 };
 use constant OPTIONS => [
