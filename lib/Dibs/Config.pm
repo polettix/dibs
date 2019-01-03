@@ -24,6 +24,7 @@ use constant DEFAULTS_FIELD    => 'defaults';
 use constant DEFINITIONS       => 'definitions';
 use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
+use constant HOST_DIBSPACKS    => 'host-dibspacks';
 use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsactions';
 use constant HTTP              => 'http';
@@ -110,7 +111,7 @@ our %EXPORT_TAGS = (
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
-        INDENT
+        HOST_DIBSPACKS INDENT
         >
    ],
    functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],

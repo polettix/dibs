@@ -2,130 +2,90 @@ package Dibs::Pack;
 use 5.024;
 use experimental qw< postderef signatures >;
 use Ouch qw< :trytiny_var >;
-use Try::Catch;
 use Module::Runtime qw< use_module >;
-use Moo;
-use List::Util qw< first >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Config qw< :constants >;
+use Dibs::Pack::Dynamic;
 
-has _locations => (is => 'ro', default  => []);
-has name       => (is => 'ro', required => 1);
+sub create_dibspack ($spec, %opts) {
+   $spec = _normalize($spec);
+   my $type = $spec->{type} or ouch 400, 'no type present in dibspack';
 
-sub create ($package, $spec, $zone_factory) {
+   # native types lead to static stuff in a zone named after the type
+   return _create_static_dibspack($spec, %opts)
+     if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
 
-}
+   # otherwise it's dynamic stuff to be put in the default zone provided
+   return _create_dynamic_dibspack($spec, %opts);
+} ## end sub create_dibspack
 
-# interface, these MUST be overridden
-sub first_material_location ($self, @candidate_zones) {
-   ouch 500, $self->name . ': unimplemented';
-}
+sub _create_dynamic_dibspack ($spec, %opts) {
+   my $type    = $spec->{type};
+   my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
+   my $id      = $type . ':' . $fetcher->id;
+   my $zone    = $opts{zone_factory}->zone_for($opts{dynamic_zone});
 
-sub first_supportable_zone ($self, @candidate_zones) {
-   ouch 500, $self->name . ': unimplemented';
-}
+   require Dibs::Pack::Dynamic;
+   return Dibs::Pack::Dynamic->new(
+      $spec->%*,    # anything from the specification, with overrides below
+      id       => $id,
+      cloner   => $opts{cloner},
+      fetcher  => $fetcher,
+      location => {path => $id, zone => $zone},
+   );
+} ## end sub _create_dynamic_dibspack
 
-# protected methods, useful in derived classes
-sub _first_location_in ($self, @candidate_zones) {
-   my @ls = $self->_locations->@* or return undef;
-   return $ls[0] unless @candidate_zones;
-   my %is_candidate = map { $_ => 1 } @candidate_zones;
-   return first { $is_candidate{$_->zone} } @ls;
-} ## end sub location
+sub _create_static_dibspack ($spec, %opts) {
+   my $type = $spec->{type};
+   defined(my $path = $spec->{path} // $spec->{raw})
+     or ouch 400, "invalid path for $type dibspack";
 
-sub _inflate_location ($self_or_package, $spec) {
-   return $spec if blessed($spec) && $spec->isa('Dibs::Location');
-   return Dibs::Location->new($spec) if ref($spec) eq 'HASH';
-   ouch 400, q{invalid location for pack '} . $self->name . q{'};
-}
+   # build @args for call to Dibs::Pack::Static's constructor
+   my $zone = $opts{zone_factory}->zone_for($type);
+   my @args = (
+      id       => "$type:$path",
+      location => {path => $path, zone => $zone},
+   );
 
-1;
-__END__
+   # name presence is optional, rely on default from class if absent
+   push @args, name => $spec->{name} if exists $spec->{name};
 
+   require Dibs::Pack::Static;
+   return Dibs::Pack::Static->new(@args);
+} ## end sub _create_static_dibspack
 
-interface
+sub _normalize ($spec) {
+   if (!ref($spec)) {
+      my %hash;
+      if ($spec =~ m{\A git://}mxs) {
+         $hash{type}   = GIT;
+         $hash{origin} = $spec;
+      }
+      elsif ($spec =~ m{\A https?://}mxs) {
+         $hash{type} = HTTP;
+         $hash{URI}  = $spec;
+      }
+      elsif (my ($type, $raw) = $spec =~ m{\A ([^:]+) : (.*) \z}mxs) {
+         $hash{type} = $type;
+         $hash{raw}  = $raw;
+      }
+      else {
+         ouch 400, "cannot parse dibspack specification '$spec'";
+      }
 
+      $spec = \%hash;
+   } ## end if (!ref($spec))
 
-How to use:
+   ouch 400, 'invalid input specification for dibspack'
+     unless ref($spec) eq 'HASH';
 
-   my $instance = $pkg->create($spec, $zf);
-   ...
-   my $zone = $self->first_supportable_zone(@candidates) # also empty
-      ouch 400, 'no zone found';
-   my $location = $self->first_material_location($zone);
+   # DWIM-my stuff here
+   $spec->{type} = IMMEDIATE
+     if (!exists($spec->{type})) && exists($spec->{run});
 
-   # or rely on exceptions
-   my $location = $self->first_material_location(@candidate_zones);
-
-   # list already supported zones
-   my @zones = $instance->zones(@useful_zones);
-
-   # list all possible supported zones in provided list, falls back to
-   # zones if list is empty
-   my @zones = $instance->potential_zones(@useful_zone);
-
-
-
-
-   my $instance = $pkg->create($specification, $zone_factory);
-   ...
-   my ($zone) = $instance->zones(@useful_zones)
-      || $instance->add_zone($useful_zone[0]);
-   my $location = $instance->materialize($zone);
-
-   # - OR -
-   my ($zone) = $instance->zones;
-
-
-__END__
-use Dibs::Config qw< :constants :functions >;
-
-has container_path => (coerce => \&_path, is => 'ro', required => 1);
-has host_path      => (coerce => \&_path, is => 'ro', required => 1);
-has id             => (is => 'lazy');
-has name           => (is => 'ro', required => 1);
-has path           => (is => 'ro', default => sub { return undef } );
-
-sub _build_id ($self) {
-   our $__id //= 0;
-   return ++$__id;
-}
-
-sub _path ($p) { defined($p) ? Path::Tiny::path($p) : undef }
-
-sub class_for ($package, $type) {
-   ouch 400, 'undefined type for dibspack' unless defined $type;
-   return try { use_module($package . '::' . ucfirst(lc($type))) }
-          catch { ouch 400, "invalid type '$type' for dibspack ($_)" }
-}
-
-sub create ($pkg, $sp, $dibs) {
-   my ($raw, %args) = ref($sp) eq 'HASH' ? (undef, $sp->%*) : $sp->@*;
-   $pkg->expand_dwim(\%args) unless defined $raw;
-   my $type = delete $args{type};
-   my $class = delete($args{class}) // $pkg->class_for($type);
-   return $class->new($raw // \%args, $dibs);
-}
-
-sub expand_dwim ($pkg, $args) {
-   if (exists($args->{run}) && !exists($args->{type})) {
-      $args->{type}    = IMMEDIATE,
-      $args->{program} = delete $args->{run};
-   }
-   return $args;
-}
-
-sub resolve_paths ($self, $path = \undef) {
-   $path = $self->path if ref($path) eq 'SCALAR' && !defined($$path);
-   return map {
-      my $p = $self->$_;
-      $p = $p->child($path) if defined($p) && defined($path);
-      ($_ => $p);
-   } qw< container_path host_path >;
-}
-
-sub type ($self) { return lc((ref($self) || $self) =~ s{.*::}{}mxsr) }
+   $spec->{type} = lc $spec->{type} if exists $spec->{type};
+   return $spec;
+} ## end sub _normalize ($spec)
 
 1;
-__END__

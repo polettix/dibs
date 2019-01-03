@@ -16,7 +16,9 @@ has host_base      => (is => 'ro', default => undef, coerce => \&_topath);
 has name => (is => 'ro', required => 1);
 
 sub container_path ($self, @p) { $self->_path($self->container_base, @p) }
+sub equals ($self, $other) { $self->id eq $other->id }
 sub host_path ($self, @p) { $self->_path($self->host_base, @p) }
+sub id ($self) { $self->name }
 sub _path ($s, $b, @p) { $b && @p ? $b->child(@p) : $b }
 sub _topath ($p) { defined($p) ? Path::Tiny::path($p) : undef }
 

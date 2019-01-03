@@ -24,6 +24,14 @@ has zone => (
    },
 );
 
+sub clone_in ($self, $zone) {
+   return $self->new(
+      base => $self->base,
+      path => $self->path,
+      zone => $zone
+   );
+} ## end sub clone_in
+
 sub container_path ($s, @p) { $s->_path($s->zone->container_base, @p) }
 sub host_path ($s, @p) { $s->_path($s->zone->host_base, @p) }
 
