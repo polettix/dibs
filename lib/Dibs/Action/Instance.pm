@@ -53,7 +53,8 @@ sub run ($self, @args) {
    my $enviles = $self->_write_enviles($args{envile});
    scope_guard { $enviles->remove_tree({safe => 0}) if $enviles };
 
-   return docker_run(%args);
+   my @out = docker_run(%args);
+   return @out;
 }
 
 sub _workdir ($self) { $self->zone_factory->item(ENVILE)->container_base }

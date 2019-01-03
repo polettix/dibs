@@ -1,12 +1,10 @@
 package Dibs::Process::Factory;
 use 5.024;
-use Ouch qw< :trytiny_var >;
+use Ouch ':trytiny_var';
 use Dibs::Process::Instance;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
-
-with 'Dibs::Role::Factory';
 
 has actions_factory   => (is => 'ro', required => 1);
 has dibspacks_factory => (
@@ -14,6 +12,8 @@ has dibspacks_factory => (
    lazy => 1,
    default => sub ($self) { $self->actions_factory->dibspacks_factory },
 );
+
+with 'Dibs::Role::Factory';
 
 sub instance ($self, $x, %args) {
    my $spec = $self->inflate($x, %args);
@@ -24,6 +24,8 @@ sub instance ($self, $x, %args) {
    );
 }
 
-sub parse ($self, $x) { return $x } # FIXME
+sub parse ($self, $x) {
+   ouch 400, "cannot parse process '$x'";
+}
 
 1;

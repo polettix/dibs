@@ -1,6 +1,7 @@
 package Dibs::Action::Factory;
 use 5.024;
 use Dibs::Action::Instance;
+use Ouch ':trytiny_var';
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -19,6 +20,8 @@ sub instance ($self, $x, %args) {
    );
 }
 
-sub parse ($self, $x) { return $x } # FIXME
+sub parse ($self, $x) {
+   ouch 400, "cannot parse action '$x'";
+}
 
 1;
