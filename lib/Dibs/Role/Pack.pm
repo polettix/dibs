@@ -1,4 +1,4 @@
-package Dibs::Pack::Role;
+package Dibs::Role::Pack;
 use 5.024;
 use experimental qw< postderef signatures >;
 use Ouch qw< :trytiny_var >;

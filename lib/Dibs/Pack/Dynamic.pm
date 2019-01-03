@@ -5,7 +5,7 @@ use Ouch qw< :trytiny_var >;
 use Moo;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Pack::Role';
+with 'Dibs::Role::Pack';
 
 has cloner    => (is => 'ro', default  => undef);
 has fetcher   => (is => 'ro', required => 1);

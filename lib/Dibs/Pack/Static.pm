@@ -5,7 +5,7 @@ use Ouch qw< :trytiny_var >;
 use Moo;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Pack::Role';
+with 'Dibs::Role::Pack';
 
 # for static stuff, there's nothing to materialize really because we expect
 # it to be there already. Otherwise, complain loudly.
