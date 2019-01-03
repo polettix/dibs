@@ -4,18 +4,22 @@ defaults:
    variables:
       - &one one
       - &two 'two (2)'
-steps:
+packs:
+   for_bar:
+      run: |
+         #!/bin/sh
+         printf >&2 '%s\n' "Hello, world! This is bar [$1] [$2]"
+   for_foo:
+      run: |
+         #!/bin/sh
+         printf >&2 '%s\n' 'Hello, world! This is foo'
+actions:
    bar:
-      from: alpine:latest
-      actions:
-         - run: |
-               #!/bin/sh
-               printf >&2 '%s\n' "Hello, world! This is bar [$1] [$2]"
-           args: [*one, *two]
+      - from: alpine:latest
+      - name: bar
+        pack: for_bar
+        args: [*one, *two]
    foo:
-      from: alpine:latest
-      actions:
-         - run: |
-               #!/bin/sh
-               printf '%s\n' 'Hello, world! This is foo'
-
+      - from: alpine:latest
+      - name: foo
+        pack: for_foo

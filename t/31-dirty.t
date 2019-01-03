@@ -2,7 +2,6 @@ use strict;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Test::More;
-use Test::Exception;
 
 use Path::Tiny qw< path cwd >;
 use lib path(__FILE__)->parent->stringify;
@@ -11,7 +10,9 @@ use DibsTest;
 plan skip_all => "bot docker and git MUST be available for this test"
   unless has_docker() && has_git();
 
-use Dibs;
+diag 'takes a bit...';
+
+use Dibs::App ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 use Data::Dumper;
@@ -23,38 +24,25 @@ my $guard = directory_guard($work_dir);
 init_git($work_dir);
 $work_dir->child('show-stopper')->spew_raw('Howdy!');
 
-diag 'this may take a little while';
-
-throws_ok {
-   my ($err, $out);
+my ($retval, $err, $out);
+{
    local *STDERR;
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   my $dibs = Dibs->create_from_cmdline(
-      -C => $work_dir,
-      qw< foo bar >
-   );
-   $dibs->run;
-} qr{origin .* is in a dirty state},
-   'dirty state throws an exception by default';
+   $retval = Dibs::App::main(-C => $work_dir, qw< foo bar >);
+}
+isnt $retval, 0, 'main failed with dirty state';
+like $err, qr{dirty state not allowed}, 'dirty state complains by default';
 
-my $dibs = Dibs->create_from_cmdline(
-   -C => $work_dir,
-   '--dirty',
-   qw< foo bar >
-);
-isa_ok $dibs, 'Dibs';
-
-my ($err, $out);
-lives_ok {
+{
    local *STDERR;
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   $dibs->run;
-} 'call to dibs->run survives'
-   or diag bleep();
+   $retval = Dibs::App::main(-C => $work_dir, qw< --dirty foo bar >);
+}
+is $retval, 0, 'main succeeded with dirty state and authorization';
 
 #diag Dumper \@collected;
 is $out, undef, 'output of the whole thing';
