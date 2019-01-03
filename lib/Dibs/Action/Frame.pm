@@ -46,7 +46,7 @@ sub execute ($self, $args = undef) {
    return $args;
 }
 
-sub parse ($self, $tag) { return {tags => [$tag]} }
+sub parse ($self, $type, $tag) { return {type => $type, tags => [$tag]} }
 
 sub _tags ($tag) { return ref($tag) eq 'ARRAY' ? $tag : [$tag] }
 

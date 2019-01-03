@@ -124,7 +124,7 @@ sub execute ($self, $args = undef) {
    return $args;
 }
 
-sub parse ($self, $spec) { ...  }
+sub parse ($self, $type, $raw) { ...  }
 
 sub _write_enviles ($self, $spec) {
    my $env_dir = $self->zone_factory->item(ENVILE)->host_path;

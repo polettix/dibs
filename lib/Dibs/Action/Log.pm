@@ -13,7 +13,7 @@ sub execute ($self, $args = undef) {
    return $args;
 }
 
-sub parse ($self, $raw) { return {name => $raw} }
+sub parse ($self, $type, $raw) { return {type => $type, name => $raw} }
 
 sub output_footer ($self) { $self->output_body('*** END OF LOG ***') }
 

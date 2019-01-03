@@ -10,7 +10,7 @@ use Module::Runtime 'use_module';
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-requires qw< _build__class_for normalize pack_factory pre_inflate >;
+requires qw< _build__class_for normalize pack_factory >;
 
 has ancestors => (is => 'ro', default => sub { return [] });
 
@@ -67,7 +67,7 @@ sub inflate ($self, $x, %args) {
 
    my ($k, $g) = $self->_no_circular_reference($x, $args{flags} //= {});
    my $cache = $self->_cache->{stuff} //= {};
-   return $cache{$k} if exists $cache->{$k};
+   return $cache->{$k} if exists $cache->{$k};
 
    my $spec = $self->pre_inflate($x, %args);
    my ($ref, $rv) = (ref $spec, undef);
@@ -118,12 +118,29 @@ sub item ($self, $x, %args) {
    return $self->proxy_class->new( # "promise" to do something when needed
       factory => sub {
          my $inventory = $self->_inventory;
-         $inventory->{Dibs::Inflater::key_for($x)} //= do {
+         $inventory->{$self->key_for($x)} //= do {
             my $instance = $self->instance($x, %args);
-            $inventory->{Dibs::Inflater::key_for($instance)} //= $instance;
+            $inventory->{$self->key_for($instance)} //= $instance;
          };
       },
    );
+}
+
+# a default that passes hashes through and calls parse when needed
+sub pre_inflate ($self, $x, %args) {
+   my $ref = ref $x;
+   return $x if $ref eq 'HASH';
+   ouch 400, "invalid input for instance ($ref -> $x)" if $ref ne '';
+
+   if (my ($type, $raw) = $x =~ m{\A (\w+ (::\w+)*) : (.*) \z}mxs) {
+      my $class = $self->class_for({type => $type}, %args);
+      my $retval = $class->parse($type, $raw);
+      $retval->{type} //= $type;
+      return $retval;
+   }
+
+   # last resort, it might be a reference to something else
+   return $x;
 }
 
 sub proxy_class ($self) {

@@ -39,20 +39,10 @@ sub _build__class_for ($self) {
    };
 }
 
-sub pre_inflate ($self, $x, %args) {
-   my $ref = ref $x;
-   return $x if $ref eq 'HASH';
-   return {type => SKETCH, actions => $x} if $ref eq 'ARRAY';
-   ouch 400, "invalid input for instance ($ref -> $x)" if $ref ne '';
-
-   if (my ($type, $raw) = $x =~ m{\A (.*?) : (.*) \z}mxs) {
-      my $class = $self->class_for({type => $type}, %args);
-      return $class->parse($raw);
-   }
-
-   # last resort, it might be a reference to something else
-   return $x;
-}
+around pre_inflate => sub ($orig, $self, $x, %args) {
+   return {type => SKETCH, actions => $x} if ref($x) eq 'ARRAY';
+   return $self->$orig($x, %args);
+};
 
 sub normalize ($self, $x, %args) {
    ouch 400, 'normalize requires a HASH' unless ref $x eq 'HASH';

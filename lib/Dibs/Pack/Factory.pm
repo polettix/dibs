@@ -1,55 +1,68 @@
 package Dibs::Pack::Factory;
 use 5.024;
-use Carp;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< blessed refaddr >;
 use Log::Any '$log';
 use Module::Runtime 'use_module';
 use Path::Tiny 'path';
 use Dibs::Config ':constants';
-use Dibs::Inflater ();
 use Dibs::Pack::Instance;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Role::Factory'; # _config, _inventory, inflate, item, parse
+with 'Dibs::Role::Factory';
 
 has zone_factory => (is => 'ro', required => 1);
 
-sub instance ($self, $x, %args) {
-   my $spec = $self->inflate($x, %args);
-
-   # no circular references so far, protect from creation too
-   # FIXME double check this is really needed, although it does
-   # not harm really
-   my $key = Dibs::Inflater::key_for($x);
-   $args{flags}{$key}++;
-   my $instance = $self->_create($spec, %args);
-   delete $args{flags}{$key};
-
-   return $instance;
+sub _build__class_for ($self) {
+   return {
+      &GIT       => 'Dibs::Pack::Dynamic',
+      &IMMEDIATE => 'Dibs::Pack::Dynamic',
+      &INSIDE    => 'Dibs::Pack::Static',
+      &PROJECT   => 'Dibs::Pack::Static::Project',
+      &SRC       => 'Dibs::Pack::Static',
+   };
 }
 
 sub pack_factory ($self) { return $self }
 
-sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
+sub normalize ($self, $spec, %args) {
+   # DWIM-my stuff here
+   if (! defined $spec->{type}) {
+      $log->debug("no explicit type set");
+      my $m;
+      if (($m) = grep { exists $spec->{$_} } qw< run program >) {
+         $spec->{type} = IMMEDIATE;
+         $spec->{program} = delete $spec->{$m} if $m ne 'program';
+      }
+      elsif (($m) = grep { exists $spec->{$_} } SRC, INSIDE, PROJECT) {
+         $spec->{type} = $m;
+         $spec->{base} = delete $spec->{$m};
+      }
+      elsif (($m) = grep { exists $spec->{$_} } GIT, 'origin') {
+         $spec->{type} = GIT;
+         $spec->{origin} = delete $spec->{$m} if $m ne 'origin';
+      }
+   }
 
-sub _create ($self, $spec, %args) {
-   my $type = $spec->{type} #self->dwim_type($spec)
-     or ouch 400, 'no type present in pack';
+   my $ptype = $spec->{type} // '(still none defined)';
+   $log->debug("normalized type: $ptype");
 
-   $log->debug("factory: creating pack of type $type");
-
-   # native types lead to static stuff in a zone named after the type
-   return $self->_create_static($spec, %args)
-     if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
-
-   # otherwise it's dynamic stuff to be put in the default zone provided
-   return $self->_create_dynamic($spec, %args);
+   return $spec;
 }
 
-sub _create_dynamic ($self, $spec, %args) {
+around pre_inflate => sub ($orig, $self, $x, %args) {
+   return $self->$orig($x, %args) if ref $x;
+   return {type => GIT,  origin => $x} if $x =~ m{\A git://    }mxs;
+   return {type => HTTP, URI => $x}    if $x =~ m{\A https?:// }mxs;
+   return $self->$orig($x, %args); # turn to regular munging
+};
+
+1;
+__END__
+
+sub _old_create_dynamic ($self, $spec, %args) {
    my $type    = $spec->{type};
    my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
    my $id      = $type . '/' . $fetcher->id;
@@ -64,7 +77,7 @@ sub _create_dynamic ($self, $spec, %args) {
    );
 } ## end sub _create_dynamic_pack
 
-sub _create_static ($self, $spec, @ignore) {
+sub _old_create_static ($self, $spec, @ignore) {
    my $type = $spec->{type};
 
    # %location is affected by base (aliased as "raw") and path. Either
@@ -100,56 +113,30 @@ sub _create_static ($self, $spec, @ignore) {
    return Dibs::Pack::Instance->new(%args);
 } ## end sub _create_static_pack
 
-around normalize => sub ($orig, $self, $spec) {
-   $spec = $self->$orig($spec);
+sub _create ($self, $spec, %args) {
+   my $type = $spec->{type} #self->dwim_type($spec)
+     or ouch 400, 'no type present in pack';
 
-   # DWIM-my stuff here
-   if (! defined $spec->{type}) {
-      $log->debug("no explicit type set");
-      my $m;
-      if (($m) = grep { exists $spec->{$_} } qw< run program >) {
-         $spec->{type} = IMMEDIATE;
-         $spec->{program} = delete $spec->{$m} if $m ne 'program';
-      }
-      elsif (($m) = grep { exists $spec->{$_} } SRC, INSIDE, PROJECT) {
-         $spec->{type} = $m;
-         $spec->{base} = delete $spec->{$m};
-      }
-      elsif (($m) = grep { exists $spec->{$_} } GIT, 'origin') {
-         $spec->{type} = GIT;
-         $spec->{origin} = delete $spec->{$m} if $m ne 'origin';
-      }
-   }
+   $log->debug("factory: creating pack of type $type");
 
-   my $ptype = $spec->{type} // '(still none defined)';
-   $log->debug("normalized type: $ptype");
+   # native types lead to static stuff in a zone named after the type
+   return $self->_create_static($spec, %args)
+     if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
 
-   return $spec;
-};
+   # otherwise it's dynamic stuff to be put in the default zone provided
+   return $self->_create_dynamic($spec, %args);
+}
 
-sub parse ($self, $spec) {
-   if (!ref($spec)) {
-      my %hash;
-      if ($spec =~ m{\A git://}mxs) {
-         $hash{type}   = GIT;
-         $hash{origin} = $spec;
-      }
-      elsif ($spec =~ m{\A https?://}mxs) {
-         $hash{type} = HTTP;
-         $hash{URI}  = $spec;
-      }
-      elsif (my ($type, $raw) = $spec =~ m{\A ([^:]+) : (.*) \z}mxs) {
-         $hash{type} = $type;
-         $hash{raw}  = $raw;
-      }
-      else {
-         ouch 400, "cannot parse pack specification '$spec'";
-      }
+sub instance ($self, $x, %args) {
+   my $spec = $self->inflate($x, %args);
 
-      $spec = \%hash;
-   } ## end if (!ref($spec))
+   # no circular references so far, protect from creation too
+   # FIXME double check this is really needed, although it does
+   # not harm really
+   my $key = Dibs::Inflater::key_for($x);
+   $args{flags}{$key}++;
+   my $instance = $self->_create($spec, %args);
+   delete $args{flags}{$key};
 
-   return $self->normalize($spec);
-} ## end sub parse ($spec)
-
-1;
+   return $instance;
+}
