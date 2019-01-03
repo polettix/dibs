@@ -798,6 +798,79 @@ element.
 Import of traits from ancestors is somehow crude, because a redefinition in
 the derived element totally overwrites the ancestor's data.
 
+=== Variables Expansion
+
+The `variables` highest-level key is supposed to be associated to an
+array-type value. Each item in this array that is a hash with a single key
+`function` and an array value is subject to expansion. The following is an
+example of the `join` function (which is also the only one available).
+
+----
+variables:
+    - function: &whatever
+        ['join', ':', 'something', 'latest']
+actions:
+    foobar:
+        - from: *whatever
+        # ...
+----
+
+When read by `dibs`, the value associated to anchor `whatever` is expanded
+in-place to `something:latest`; the application of the operation in-place also
+means that all aliases will get this expanded value (like the `from` statement
+in the example).
+
+
+=== Stroke Arguments
+
+As anticipated, strokes define programs that will be executed inside a
+container. It is possible to pass arguments to these programs, in order to
+increase their reusability, via the `args` key inside a stroke.
+
+Example:
+
+----
+actions:
+    whatever:
+        args: ['first', '2nd', 'third']
+        pack:
+            run: |
+                #!/bin/sh
+                while [ "$#" -gt 0 ] ; do
+                    printf "%s\n" "argument: <$1>"
+                    shift
+                done
+----
+
+Arguments in a stroke are subject to expansion in specific conditions, as in
+the following example:
+
+----
+actions:
+    whatever:
+        args:
+            - 'this is a string'
+            - path_cache: whatever
+            - path_src: lib
+        pack:
+            run: |
+                #!/bin/sh
+                while [ "$#" -gt 0 ] ; do
+                    printf "%s\n" "argument: <$1>"
+                    shift
+                done
+----
+
+In the example above, the second and third argument are objects with a single
+key-value pair. Values associated to keys `path_cache`, `path_src`, etc. are
+expanded as sub-directories of the corresponding zones (cache, src, etc. in
+the specific case).
+
+
+== OLDER MATERIAL
+
+The following material has yet to be revised
+
 === Directory Layouts
 
 `dibs` sets the base in a _project directory_ where things are kept nicely.
