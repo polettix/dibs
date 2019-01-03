@@ -1,4 +1,4 @@
-package Dibs::Packs;
+package Dibs::Pack::Factory;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Moo;
