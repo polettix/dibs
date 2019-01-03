@@ -13,7 +13,7 @@ use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
-#use Data::Dumper; $Data::Dumper::Indent = 1;
+use Data::Dumper; local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
@@ -34,21 +34,6 @@ has _host_project_dir => (is => 'lazy');
 has _actions_for => (is => 'ro', default => sub { return {} });
 has _dibspack_for => (is => 'ro', default => sub { return {} });
 has all_metadata => (is => 'ro', default => sub { return {} });
-
-sub __flatten_array ($step, $aref, $flags = {}) {
-   my @retval = map {
-      if (ref($_) eq 'ARRAY') {
-         my $addr = refaddr($_);
-         ouch 400, "circular reference in actions for $step"
-            if $flags->{$addr}++;
-         my $flattened = __flatten_array($step, $_, $flags);
-         delete $flags->{$addr};
-         $flattened->@*;
-      }
-      else { $_ }
-   } $aref->@*;
-   return \@retval;
-}
 
 sub __expand_extends ($hash, $type, $definition_for, $flags = {}) {
    defined(my $ds = delete($hash->{extends})) or return;
@@ -119,8 +104,7 @@ sub build_actions_array ($self, $step) {
 }
 
 sub dibspack_for ($self, $spec) {
-   my $dibspack_for = $self->config(DIBSPACKS)
-      // $self->config(DEFAULTS_FIELD, DIBSPACK) // {};
+   my $dibspack_for = $self->config(DIBSPACKS) // {};
    if (! ref($spec)) {
       my $ns = $dibspack_for->{$spec}
          or ouch 400, "no dibspack '$spec' in defaults, typo?";
@@ -273,10 +257,50 @@ sub ensure_host_directories ($self) {
 
 sub actions_for ($self, $step) {
    my $afor = $self->_actions_for;
-   $afor->{$step} //= [
-      map { Dibs::Action->create($_, $self) }
-         __flatten_array($step, [$self->build_actions_array($step)])->@*
-   ];
+   if (! $afor->{$step}) {
+      my $adf = $self->config(ACTIONS) // {};
+      my @stack = {
+         parent => '',
+         queue => [$self->build_actions_array($step)],
+      };                             # starting point
+      $afor->{$step} = \my @retval;  # result
+      my %seen = ('' => 1);          # circular inclusion avoidance
+      ITEM:
+      while (@stack) {
+         my $queue = $stack[-1]{queue};
+         if (scalar($queue->@*) == 0) {
+            delete $seen{$stack[-1]{parent}};
+            pop @stack;
+            next ITEM;
+         }
+
+         my $item = shift $queue->@*;
+         my $ref = ref $item;
+         if ($ref eq 'ARRAY') { # "recursive" flattening
+            my $id = refaddr($item);
+            ouch 400, "circular reference in actions for $step"
+               if $seen{$id}++;
+            push @stack, { parent => $id, queue  => [$item->@*] };
+            next ITEM;
+         }
+         elsif ($ref eq 'HASH') {
+            __expand_extends($item, ACTIONS, $adf);
+            push @retval, Dibs::Action->create($item, $self);
+            next ITEM;
+         }
+         elsif ((! $ref) && exists($adf->{$item})) {
+            unshift $queue->@*, $adf->{$item};
+            next ITEM;
+         }
+         elsif (! $ref) {
+            push @retval, Dibs::Action->create($item, $self);
+            next ITEM;
+         }
+         else {
+            ouch 400, "unknown action of type $ref";
+         }
+      }
+   }
    return $afor->{$step}->@*;
 }
 
@@ -585,7 +609,9 @@ sub step_config_for ($self, $name) {
 }
 
 sub run_step ($self, $step) {
-   my $pc = $self->step_config_for($step)->{commit};
+   my $sc = $self->step_config_for($step);
+   $log->debug(Dumper $sc);
+   my $pc = $sc->{commit};
 
    # "do the thing"
    my $image = $self->iterate_actions($step);
