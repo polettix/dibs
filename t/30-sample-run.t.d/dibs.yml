@@ -7,26 +7,36 @@ defaults:
    variables:
       - &one one
       - &two 'two (2)'
+dibspacks:
+   for_bar_name:
+      name: 'bar! bar! bar!'
+   for_bar: 
+      extends: for_bar_name
+      run: |
+         #!/bin/sh
+         env_dir="$3/iles"
+         printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+         BAR="$(cat "$env_dir/BAR")"
+         printf >&2 '%s\n' "Here BAR is <$BAR>"
+   for_foo_name: &for_foo
+      name: 'foo! Foo! FOO!'
+   for_foo:
+      extends: *for_foo
+      run: |
+         #!/bin/sh
+         env_dir="$3/iles"
+         printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
+         FOO="$(cat "$env_dir/FOO")"
+         printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
 steps:
    bar:
       from: alpine:latest
       actions:
-         - run: |
-             #!/bin/sh
-             env_dir="$3/iles"
-             printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
-             BAR="$(cat "$env_dir/BAR")"
-             printf >&2 '%s\n' "Here BAR is <$BAR>"
+         - dibspack: for_bar
            envile:
              BAR: baaaz
            args: [*one, *two]
    foo:
       from: alpine:latest
       actions:
-         - run: |
-             #!/bin/sh
-             env_dir="$3/iles"
-             printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
-             FOO="$(cat "$env_dir/FOO")"
-             printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
-
+         - dibspack: for_foo

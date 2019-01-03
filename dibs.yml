@@ -1,6 +1,6 @@
 ---
 name: dibsy
-steps:
+workflow:
    - qbuild
    - qbundle
 defaults:
@@ -48,7 +48,7 @@ defaults:
            args:     [{path_cache: 'perl-app'}, '/app']
            user:     root
 
-definitions:
+steps:
    builder:
       defaults: *buildish
       from: *base_image

@@ -13,6 +13,7 @@ use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
+#use Data::Dumper; $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 

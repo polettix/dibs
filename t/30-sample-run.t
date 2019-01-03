@@ -40,14 +40,16 @@ lives_ok {
 } 'call to dibs->run survives'
    or diag bleep();
 
-#diag Dumper \@collected;
 is $out, undef, 'output of the whole thing';
+#diag Dumper $err;
 
 for my $sentence (
       'Hello, world! In foo, FOO starts as <>',
       'Hello, world! This is foo and FOO is bar',
       'Here BAR is <baaaz>',
       'Hello, world! This is bar [one] [two (2)]',
+      '+++++> action bar! bar! bar!',
+      '+++++> action foo! Foo! FOO!',
 ) {
    like $err, qr{\Q$sentence\E}, "sentence: $sentence";
 }
