@@ -3,6 +3,7 @@ use 5.024;
 use Dibs::Config ':constants';
 use Dibs::Pack::Instance;
 use Moo;
+use Module::Runtime 'use_module';
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 

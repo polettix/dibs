@@ -20,7 +20,7 @@ clean_environment();
 my $guard = directory_guard($work_dir);
 $work_dir->child('dibs')->remove_tree({safe => 0});
 
-my $config = get_config_cmdenv([ -C => $work_dir, qw< foo bar > ]);
+my $config = get_config_cmdenv([-C => $work_dir, qw< foo bar >]);
 is cwd->stringify, $work_dir->stringify, 'changed directory';
 is_deeply $config->{do}, [qw< foo bar >], 'config positionals';
 
@@ -41,29 +41,27 @@ is scalar(@$actions), 2, 'right number of actions in sketch';
 isa_ok $_, 'Dibs::Action' for @$actions;
 can_ok $actions->[0], qw< execute output output_marked >;
 
-$config->{run_variables} = {
-   DIBS_ID => 'testing',
-};
+$config->{run_variables} = {DIBS_ID => 'testing',};
 
 my $out;
 lives_ok { $out = Dibs::App::draw($config) } 'call to Dibs::App::draw';
 
-is_deeply $out->{out}, [
+is_deeply $out->{out},
   [
-    'sketch',
-    [
-      [ 'prepare', undef ],
-      [ 'stroke', "Hello, world! This is foo (one two (2))\n" ]
-    ]
+   [
+      'sketch' => [
+         ['prepare', undef],
+         ['stroke',  "Hello, world! This is foo (one two (2))\n"]
+      ]
+   ],
+   [
+      'sketch' => [
+         ['prepare', undef],
+         ['stroke',  "Hello, world! This is bar (one two (2))\n"]
+      ]
+   ]
   ],
-  [
-    'sketch',
-    [
-      [ 'prepare', undef ],
-      [ 'stroke', "Hello, world! This is bar (one two (2))\n" ]
-    ]
-  ]
-], 'output from call to draw';
+  'output from call to draw';
 
 ok $work_dir->child('dibs')->exists, 'project dir created';
 

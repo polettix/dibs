@@ -94,7 +94,7 @@ sub inflate ($self, $x, %args) {
    # save in breadcrumbs. Not sure weaken is really necessary here, but
    # whatever... something might become undef eventually
    my @crumb = ($x, $spec);
-   weaken($crumb[$_]) for 0 .. $#crumb;
+   ref($crumb[$_]) && weaken($crumb[$_]) for 0 .. $#crumb;
    my $breadcrumbs = $rv->{breadcrumbs} //= [];
    unshift $breadcrumbs->@*, \@crumb;
 
