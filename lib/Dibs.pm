@@ -18,22 +18,14 @@ local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
-use Dibs::Packs;
-use Dibs::Cache;
-use Dibs::Config ':all';
-use Dibs::Inflater ':all';
-
-#use Dibs::Process;
-use Dibs::Action;
-use Dibs::Pack;
-use Dibs::Docker;
 use Dibs::Output;
-use Dibs::Get;
+use Dibs::Config ':all';
+use Dibs::Action::Factory;
+use Dibs::Pack::Factory;
+use Dibs::Process::Factory;
 use Dibs::Zone::Factory;
 
-has action_factory => (
-   
-);
+has action_factory => (is => 'ro', required => 1);
 
 has allow_dirty => (
    is       => 'ro',
@@ -41,6 +33,10 @@ has allow_dirty => (
    init_arg => 'dirty',
    coerce   => sub ($x) { $x ? 1 : 0 },
 );
+
+has dibspack_factory => (is => 'ro', required => 1);
+
+has process_factory => (is => 'ro', required => 1);
 
 has project_dir => (
    is       => 'ro',
@@ -73,16 +69,37 @@ sub BUILDARGS ($class, @args) {
    my $pd = $retval{project_dir} = path($args{project_dir})->absolute;
 
    # Zones factory
-   my $zone_specs = $args{zone_specs} // DEFAULT->{zone_specs_for};
-   my $zone_groups = $args{zone_groups} // DEFAULT->{zone_names_for};
+   my $zone_specs = $args{zone_specs} // DEFAULTS->{zone_specs_for};
+   my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
    my $zf = $retval{zone_factory} = Dibs::Zone::Factory->new(
       project_dir => $pd,
       zone_specs_for => $zone_specs,
       zone_names_for => $zone_groups,
    );
 
+   # Dibspack factory
+   my $df = $retval{dibspack_factory} = Dibs::Pack::Factory->new(
+      config => ($args{dibspacks} // {}),
+      zone_factory => $zf,
+   );
+
+   # Action factory
+   my $af = $retval{action_factory} = Dibs::Action::Factory->new(
+      config => ($args{actions} // {}),
+      dibspack_factory => $df,
+   );
+
+   # Process factory
+   my $pf = $retval{process_factory} = Dibs::Process::Factory->new(
+      action_factory => $af,
+      config => ($args{processes} // {}),
+      dibspack_factory => $df,
+   );
+
    return \%retval;
 }
+
+1;
 
 __END__
 
