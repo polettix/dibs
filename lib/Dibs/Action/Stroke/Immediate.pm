@@ -7,6 +7,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub create ($class, %args) {
+ouch 500, 'do not use this';
    my %spec = $args{spec}->%*;
    defined(my $program = $spec{program} // $spec{run})
       or ouch 400, 'immediate: neither "program" nor "run" found';

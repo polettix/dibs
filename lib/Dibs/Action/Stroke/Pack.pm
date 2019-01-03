@@ -18,6 +18,7 @@ sub AUTOLOAD ($self, @args) {
 }
 
 sub create ($class, %args) {
+ouch 500, 'do not rely on this please';
    my ($factory, $factory_args, $spec) = @args{qw< factory args spec >};
    my $dibspack_factory = $factory->dibspack_factory;
    my $definition = $spec->{pack} // $spec->{dibspack};

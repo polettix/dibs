@@ -1,5 +1,6 @@
 package Dibs::Pack::Factory;
 use 5.024;
+use Carp;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< blessed refaddr >;
 use Module::Runtime 'use_module';
@@ -94,6 +95,30 @@ sub _create_static ($self, $spec, @ignore) {
    return Dibs::Pack::Instance->new(%args);
 } ## end sub _create_static_dibspack
 
+around normalize => sub ($orig, $self, $spec) {
+   $spec = $self->$orig($spec);
+
+   # DWIM-my stuff here
+   if (! exists $spec->{type}) {
+      my $m;
+      if (($m) = grep { exists $spec->{$_} } qw< run program >) {
+         $spec->{type} = IMMEDIATE;
+         $spec->{program} = delete $spec->{$m} if $m ne 'program';
+      }
+      elsif (($m) = grep { exists $spec->{$_} } SRC, INSIDE, PROJECT) {
+         $spec->{type} = $m;
+         $spec->{base} = delete $spec->{$m};
+      }
+      elsif (($m) = grep { exists $spec->{$_} } GIT, 'origin') {
+         $spec->{type} = GIT;
+         $spec->{origin} = delete $spec->{$m} if $m ne 'origin';
+      }
+   }
+   $spec->{type} = lc $spec->{type} if exists $spec->{type};
+
+   return $spec;
+};
+
 sub parse ($self, $spec) {
    if (!ref($spec)) {
       my %hash;
@@ -116,15 +141,7 @@ sub parse ($self, $spec) {
       $spec = \%hash;
    } ## end if (!ref($spec))
 
-   ouch 400, 'invalid input specification for dibspack'
-     unless ref($spec) eq 'HASH';
-
-   # DWIM-my stuff here
-   $spec->{type} = IMMEDIATE
-     if (!exists($spec->{type})) && exists($spec->{run});
-
-   $spec->{type} = lc $spec->{type} if exists $spec->{type};
-   return $spec;
+   return $self->normalize($spec);
 } ## end sub parse ($spec)
 
 1;

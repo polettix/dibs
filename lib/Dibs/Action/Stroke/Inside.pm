@@ -5,6 +5,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub create ($class, %args) {
+ouch 500, 'do not use this';
    use Data::Dumper;
    local $Data::Dumper::Indent = 1;
    say Dumper {yay => \%args};

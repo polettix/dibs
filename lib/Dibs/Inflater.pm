@@ -72,7 +72,7 @@ sub inflate ($spec, %args) {
             ref($exts) eq 'ARRAY' ? reverse($exts->@*) : $exts;
          $spec->%* = (%exts, $spec->%*);
       }
-      $rv = $spec;
+      $rv = exists $args{normalizer} ? $args{normalizer}->($spec) : $spec;
    }
    else { ouch 500, 'something still not implemented here?'; }
 

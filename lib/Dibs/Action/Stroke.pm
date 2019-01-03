@@ -16,15 +16,32 @@ with 'Dibs::Role::EnvCarrier';
 has '+output_char' => (default => '-');
 has args => (is => 'ro', default => sub { return [] });
 has indent => (is => 'ro', default => 42); # FIXME understand/comment!
+has pack => (is => 'ro', required => 1);
 has path => (is => 'ro', required => 1); # path inside container
 has user => (is => 'ro', default => undef);
 has zone_factory => (is => 'ro', required => 1);
 
 around create => sub ($orig, $class, %args) {
-   my $spec = ref($args{spec}) ? $args{spec} : $class->parse($args{spec});
-   my $zf = $args{factory}->zone_factory;
-   return $class->$orig(%args,
-      spec => {$spec->%*, zone_factory => $zf, path => $args{path}});
+   my ($factory, $factory_args) = @args{qw< factory args >};
+   my $dibspack_factory = $factory->dibspack_factory;
+
+   my %spec =
+      (ref($args{spec}) ? $args{spec} : $class->parse($args{spec}))->%*;
+
+   my $pack_definition = $spec{pack} // $spec{dibspack};
+
+   # strokes are saved where the container can reach 'em
+   my $zf = $spec{zone_factory} = $args{factory}->zone_factory;
+   my $zone = $zf->item(PROJECT);
+
+   my $pk = $spec{pack} = $dibspack_factory->item(
+      $pack_definition,
+      dynamic_zone => $zone,
+      $factory_args->%*,
+   );
+   $spec{path} = $pk->container_path($spec{path});
+
+   return $class->$orig(%args, spec => \%spec);
 };
 
 sub changes_for_commit ($self) { return }
@@ -68,6 +85,7 @@ sub _command ($self, $args) {
 }
 
 sub execute ($self, $args = undef) {
+   $self->pack->materialize;
    my @carriers = ($args->{env_carriers} // [])->@*;
    my %run_args = (
       keep => 1, # FIXME understand/comment, cargo cult

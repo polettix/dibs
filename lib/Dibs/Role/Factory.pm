@@ -23,6 +23,7 @@ sub inflate ($self, $x, %args) {
       %args,
       config           => $self->_config,
       dibspack_factory => $self->dibspack_factory,
+      normalizer       => sub ($v) { $self->normalize($v) },
       parser           => sub ($v) { $self->parse($v) },
       type             => $self->type,
    );
@@ -38,6 +39,12 @@ sub item ($self, $x, %args) {
          };
       },
    );
+}
+
+sub normalize ($self, $x) {
+   return $x if ref($x) eq 'HASH';
+   my $type = $self->type;
+   ouch 400, "cannot normalize $type '$x' (not a hash ref)";
 }
 
 sub parse ($self, $x) {

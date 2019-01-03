@@ -1,6 +1,7 @@
 package Dibs::Factory;
 use 5.024;
 use Ouch ':trytiny_var';
+use Log::Any '$log';
 use Dibs::Config ':constants';
 use Module::Runtime 'use_module';
 use Try::Catch;
@@ -28,7 +29,7 @@ sub _add_context ($self, $feedback) {
 
 sub _create_instance ($self, $type, %args) {
    ouch 400, 'missing action type' unless defined $type;
-
+   $log->info("action type: $type");
    state $class_for = {
       &SKETCH => 'Dibs::Action::Sketch',
       &GIT    => 'Dibs::Action::Fetch::Git',
@@ -38,12 +39,13 @@ sub _create_instance ($self, $type, %args) {
       &FROM   => 'Dibs::Action::Prepare',
       (
          map { $_ => ('Dibs::Action::Stroke::' . ucfirst(lc $_)) }
-            (INSIDE, PACK, PROJECT, SRC),
+            (INSIDE, PROJECT, SRC),
       ),
       (
          map { $_ => 'Dibs::Action::Stroke::Immediate' }
             (IMMEDIATE, 'run', 'program'),
       ),
+      &PACK   => 'Dibs::Action::Stroke',
    };
    my $class = $class_for->{$type} // $type;
 
@@ -108,8 +110,14 @@ sub _instance_for_hash ($self, $spec, $args) {
 
 sub dwim_type ($self, $spec) {
    return $spec->{type} if exists $spec->{type};
-   return IMMEDIATE if exists($spec->{run}) || exists($spec->{program});
+
+   return SKETCH if exists $spec->{actions};
    return PACK if exists($spec->{pack}) || exists($spec->{dibspack});
+   return FROM if exists $spec->{from};
+   return FRAME if exists($spec->{image_name}) || exists($spec->{tags});
+
+   # FIXME probably remove the following one, move into a pack
+   return IMMEDIATE if exists($spec->{run}) || exists($spec->{program});
 }
 
 sub _instance_for_name ($self, $name, $args) {

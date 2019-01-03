@@ -7,6 +7,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub create ($class, %args) {
+ouch 500, 'do not use this';
    my $path = $args{spec}{path} or ouch 400, 'no path for src type stroke';
    my $zone = $args{factory}->zone_factory->item(SRC);
    $args{path} = $zone->container_path($path);
