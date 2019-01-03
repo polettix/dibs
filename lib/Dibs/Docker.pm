@@ -66,8 +66,10 @@ sub docker_run (%args) {
    push @command, expand_volumes($args{volumes});
    push @command, expand_environment($args{env});
    push @command, '--entrypoint' => '';    # disable, only use CMD below
-   push @command, '--workdir' => $args{workdir} if defined $args{workdir};
+   push @command, '--workdir' => $args{work_dir} if defined $args{work_dir};
    push @command, $args{image}, $args{command}->@*;
+
+   $log->debug("@command");
 
    my ($retval, $out) =
      run_command_out(\@command, $args{indent} ? INDENT : 0);

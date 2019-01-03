@@ -41,10 +41,12 @@ sub draw ($self, @args) {
    %args = (
       keep => 1, # keep by default, %args can override
       %args,
+
       env     => $self->merge_envs(@carriers),
       envile  => $self->merge_enviles(@carriers),
       indent  => $self->indent,
-      workdir => $self->_workdir,
+      project_dir => $args{project_dir},
+      work_dir => $self->_workdir,
       command => $self->_command(\%args),
    );
    $args{user} = $self->user if defined $self->user;
@@ -113,7 +115,7 @@ sub _write_enviles ($self, $spec) {
       $env_dir->child($name)->spew_raw($value);
    }
 
-   for my $zone ($self->zone_factory->items('dibspack_dirs')) {
+   for my $zone ($self->zone_factory->items('volumes')) {
       my $name = 'DIBS_DIR_' . uc $zone->name;
       $env_dir->child($name)->spew_raw($zone->container_base);
    }

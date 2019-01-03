@@ -42,9 +42,9 @@ is_deeply [map { "$_" } @list], [qw< host-dibspacks project src >],
 
 lives_ok {
    my @w = $factory->items($_)
-     for qw< dibspacks_container dibspack_dirs >
+     for qw< dibspacks_container volumes >
 }
-q{assembles 'dibspacks_container' and 'dibspack_dirs' exist too};
+q{assembles 'dibspacks_container' and 'volumes' exist too};
 
 my @all;
 lives_ok { @all = $factory->items } 'getting all items';

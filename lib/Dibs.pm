@@ -86,6 +86,14 @@ sub BUILDARGS ($class, @args) {
 
 sub album ($self, $spec) { $self->album_factory->item($spec) }
 
+sub volumes ($self) {
+   return [
+      map {
+         [$_->host_path, $_->container_path, ($_->writeable ? 'rw' : 'ro')]
+      } $self->zone_factory->items('volumes')
+   ];
+}
+
 1;
 
 __END__

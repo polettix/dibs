@@ -14,6 +14,7 @@ use overload (
 has container_base => (is => 'ro', default => undef, coerce => \&_topath);
 has host_base      => (is => 'ro', default => undef, coerce => \&_topath);
 has name => (is => 'ro', required => 1);
+has writeable => (is => 'ro', default => 0);
 
 sub container_path ($self, @p) { $self->_path($self->container_base, @p) }
 sub equals ($self, $other) { $self->id eq $other->id }

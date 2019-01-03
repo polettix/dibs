@@ -74,7 +74,9 @@ sub main (@as) {
       );
       $album->draw(
          env_carriers => [$dibs],
+         project_dir  => $dibs->project_dir,
          run_tag => $config->{run_variables}{DIBS_ID},
+         volumes => $dibs->volumes,
       );
       return 0;
    } ## end try

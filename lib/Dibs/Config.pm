@@ -72,6 +72,7 @@ use constant DEFAULTS => {
       {
          container_base => '/tmp/cache',
          host_base      => 'cache',
+         writeable      => 1,
       },
       DIBSPACKS,
       {
@@ -112,12 +113,13 @@ use constant DEFAULTS => {
       {
          container_base => '/tmp/src',
          host_base      => 'src',
+         writeable      => 1,
       },
    },
    zone_names_for => {
       dibspacks_host      => [HOST_DIBSPACKS, PROJECT, SRC],
       dibspacks_container => [PROJECT, SRC, INSIDE],
-      dibspack_dirs       => [SRC, CACHE, ENVILE, ENVIRON],
+      volumes             => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
    },
 };
 use constant OPTIONS => [
