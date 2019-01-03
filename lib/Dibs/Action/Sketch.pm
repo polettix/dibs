@@ -28,8 +28,8 @@ around create => sub ($orig, $class, %args) {
    return $class->$orig(%args, spec => {$spec->%*, actions => \@actions});
 };
 
-sub draw ($self, $iargs = undef) {
-   my $args = { ($iargs // {})->%* };
+sub draw ($self, %args) {
+   my $args = \%args;
    my $zf = $args->{zone_factory} //= Dibs::Zone::Factory->default;
    $args->{volumes} //= $self->_volumes($zf);
    $self->execute($args);

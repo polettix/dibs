@@ -50,7 +50,7 @@ sub _create_dynamic ($self, $spec, %args) {
    my $type    = $spec->{type};
    my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
    my $id      = $type . ':' . $fetcher->id;
-   my $dyn_zone_name = $args{dynamic_zone} // HOST_DIBSPACKS;
+   my $dyn_zone_name = $args{dynamic_zone} // PACK_HOST_ONLY; # FIXME
    my $zone    = $self->zone_factory->zone_for($dyn_zone_name);
 
    return Dibs::Pack::Instance->new(
@@ -114,7 +114,14 @@ around normalize => sub ($orig, $self, $spec) {
          $spec->{origin} = delete $spec->{$m} if $m ne 'origin';
       }
    }
-   $spec->{type} = lc $spec->{type} if exists $spec->{type};
+
+   if (exists $spec->{type}) {
+      state $reference_type_for = {
+         &PROJECT => PACK_STATIC,
+      };
+      my $type = lc $spec->{type};
+      $spec->{type} = $reference_type_for->{$type} // $type;
+   }
 
    return $spec;
 };

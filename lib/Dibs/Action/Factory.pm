@@ -111,7 +111,7 @@ sub dwim_type ($self, $spec) {
    return $spec->{type} if exists $spec->{type};
 
    return SKETCH if exists $spec->{actions};
-   return PACK if exists($spec->{pack}) || exists($spec->{dibspack});
+   return PACK if exists($spec->{pack});
    return FROM if exists $spec->{from};
    return FRAME if exists($spec->{image_name}) || exists($spec->{tags});
 

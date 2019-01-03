@@ -23,7 +23,7 @@ sub create ($class, %args) {
    #   circular dependency avoidance
    my ($spec, $factory_args) = @args{qw< spec args >};
    $spec = $class->parse($spec) unless ref $spec;
-   
+
    my %constructor_args = (
       $spec->%*,
       ancestors => $factory_args->{ancestors},

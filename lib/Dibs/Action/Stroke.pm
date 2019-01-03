@@ -28,15 +28,13 @@ around create => sub ($orig, $class, %args) {
    my %spec =
       (ref($args{spec}) ? $args{spec} : $class->parse($args{spec}))->%*;
 
-   my $pack_definition = $spec{pack} // $spec{dibspack};
+   my $pack_definition = $spec{pack};
 
    # strokes are saved where the container can reach 'em
    my $zf = $spec{zone_factory} = $args{factory}->zone_factory;
-   my $zone = $zf->item(PROJECT);
-
    my $pk = $spec{pack} = $pack_factory->item(
       $pack_definition,
-      dynamic_zone => $zone,
+      dynamic_zone => $zf->item(PACK_DYNAMIC),
       $factory_args->%*,
    );
    $spec{path} = $pk->container_path($spec{path});

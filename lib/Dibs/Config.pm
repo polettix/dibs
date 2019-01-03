@@ -16,32 +16,44 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
-use constant ALBUM             => 'album';
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
+use constant C_CACHE           => '/tmp/cache';
+use constant H_CACHE           => 'cache';
 use constant DEFAULTS_FIELD    => 'defaults';
 use constant DEFINITIONS       => 'definitions';
-use constant DIBSPACK          => 'dibspack';
-use constant DIBSPACKS         => 'dibspacks';
 use constant FRAME             => 'frame';
 use constant LOG               => 'log';
 use constant FROM              => 'from';
-use constant HOST_DIBSPACKS    => 'host-dibspacks';
 use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsstrokes';
 use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
+use constant C_ENVIRON         => '/tmp/env';
+use constant H_ENVIRON         => 'env';
 use constant ENVILE            => 'envile';
+use constant C_ENVILE          => '/tmp/envile';
+use constant H_ENVILE          => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
 use constant OPERATE           => 'operate';
 use constant PACK              => 'pack';
+use constant PACKS             => 'packs';
+use constant PACK_HOST_ONLY    => 'hostpack';
+use constant H_PACK_HOST_ONLY  => 'auto/host-only';
+use constant PACK_DYNAMIC      => 'autopack';
+use constant C_PACK_DYNAMIC    => '/tmp/autopack';
+use constant H_PACK_DYNAMIC    => 'auto/open';
+use constant PACK_STATIC       => 'pack';
+use constant C_PACK_STATIC     => '/tmp/pack';
+use constant H_PACK_STATIC     => 'pack';
 use constant PROJECT           => 'project';
 use constant IMMEDIATE         => 'immediate';
 use constant SKETCH            => 'sketch';
 use constant SRC               => 'src';
+use constant C_SRC             => '/tmp/src';
 use constant STROKE            => 'stroke';
 use constant DETECT_OK         => ((0 << 8) | 0);
 use constant DETECT_SKIP       => ((100 << 8) | 0);
@@ -52,67 +64,33 @@ use constant VOLUMES           => 'volumes';
 use constant CONFIG_FILE       => 'dibs.yml';
 
 use constant DEFAULTS => {
-   project_dirs => {
-      CACHE,  'cache',  DIBSPACKS, 'dibspacks',
-      ENVILE, 'envile', ENVIRON,   'env',
-      SRC,    'src',    EMPTY,     'empty'
-   },
-   container_dirs => {
-      CACHE,  '/tmp/cache',  DIBSPACKS, '/tmp/dibspacks',
-      ENVILE, '/tmp/envile', ENVIRON,   '/tmp/env',
-      SRC,    '/tmp/src',
-   },
-   &VOLUMES => [
-      CACHE,
-      [ENVILE,    'ro'],
-      [ENVIRON,   'ro'],
-      [DIBSPACKS, 'ro'],
-      SRC,
-      [EMPTY, 'ro']
-   ],
-   pack_dirs  => [SRC, CACHE, ENVILE, ENVIRON],
-   logger         => [qw< Stderr log_level debug >],
+   logger         => [qw< Stderr log_level info >],
    zone_specs_for => {
       CACHE,
       {
-         container_base => '/tmp/cache',
-         host_base      => 'cache',
+         container_base => C_CACHE,
+         host_base      => H_CACHE,
          writeable      => 1,
-      },
-      DIBSPACKS,
-      {
-         container_base => '/tmp/dibspacks',
-         host_base      => 'dibspacks',
-      },
-      HOST_DIBSPACKS,
-      {
-         container_base => undef,
-         host_base => 'host-dibspacks',
-      },
-      INSIDE,
-      {
-         container_base => '/',
-         host_base      => undef,
-      },
-      EMPTY,
-      {
-         container_base => undef,
-         host_base      => 'empty',
       },
       ENVILE,
       {
-         container_base => '/tmp/envile',
-         host_base      => 'envile',
+         container_base => C_ENVILE,
+         host_base      => H_ENVILE,
       },
       ENVIRON,
       {
-         container_base => '/tmp/env',
-         host_base      => 'env',
+         container_base => C_ENVIRON,
+         host_base      => H_ENVIRON,
       },
-      PROJECT,
+      PACK_DYNAMIC,
       {
-         container_base => '/tmp/dibspacks',
-         host_base      => 'dibspacks',
+         container_base => C_PACK_DYNAMIC,
+         host_base      => H_PACK_DYNAMIC,
+      },
+      PACK_STATIC,
+      {
+         container_base => C_PACK_STATIC,
+         host_base      => C_PACK_DYNAMIC,
       },
       SRC,
       {
@@ -120,11 +98,24 @@ use constant DEFAULTS => {
          host_base      => 'src',
          writeable      => 1,
       },
+      EMPTY,
+      {
+         container_base => undef,
+         host_base      => 'empty',
+      },
+      INSIDE,
+      {
+         container_base => '/',
+         host_base      => undef,
+      },
+      PACK_HOST_ONLY,
+      {
+         container_base => undef,
+         host_base => PACK_HOST_ONLY,
+      },
    },
    zone_names_for => {
-      host      => [HOST_DIBSPACKS, PROJECT, SRC],
-      container => [PROJECT, SRC, INSIDE],
-      &VOLUMES  => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
+      &VOLUMES  => [SRC, CACHE, ENVILE, ENVIRON, PACK_DYNAMIC, PACK_STATIC],
    },
 };
 use constant OPTIONS => [
@@ -176,11 +167,12 @@ use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [
       qw<
-        BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
+        BIN CACHE DPFILE EMPTY ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
-        HOST_DIBSPACKS INDENT DEFAULTS FRAME
-        ALBUM SKETCH STROKE LOG FROM VOLUMES PACK
+        INDENT DEFAULTS FRAME
+        SKETCH STROKE LOG FROM VOLUMES PACK
+        PACK_HOST_ONLY PACK_STATIC PACK_DYNAMIC
         >
    ],
    functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],
@@ -218,7 +210,7 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
      if $config{help};
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
-   $config{draw} = [map { split m{[,\s]}mxs } $cmdline->@*]
+   $config{do} = [map { split m{[,\s]}mxs } $cmdline->@*]
      if scalar $cmdline->@*;
    return \%config;
 } ## end sub get_cmdline

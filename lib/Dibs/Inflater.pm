@@ -104,7 +104,7 @@ sub resolve_pack ($spec, %args) {
 }
 
 sub load_from_pack ($spec, %as) {
-   my $p = resolve_pack($spec, dynamic_zone => HOST_DIBSPACKS, %as);
+   my $p = resolve_pack($spec, dynamic_zone => PACK_HOST_ONLY, %as);
    my @path = defined($p->{path}) ? $p->{path} : ();
    my $path = $p->{pack}->location->host_path(@path);
    ouch 404, "missing file $path" unless $path->exists;
@@ -114,7 +114,7 @@ sub load_from_pack ($spec, %as) {
    my $data = data_in($whole, $p->{datapath});
 
    my $zf = $as{zone_factory} // $as{pack_factory}->zone_factory;
-   my $cf = $whole->{&DIBSPACKS} // {};
+   my $cf = $whole->{&PACKS} // {};
    require Dibs::Pack::Factory;
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
    return inflate($data, %as, dispack_factory => $ldps, config => $cf);

@@ -5,6 +5,8 @@ use Log::Any qw< $log >;
 use Log::Any::Adapter;
 use Ouch qw< :trytiny_var >;
 use Path::Tiny qw< path cwd >;
+use Scalar::Util 'blessed';
+use Data::Dumper;
 use POSIX 'strftime';
 
 use Exporter 'import';
@@ -64,19 +66,19 @@ sub initialize (@as) {
 sub main (@as) {
    try {
       my $config = initialize(@as);
+      say Dumper $config; exit 0;
       my $dibs   = Dibs->new($config);
       $dibs->append_envile($config->{run_variables});
-      my $album  = $dibs->album(
-         {
-            id       => 'main',
-            sections => $config->{draw},
-         }
-      );
-      $album->draw(
+      my @actions = $config->{do}->@*;
+      my $sketch = (@actions == 1) ? $dibs->instance($actions[0]) : undef;
+      $sketch = $dibs->instance({name => 'main', actions => \@actions})
+         unless blessed($sketch) && $sketch->isa('Dibs::Action::Sketch');
+      my $name = $dibs->name;
+      my $run_tag = $config->{run_variables}{DIBS_ID};
+      $sketch->draw(
          env_carriers => [$dibs],
          project_dir  => $dibs->project_dir,
-         run_tag => $config->{run_variables}{DIBS_ID},
-         volumes => $dibs->volumes,
+         to => "$name:$run_tag",
       );
       return 0;
    } ## end try
