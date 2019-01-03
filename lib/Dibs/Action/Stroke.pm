@@ -1,14 +1,16 @@
-package Dibs::Sketch;
+package Dibs::Action::Stroke;
 use 5.024;
 use Dibs::Action;
-use Dibs::Output;
 use Moo;
 
 with 'Dibs::Role::Action';
 
-has actions => (is => 'ro', default => sub { return [] });
-
 sub create ($class, %args) {
+   my $spec = $args{spec} // {};
+   my $real_class = $self->_real_class($spec->{type} // $args{type});
+   $spec = $real_class->parse($args{raw}) unless defined $args{spec};
+   $real_class->create
+
    ouch 400, 'cannot create a sketch without a specification'
      unless defined $args{spec};
 
@@ -30,23 +32,18 @@ sub create ($class, %args) {
    );
 }
 
-sub draw ($self) {
-
+# just iterate over sub-actions
+sub draw ($self, $args = undef) {
+   $args //= {};
+   my $name = $self->name('(unknown)');
+   my $id = 0;
+   for my $action ($self->actions->@*) {
+      $id++;
+      $action->output(verbose => $args->{verbose}, name => "($name/$id)");
+      $action->draw($args);
+   }
+   return $args;
 }
 
 1;
 __END__
-
-# OLD STUFF, PROXY-BASED
-
-with 'Dibs::Role::Proxy';
-
-__PACKAGE__->_proxy_methods(
-   'env',       #
-   'envile',    #
-   'id',        #
-   'name',      #
-   'draw',      #
-);
-
-1;

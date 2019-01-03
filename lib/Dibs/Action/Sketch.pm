@@ -1,7 +1,6 @@
-package Dibs::Sketch;
+package Dibs::Action::Sketch;
 use 5.024;
 use Dibs::Action;
-use Dibs::Output;
 use Moo;
 
 with 'Dibs::Role::Action';
@@ -30,23 +29,18 @@ sub create ($class, %args) {
    );
 }
 
-sub draw ($self) {
-
+# just iterate over sub-actions
+sub draw ($self, $args = undef) {
+   $args //= {};
+   my $name = $self->name('(unknown)');
+   my $id = 0;
+   for my $action ($self->actions->@*) {
+      $id++;
+      $action->output(verbose => $args->{verbose}, name => "($name/$id)");
+      $action->draw($args);
+   }
+   return $args;
 }
 
 1;
 __END__
-
-# OLD STUFF, PROXY-BASED
-
-with 'Dibs::Role::Proxy';
-
-__PACKAGE__->_proxy_methods(
-   'env',       #
-   'envile',    #
-   'id',        #
-   'name',      #
-   'draw',      #
-);
-
-1;
