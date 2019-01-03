@@ -21,7 +21,7 @@ throws_ok { my $x = $factory->item('I am not here!') } qr{no zone...},
   'missing zone throws';
 
 my $host_only_zone;
-lives_ok { $host_only_zone = $factory->item('host-dibspacks') }
+lives_ok { $host_only_zone = $factory->item('hostpack') }
 'host-only zone';
 isa_ok $host_only_zone, 'Dibs::Zone';
 is $host_only_zone->container_base, undef, 'no container path inside';
@@ -33,18 +33,12 @@ isa_ok $container_only_zone, 'Dibs::Zone';
 is $container_only_zone->host_base, undef, 'no host path inside';
 
 my @list;
-lives_ok { @list = $factory->items('dibspacks_host') }
-q{list of zones in assemble 'dibspacks_host'};
-is scalar(@list), 3, q{'dibspacks_host' contains three items};
+lives_ok { @list = $factory->items('volumes') }
+q{list of zones in assemble 'volumes'};
+is scalar(@list), 6, q{'volumes' contains six items};
 isa_ok $list[0], 'Dibs::Zone';
-is_deeply [map { "$_" } @list], [qw< host-dibspacks project src >],
-  q{items in 'dibspacks_host'};
-
-lives_ok {
-   my @w = $factory->items($_)
-     for qw< dibspacks_container volumes >
-}
-q{assembles 'dibspacks_container' and 'volumes' exist too};
+is_deeply [map { "$_" } @list], [qw< src cache envile env autopack pack >],
+  q{items in 'volumes'};
 
 my @all;
 lives_ok { @all = $factory->items } 'getting all items';
