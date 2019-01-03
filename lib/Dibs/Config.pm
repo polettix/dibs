@@ -23,7 +23,9 @@ use constant DEFAULTS_FIELD    => 'defaults';
 use constant DEFINITIONS       => 'definitions';
 use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
+use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsactions';
+use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
 use constant GIT               => 'git';
@@ -94,7 +96,7 @@ use constant OPTIONS => [
       default => LOCAL_PROJECT_DIR,
       help    => 'project base directory'
    ],
-   ['#steps'],
+   ['#workflow'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
 
@@ -104,7 +106,7 @@ our %EXPORT_TAGS = (
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
         INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION DEFINITIONS
-        DETECT_OK DETECT_SKIP
+        DETECT_OK DETECT_SKIP STEPS WORKFLOW
         INDENT
         >
    ],
@@ -143,7 +145,7 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
      if $config{help};
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
-   $config{steps} = [map { split m{[,\s]}mxs } $cmdline->@*]
+   $config{workflow} = [map { split m{[,\s]}mxs } $cmdline->@*]
      if scalar $cmdline->@*;
    return \%config;
 } ## end sub get_cmdline

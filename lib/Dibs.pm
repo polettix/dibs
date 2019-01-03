@@ -23,7 +23,11 @@ use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
 
-has _config => (is => 'ro', required => 1);
+has _config => (
+   is => 'ro',
+   required => 1,
+   init_arg => 'config',
+);
 has _project_dir => (is => 'lazy');
 has _host_project_dir => (is => 'lazy');
 has _actions_for => (is => 'ro', default => sub { return {} });
@@ -45,11 +49,11 @@ sub __flatten_array ($step, $aref, $flags = {}) {
    return \@retval;
 }
 
-sub __expand_defaults ($hash, $type, $defaults_for, $flags = {}) {
-   defined(my $ds = delete($hash->{defaults})) or return;
-   $defaults_for //= {};
+sub __expand_extends ($hash, $type, $definition_for, $flags = {}) {
+   defined(my $ds = delete($hash->{extends})) or return;
+   $definition_for //= {};
    for my $source (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) {
-      my $defaults = (ref($source) ? $source : $defaults_for->{$source})
+      my $defaults = (ref($source) ? $source : $definition_for->{$source})
          or ouch 500, "no $type '$source', typo?";
 
       # protect aginst circular dependencies
@@ -61,7 +65,7 @@ sub __expand_defaults ($hash, $type, $defaults_for, $flags = {}) {
 
       # $defaults will hold the defaults to be merged into $hash. Make
       # sure to recursively resolve its defaults though
-      __expand_defaults($defaults, $type, $defaults_for, $flags);
+      __expand_extends($defaults, $type, $definition_for, $flags);
 
       # merge hashes and proceed to next default
       $hash->%* = ($defaults->%*, $hash->%*);
@@ -81,7 +85,7 @@ sub __set_logger (@args) {
 
 sub build_actions_array ($self, $step) {
    # first of all check what comes from the configuration
-   my $ds = $self->dconfig($step => 'actions');
+   my $ds = $self->sconfig($step => 'actions');
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
 
    # now check for a .dibsactions in the source directory
@@ -114,13 +118,14 @@ sub build_actions_array ($self, $step) {
 }
 
 sub dibspack_for ($self, $spec) {
-   my $defaults_for = $self->config(DEFAULTS_FIELD, DIBSPACK) // {};
+   my $dibspack_for = $self->config(DIBSPACKS)
+      // $self->config(DEFAULTS_FIELD, DIBSPACK) // {};
    if (! ref($spec)) {
-      my $ns = $defaults_for->{$spec}
+      my $ns = $dibspack_for->{$spec}
          or ouch 400, "no dibspack '$spec' in defaults, typo?";
       $spec = $ns;
    }
-   __expand_defaults($spec, DIBSPACK, $defaults_for)
+   __expand_extends($spec, DIBSPACK, $dibspack_for)
       if ref($spec) eq 'HASH'; # in-place expansion of hash specifications
    my $dibspack = Dibs::Pack->create($spec, $self);
 
@@ -147,7 +152,7 @@ sub add_metadata ($self, %pairs) {
 sub metadata_for ($self, $key) { $self->all_metadata->{$key} // undef }
 
 sub name ($self, $step) {
-   defined(my $n = $self->dconfig($step, 'commit', 'name'))
+   defined(my $n = $self->sconfig($step, 'commit', 'name'))
       or return $self->config('name');
    return $n;
 }
@@ -158,7 +163,7 @@ sub config ($self, @path) {
    return $c;
 }
 
-sub dconfig ($self, @path) { $self->config(definitions => @path) }
+sub sconfig ($self, @path) { $self->config(STEPS, @path) }
 
 sub _build__project_dir ($self) {
    return path($self->config('project_dir'))->absolute;
@@ -178,9 +183,9 @@ sub host_project_dir ($self, @subdirs) {
    return(@subdirs ? $hpd->child(@subdirs) : $hpd);
 }
 
-sub steps ($self) {
-   my $s = $self->config('steps');
-   ouch 400, 'no step defined for execution'
+sub workflow ($self) {
+   my $s = $self->config(WORKFLOW);
+   ouch 400, 'no workflow defined for execution'
       unless (ref($s) eq 'ARRAY') && scalar($s->@*);
    return $s->@*;
 }
@@ -303,7 +308,7 @@ sub iterate_actions ($self, $step) {
 
 sub call_action ($self, $action, $step, $args) {
    my $p = path($action->container_path)->stringify;
-   my $stepname = $self->dconfig($step, 'step') // $step;
+   my $stepname = $self->sconfig($step, 'step') // $step;
    my ($exitcode, $cid, $out);
    try {
       my $enviles = $self->write_enviles($args->{envile});
@@ -351,11 +356,11 @@ sub write_enviles ($self, $spec) {
 }
 
 sub metadata_for_envile ($self, $action, $step, $args) {
-   my $step_name = $self->dconfig($step, 'step') // $step;
+   my $step_name = $self->sconfig($step, 'step') // $step;
    return (
       $self->all_metadata,
       {
-         DIBS_FROM_IMAGE => ($self->dconfig($step, 'from') // ''),
+         DIBS_FROM_IMAGE => ($self->sconfig($step, 'from') // ''),
          DIBS_WORK_IMAGE => $args->{image},
          DIBS_STEP       => $step_name,
       },
@@ -363,7 +368,7 @@ sub metadata_for_envile ($self, $action, $step, $args) {
 }
 
 sub coalesce_envs ($self, $action, $step, $args, $key = 'env') {
-   my $stepc = $self->dconfig($step);
+   my $stepc = $self->sconfig($step);
    my $method = $self->can("metadata_for_$key");
    return __merge_envs(
       $self->config(defaults => $key),
@@ -374,7 +379,7 @@ sub coalesce_envs ($self, $action, $step, $args, $key = 'env') {
 }
 
 sub prepare_args ($self, $step) {
-   my $stepc = $self->dconfig($step);
+   my $stepc = $self->sconfig($step);
    my $from = $stepc->{from};
    my $to   = $self->target_name($step);
    my $image = try {
@@ -410,7 +415,7 @@ sub normalized_commit_config ($self, $cfg) {
 }
 
 sub changes_for_commit ($self, $step) {
-   my $cfg = $self->dconfig($step, 'commit');
+   my $cfg = $self->sconfig($step, 'commit');
    my %changes = (
       cmd => [],
       entrypoint => [qw< /bin/sh -l >],
@@ -544,7 +549,7 @@ sub expand_command_args ($self, $step, @args) {
          }
          elsif ($type eq 'step_id') { $step }
          elsif ($type eq 'step_name') {
-            $self->dconfig($step, 'step') // $step;
+            $self->sconfig($step, 'step') // $step;
          }
          else {
             ouch 400, "unrecognized arg for dibspack (type: $type)";
@@ -563,17 +568,23 @@ sub target_name ($self, $step) {
    join ':', $self->name($step), $self->metadata_for('DIBS_ID');
 }
 
-sub run_step ($self, $step) {
-   my $definitions_for = $self->dconfig;
-   defined(my $sc = $definitions_for->{$step})
-      or ouch 400, "no definitions for $step";
+sub step_config_for ($self, $name) {
+   my $definitions_for = $self->sconfig;
+   defined(my $sc = $definitions_for->{$name})
+      or ouch 400, "no definitions for $name";
 
    # allow for recursive defaulting
-   __expand_defaults($sc, DEFINITIONS, $definitions_for);
+   __expand_extends($sc, STEPS, $definitions_for);
 
    # normalize the configuration for "commit" in the step before going on,
    # it might be a full associative array or some DWIM stuff
    my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
+
+   return $sc;
+}
+
+sub run_step ($self, $step) {
+   my $pc = $self->step_config_for($step)->{commit};
 
    # "do the thing"
    my $image = $self->iterate_actions($step);
@@ -598,7 +609,7 @@ sub run ($self) {
    try {
       $self->ensure_host_directories;
 
-      for my $step ($self->steps) {
+      for my $step ($self->workflow) {
          ARROW_OUTPUT('=', "step $step");
          if (my @tags = $self->run_step($step)) {
             push @tags_lists, [$step, @tags];
@@ -629,7 +640,7 @@ sub create_from_cmdline ($package, @as) {
    my $is_alien = $cmdenv->{alien};
    my $is_development = $cmdenv->{development};
    if ((! $cnfp->exists) && ($is_alien || $is_development)) {
-      my $tmp = __PACKAGE__->new(_config => $cmdenv);
+      my $tmp = $package->new(config => $cmdenv);
       $tmp->set_logger; # ensure we can output stuff on log channel
 
       my $origin = $cmdenv->{origin} // '';
@@ -647,7 +658,7 @@ sub create_from_cmdline ($package, @as) {
    ouch 400, 'no configuration file found' unless $cnfp->exists;
 
    my $overall = add_config_file($cmdenv, $cnfp);
-	return $package->new(_config => $overall);
+	return $package->new(config => $overall);
 }
 
 sub main ($pkg, @as) {

@@ -15,8 +15,8 @@ my $dibs = Dibs->create_from_cmdline(
 
 isa_ok $dibs, 'Dibs';
 is cwd->stringify, $work_dir->stringify, 'changed directory';
-is_deeply [$dibs->steps], [qw< foo bar >], 'steps are OK';
-is_deeply [sort {$a cmp $b} keys $dibs->dconfig->%*], [qw< bar foo >],
+is_deeply [$dibs->workflow], [qw< foo bar >], 'workflow is OK';
+is_deeply [sort {$a cmp $b} keys $dibs->sconfig->%*], [qw< bar foo >],
    'definitions';
 
 is $dibs->name('bar'), 'dibstest', 'name method (bar definition)';

@@ -4,7 +4,7 @@ defaults:
    variables:
       - &one one
       - &two 'two (2)'
-definitions:
+steps:
    bar:
       from: alpine:latest
       actions:

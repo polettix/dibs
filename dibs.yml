@@ -24,12 +24,6 @@ defaults:
       - bundlish: &bundlish
          step: bundle
 
-   dibspack:
-      basic:
-         type:   git
-         origin: https://github.com/polettix/dibspack-basic.git
-         user:   user
-
    action:
       user: &user
          dibspack: basic
@@ -89,3 +83,9 @@ definitions:
    qbundle:
       defaults: *bundle
       actions:  [*bundle_bare]
+
+dibspacks:
+   basic:
+      type:   git
+      origin: https://github.com/polettix/dibspack-basic.git
+      user:   user
