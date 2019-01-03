@@ -19,8 +19,11 @@ around create => sub ($orig, $class, %args) {
      unless defined $args{spec};
 
    my ($spec, $factory, $factory_args) = @args{qw< spec factory args >};
+   my $i = 0;
+   my $name = $spec->{name} // $factory_args->{name} // '';
    my @actions = map {
-      Dibs::Action->create($_, $factory, $factory_args->%*);
+      ++$i;
+      Dibs::Action->create($_, $factory, $factory_args->%*, name => "$name/$i");
    } ($spec->{actions} // [])->@*;
    return $class->$orig(%args, spec => {$spec->%*, actions => \@actions});
 };
@@ -56,7 +59,10 @@ sub execute ($self, $args = undef) {
    my $id = 0;
    for my $action ($self->actions->@*) {
       $id++;
-      $action->output_marked(verbose => $args->{verbose}, name => "($name/$id)");
+      $action->output_marked(
+         verbose => $args->{verbose},
+         name => "($name/$id)"
+      );
       $action->execute($args);
    }
    return $args;

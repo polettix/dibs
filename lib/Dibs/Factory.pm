@@ -29,7 +29,6 @@ sub _add_context ($self, $feedback) {
 
 sub _create_instance ($self, $type, %args) {
    ouch 400, 'missing action type' unless defined $type;
-   $log->info("action type: $type");
    state $class_for = {
       &SKETCH => 'Dibs::Action::Sketch',
       &GIT    => 'Dibs::Action::Fetch::Git',
