@@ -95,6 +95,7 @@ sub execute ($self, $args = undef) {
       indent => $self->indent,
       work_dir => $self->zone_factory->item(ENVILE)->container_base,
       command => $self->_command($args),
+      user => 'root', # default
    );
    $run_args{user} = $self->user if defined $self->user;
 
