@@ -4,20 +4,25 @@ defaults:
    variables:
       - &one one
       - &two 'two (2)'
-steps:
+actions:
    bar:
-      from: alpine:latest
-      actions:
-         - run: |
-               #!/bin/sh
-               printf >&2 '%s\n' 'Hello, world! This is bar'
+      - from: alpine:latest
+      - pack:
+         run: |
+            #!/bin/sh
+            printf >&2 '%s\n' 'Hello, world! This is bar'
+        commit:
+         author: whatever
+         entrypoint: /what/ever
    foo:
-      from: alpine:latest
-      commit:
-         name: foo
-         tags: ['latest']
-      actions:
-         - run: |
-               #!/bin/sh
-               printf '%s\n' 'Hello, world! This is foo'
+      - from: alpine:latest
+      - pack:
+         run: |
+            #!/bin/sh
+            printf '%s\n' 'Hello, world! This is foo'
+        commit:
+         author: whatever
+         entrypoint: /what/ever
+      - image_name: foo
+        tags: ['latest']
 

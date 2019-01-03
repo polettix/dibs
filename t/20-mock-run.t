@@ -21,6 +21,8 @@ BEGIN {
 }
 
 use Dibs;
+use Dibs::Config ':all';
+use Dibs::App ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 use Data::Dumper;
@@ -29,23 +31,10 @@ clean_environment();
 
 my $work_dir = path(__FILE__ . '.d')->absolute;
 my $guard = directory_guard($work_dir);
-my $dibs = Dibs->create_from_cmdline(
-   -C => $work_dir,
-   '-D', # allow dirty, won't be cloning anything anyway
-   qw< foo bar >
-);
-isa_ok $dibs, 'Dibs';
 
-$dibs->ensure_host_directories;
-is_deeply \@collected, [
-   [
-      [ 'git', 'clone', $work_dir->stringify,
-         $work_dir->child(qw< dibs src >)->stringify ],
-      7
-   ]
-], 'called right command for cloning repo';
-
-@collected = ();
+my $config = get_config_cmdenv([ -C => $work_dir, qw< -D foo bar > ]);
+$config = add_config_file($config, $work_dir->child('dibs.yml'));
+$config->{run_variables}{DIBS_ID} = 'testing';
 
 my ($err, $out);
 lives_ok {
@@ -53,30 +42,28 @@ lives_ok {
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   $dibs->run;
-} '$dibs->run lives';
+   Dibs::App::draw($config);
+} 'Dibs::App::draw lives';
 
 #diag Dumper \@collected;
 check_collected_actions(@collected);
-is $out, "foo: foo:latest\n", 'output of the whole thing';
+is $out, "foo:latest\n", 'output of the whole thing';
 
 done_testing();
 
 sub check_collected_actions (@got) {
    subtest 'collected actions' => sub {
       my @expected = (
-         [qw< git clone >],
-         [qw< docker tag alpine:latest >],
+         [qw< docker tag alpine:latest dibstest:testing >],
          [qw< docker run --cidfile >],
          [qw< docker commit -c >],
          [qw< docker rm >],
-         [qw< docker tag >],
-         [qw< docker rmi >],
+         [qw< docker tag dibstest:testing foo:latest >],
          [qw< docker tag alpine:latest >],
          [qw< docker run --cidfile >],
          [qw< docker commit -c >],
          [qw< docker rm  >],
-         [qw< docker rmi >],
+         [qw< docker rmi dibstest:testing >],
       );
       is scalar(@got), scalar(@expected), 'number of actions as expected';
       for my $i (0 .. $#expected) {
