@@ -13,6 +13,7 @@ no warnings qw< experimental::postderef experimental::signatures >;
 my $work_dir = path(__FILE__ . '.d')->absolute;
 clean_environment();
 my $guard = directory_guard($work_dir);
+$work_dir->child('dibs')->remove_tree({safe => 0});
 
 my $config = get_config_cmdenv([ -C => $work_dir, qw< foo bar > ]);
 is cwd->stringify, $work_dir->stringify, 'changed directory';
@@ -58,6 +59,8 @@ is_deeply $out->{out}, [
     ]
   ]
 ], 'output from call to draw';
+
+ok $work_dir->child('dibs')->exists, 'project dir created';
 
 done_testing();
 __END__

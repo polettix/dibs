@@ -4,20 +4,21 @@ defaults:
    variables:
       - &one one
       - &two 'two (2)'
-steps:
+actions:
+   source:
+      from: alpine:latest
    bar:
-      from: alpine:latest
-      actions:
-         - run: |
-               #!/bin/sh
-               printf '%s\n' 'Hello, world! This is bar'
+      - source
+      - args: [*one, *two]
+        pack:
+         run: |
+            #!/bin/sh
+            printf '%s (%s)\n' 'Hello, world! This is bar' "$*"
    foo:
-      from: alpine:latest
-      commit:
-         name: foo
-         keep: no
-      actions:
-         - run: |
-               #!/bin/sh
-               printf '%s\n' 'Hello, world! This is foo'
+      - source
+      - args: [*one, *two]
+        pack:
+         run: |
+            #!/bin/sh
+            printf '%s (%s)\n' 'Hello, world! This is foo' "$*"
 
