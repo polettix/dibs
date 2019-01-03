@@ -432,16 +432,13 @@ export_enviles_from() {
 
 export_all_enviles_from() {
    local base="${1%/}" file
-   for file in "$base"/DIBS* ; do
+   for file in "$base"/* ; do
+      [ "X${file#${file%???}}" = "X.sh" ] && continue
       [ -e "$file" ] && export_envile "$file"
    done
 }
 
-if [ "$#" -gt 0 ] ; then
-   export_enviles_from "$PWD" "$@"
-else
-   export_all_enviles_from "$PWD"
-fi
+export_all_enviles_from "$PWD"
 
 END
 
