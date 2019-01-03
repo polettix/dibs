@@ -165,13 +165,13 @@ executions are related to the _project directory_, and are:
 == Examples
 
 It's better to start looking at a couple of examples to better understand how
-`dibs` works in its two main modes of operation: _development_ and _alien_.
+`dibs` works.
 
-=== Development Mode
+=== Development Mode, Initial Example
 
-As the name implies, _development mode_ is best used when developing the
-software and generating the container image during development itself (e.g. as
-a developer).
+The basic mode of operations of `dibs` is _development mode_. As the name
+implies, it is best used when developing the software and generating the
+container image during development itself (e.g. as a developer).
 
 The example assumes the following layout of files and directories:
 
@@ -278,12 +278,163 @@ inside the container
 `entrypoint`, `cmd`, `user`, ...
 <12> this is a _frame_, i.e. the actual saving of an image
 
+Running `dibs` in this case is as simple as going in the root directory of the
+code and run:
 
+----
+$ dibs
+----
 
+This will execute the `default` _sketch_, which is comprised of two actions
+`build` and `bundle`. They will be executed both, in the specific order. They
+are both __sketch__es themselves (they both contain a list of actions).
 
-=== Alien Mode
+Sketch `build` starts from a basic image (an Alpine Linux, release 3.6) and
+executes three `RUN`-like actions on top of it, in the specific order:
 
+- installation of pre-requisites (calling the `prereqs` _stroke_ defined
+  above). The script that install pre-requisites uses the variable
+  `DIBS_PREREQS` to select the right prerequisites script, which will be
+  `prereqs/alpine.build` in this case.
+- "compilation" of the Perl code. This reduces to the installation of modules
+  as specified in file `cpanfile`
+- save of `app.pl` (main program) and `local` (where installed modules are
+  placed) inside the cache directory (in particular, in the `app`
+  sub-directory)
 
+Each step is executed "on top" of the previous one, just like several `RUN`
+directives in a Dockerfile are executed.
+
+Sketch `build` does not include a _frame_ action, so the final container is
+removed and not saved.
+
+Sketch `bundle` is similar to `build`, but also different:
+
+- starts from the same base image `alpine:3.6`
+- install pre-requisites. In this case `DIBS_PREREQS` is set to `bundle`, so
+  the prerequisites program that will be run is `prereqs/alpine.bundle`. This
+  is an example of reuse, because the same script (`prereqs` in the `basic`
+  pack) is used to obtain different results in different conditions;
+- artifacts are copied from the cache to the final target destination (in
+  `/app`). This is the last "layer" that is added to the image, so there is
+  also the specification of a `commit` section to set the `entrypoint` and the
+  `cmd` to be executed by default.
+- the last action of the sketch is a _frame_ that saves the final container as
+  an image with two tags: `exadev:latest` and `exadev:0.3`.
+
+=== Development Mode, Explicit Pinpointing
+
+The previous example showed an example where _build_ and _bundle_ are
+separated, but as a matter of fact it does not provide a real advantage in
+terms of execution time, because the installation of prerequisites on top of a
+basic image is always performed (`dibs` does not include implicit
+caching/pinpointing of intermediate containers like Dockerfiles).
+
+It's possible to expand the example to limit the amount of repeated work, like
+shown in the following example.
+
+.dibs.yml
+[source,yaml]
+----
+name: exadev
+packs:
+    basic:
+        type: git
+        origin: https://github.com/polettix/dibspack-basic.git
+actions:
+    default: [build, bundle]
+    prereqs:
+      pack: basic
+      path: prereqs
+    builder:                               # # <1>
+        envile:
+            DIBS_PREREQS: build
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: save builder base image
+              image_name: builder
+              tags: '1.0'
+    build:
+        actions:
+            - from: 'builder:1.0'          # # <2>
+            - name: compile
+              pack: basic
+              path: perl/build
+            - name: save compiled artifacts in cache
+              pack:
+                run: |
+                    #!/bin/sh
+                    src_dir="$(cat DIBS_SRC_DIR)"
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    dst_dir="$cache_dir/app"
+                    set -e
+                    rm -rf "$target"
+                    mkdir -p "$target"
+                    cp -a "$src_dir/app.pl" "$target"
+                    cp -a "$src_dir/local" "$target"
+    bundler:
+        envile:
+            DIBS_PREREQS: bundle
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: save bundler base image
+              image_name: bundler
+              tags: '1.0'
+    bundle:
+        actions:
+            - from: 'bundler:1.0'
+            - name: put artifacts in place
+              pack:
+                run: |
+                    #!/bin/sh
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    src_dir="$cache_dir/app"
+                    dst_dir="/app"
+                    rm -rf "$dst_dir"
+                    cp -a "$src_dir" "$dst_dir"
+              commit:
+                entrypoint: []
+                cmd: ['/bin/sh', '-l']
+            - name: save bundled image
+              image_name: exadev
+              tags: ['latest', '0.3']
+----
+<1> Former `build` is divided into parts, this is the first and yields an
+image that is saved permanently as `builder:1.0`
+<2> The image is then used as a base for the `build` stroke.
+
+In this example, former `build` sketch has been broken down into two sketches,
+the first one (`builder`) installing the pre-requisites and saving a base
+image that is suitable for building (`builder:1.0`) and is thus used as the
+starting point for sketch `build`. A similar split has been performed onto
+`bundle`, extracting the pre-requisites part into `bundler`.
+
+To generate the new base images for building and bundling the following
+command is run:
+
+----
+$ dibs builder bundler
+# generates builder:1.0 and bundler:1.0
+----
+
+After this step has been run, these images are used as bases for the new
+`build` and `bundle` steps, so when the following command is run:
+
+----
+$ dibs build bundle
+----
+
+the prerequisites installation is not performed any more, saving time.
+
+=== Robust Pinpointing
+
+The split in the previous example was possible because of the assumption that
+pre-requisites change very seldom in a project (with the possible exception of
+the initial days). Anyway, it's possible that the pre-requisites have to
+change from time to time, in which case it's necessary to regenerate the base
+images to include them 
 
 
 === Directory Layouts
