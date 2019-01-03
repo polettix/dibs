@@ -17,6 +17,7 @@ use Dibs::Run qw< run_command_out assert_command assert_command_out >;
 
 use Exporter 'import';
 our @EXPORT_OK = qw<
+  cleanup_tags
   docker_commit
   docker_rm
   docker_rmi
@@ -24,6 +25,18 @@ our @EXPORT_OK = qw<
   docker_tag
   docker_version
 >;
+
+sub cleanup_tags (@tags) {
+   my $cleanup_ok = 1;
+   for my $tag (@tags) {
+      try { docker_rmi($tag) }
+      catch {
+         $log->error("failed to remove $tag");
+         $cleanup_ok = 0;
+      };
+   }
+   return $cleanup_ok;
+} ## end sub cleanup_tags
 
 sub docker_commit ($cid, $tag, $changes = undef) {
    my @command = qw< docker commit >;
@@ -73,6 +86,8 @@ sub docker_run (%args) {
 
    my ($retval, $out) =
      run_command_out(\@command, $args{indent} ? INDENT : 0);
+   $log->debug("output<$out>") if defined $out;
+
    return $retval unless wantarray;
 
    my $cid = $args{keep} && $cidfile->exists ? $cidfile->slurp_raw : undef;

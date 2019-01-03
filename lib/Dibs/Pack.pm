@@ -5,12 +5,12 @@ use Moo;
 with 'Dibs::Role::Proxy';
 
 __PACKAGE__->_proxy_methods(
-   'env',               #
-   'envile',            #
+   'container_path',    #
+   'host_path',         #
    'id',                #
+   'materialize',       #
    'name',              #
    'location',          #
-   'supportable_zones', #
 );
 
 1;

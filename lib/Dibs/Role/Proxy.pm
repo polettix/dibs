@@ -15,7 +15,7 @@ has _factory => (
    },
 );
 
-has _instance => (is => 'lazy');
+has _instance => (is => 'lazy', init_arg => 'instance');
 
 sub _build__instance { $_[0]->_factory->() }
 

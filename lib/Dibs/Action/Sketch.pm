@@ -1,43 +1,63 @@
 package Dibs::Action::Sketch;
 use 5.024;
+use Ouch ':trytiny_var';
 use Dibs::Action;
+#use Dibs::Config ':constants';
+use Dibs::Zone::Factory;
+use Dibs::Docker 'cleanup_tags';
 use Moo;
+use experimental qw< postderef signatures >;
+no warnings qw< experimental::postderef experimental::signatures >;
 
 with 'Dibs::Role::Action';
 
 has actions => (is => 'ro', default => sub { return [] });
+has '+output_char' => (is => 'ro', default => '=');
 
-sub create ($class, %args) {
+around create => sub ($orig, $class, %args) {
    ouch 400, 'cannot create a sketch without a specification'
      unless defined $args{spec};
 
-   # $spec is the recipe to generate the sketch
-   # $factory is what we can use to generate actions (or their proxies),
-   #   it triggered create() as well most probably
-   # $factory_args is what we inherited, e.g. might contain 'flags' for
-   #   circular dependency avoidance
    my ($spec, $factory, $factory_args) = @args{qw< spec factory args >};
-
    my @actions = map {
-      Dibs::Action->create($_, $factory, $factory_args);
+      Dibs::Action->create($_, $factory, $factory_args->%*);
    } ($spec->{actions} // [])->@*;
+   return $class->$orig(%args, spec => {$spec->%*, actions => \@actions});
+};
 
-   return $class->new(
-      name => ($spec->{name} // $factory_args->{name}),
-      actions => \@actions,
-      ancestors => $factory_args->{ancestors},
-   );
+sub draw ($self, $iargs = undef) {
+   my $args = { ($iargs // {})->%* };
+   my $zf = $args->{zone_factory} //= Dibs::Zone::Factory->default;
+   $args->{volumes} //= $self->_volumes($zf);
+   $self->execute($args);
+   my @tags = ($args->{tags} // [])->@*;
+   if (defined $args->{keep}) {
+      unshift @tags, $args->{keep};
+   }
+   elsif (defined $args->{image}) {
+      cleanup_tags($args->{image});
+   }
+   say for @tags;
+   return $args;
+}
+
+sub _volumes ($self, $zone_factory) {
+   return [
+      map {
+         [$_->host_path, $_->container_path, ($_->writeable ? 'rw' : 'ro')]
+      } $zone_factory->items('volumes')
+   ];
 }
 
 # just iterate over sub-actions
-sub draw ($self, $args = undef) {
+sub execute ($self, $args = undef) {
    $args //= {};
    my $name = $self->name('(unknown)');
    my $id = 0;
    for my $action ($self->actions->@*) {
       $id++;
-      $action->output(verbose => $args->{verbose}, name => "($name/$id)");
-      $action->draw($args);
+      $action->output_marked(verbose => $args->{verbose}, name => "($name/$id)");
+      $action->execute($args);
    }
    return $args;
 }

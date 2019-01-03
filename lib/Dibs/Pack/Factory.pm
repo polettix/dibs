@@ -6,11 +6,12 @@ use Module::Runtime 'use_module';
 use Path::Tiny 'path';
 use Dibs::Config ':constants';
 use Dibs::Inflater ();
+use Dibs::Pack::Instance;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Role::Factory'; # _config, _inventory
+with 'Dibs::Role::Factory'; # _config, _inventory, inflate, item, parse
 
 has zone_factory => (is => 'ro', required => 1);
 
@@ -33,7 +34,8 @@ sub dibspack_factory ($self) { return $self }
 sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 
 sub _create ($self, $spec, %args) {
-   my $type = $spec->{type} or ouch 400, 'no type present in dibspack';
+   my $type = $spec->{type} #self->dwim_type($spec)
+     or ouch 400, 'no type present in dibspack';
 
    # native types lead to static stuff in a zone named after the type
    return $self->_create_static($spec, %args)
@@ -50,12 +52,11 @@ sub _create_dynamic ($self, $spec, %args) {
    my $dyn_zone_name = $args{dynamic_zone} // HOST_DIBSPACKS;
    my $zone    = $self->zone_factory->zone_for($dyn_zone_name);
 
-   return use_module('Dibs::Pack::Dynamic')->new(
+   return Dibs::Pack::Instance->new(
       $spec->%*,    # anything from the specification, with overrides below
       id       => $id,
-      cloner   => $args{cloner},
       fetcher  => $fetcher,
-      location => {path => $id, zone => $zone},
+      location => {base => $id, zone => $zone},
    );
 } ## end sub _create_dynamic_dibspack
 
@@ -80,13 +81,17 @@ sub _create_static ($self, $spec, @ignore) {
    # if $fullpath is not true, none of base(/raw) or path was set
    $fullpath or ouch 400, "invalid base/path for $type dibspack";
 
-   # build %subargs for call to Dibs::Pack::Static's constructor
-   my %args = (id => "$type:$fullpath", location => \%location);
+   # build %subargs for call to Dibs::Pack::Instance
+   my %args = (
+      fetcher => undef, # no fetching needed
+      id => "$type:$fullpath",
+      location => \%location,
+   );
 
    # name presence is optional, rely on default from class if absent
    $args{name} = $spec->{name} if exists $spec->{name};
 
-   return use_module('Dibs::Pack::Static')->new(%args);
+   return Dibs::Pack::Instance->new(%args);
 } ## end sub _create_static_dibspack
 
 sub parse ($self, $spec) {

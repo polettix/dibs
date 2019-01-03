@@ -1,8 +1,8 @@
 package Dibs::Role::Factory;
 use 5.024;
-use Dibs::Inflater ();
 use Ouch ':trytiny_var';
 use Module::Runtime ();
+use Dibs::Inflater;
 use Moo::Role;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;

@@ -8,7 +8,6 @@ use Try::Catch;
 use Guard;
 use Moo;
 use Dibs::Config ':constants';
-use Dibs::Pack::Factory;
 use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -116,6 +115,7 @@ sub load_from_dibspack ($spec, %as) {
 
    my $zf = $as{zone_factory} // $as{dispack_factory}->zone_factory;
    my $cf = $whole->{&DIBSPACKS} // {};
+   require Dibs::Pack::Factory;
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
    return inflate($data, %as, dispack_factory => $ldps, config => $cf);
 }

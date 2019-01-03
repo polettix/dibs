@@ -7,9 +7,11 @@ no warnings qw< experimental::postderef experimental::signatures >;
 with 'Dibs::Role::Proxy';
 
 __PACKAGE__->_proxy_methods(
+   'execute', #
    'id',   #
    'name', #
-   'draw', #
+   'output_marked', #
+   'output', #
 );
 
 sub create ($class, $target, $factory, %args) {

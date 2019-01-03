@@ -17,6 +17,7 @@ has ancestors => (is => 'ro', default => sub { return [] });
 has dibspack_factory => (is => 'ro', required => 1);
 has context          => (is => 'ro', default  => undef);
 has name             => (is => 'ro', default  => undef);
+has zone_factory     => (is => 'lazy');
 
 with 'Dibs::Role::Factory';
 
@@ -32,14 +33,25 @@ sub _create_instance ($self, $type, %args) {
       &SKETCH => 'Dibs::Action::Sketch',
       &GIT    => 'Dibs::Action::Fetch::Git',
       &HTTP   => 'Dibs::Action::Fetch::Http',
-      &SNAP   => 'Dibs::Action::Snap',
-      map { $_ => ('Dibs::Action::Stroke::' . ucfirst(lc $_)) }
-        (IMMEDIATE, INSIDE, PROJECT, SRC),
+      &FRAME  => 'Dibs::Action::Frame',
+      &LOG    => 'Dibs::Action::Log',
+      &FROM   => 'Dibs::Action::Prepare',
+      (
+         map { $_ => ('Dibs::Action::Stroke::' . ucfirst(lc $_)) }
+            (INSIDE, PACK, PROJECT, SRC),
+      ),
+      (
+         map { $_ => 'Dibs::Action::Stroke::Immediate' }
+            (IMMEDIATE, 'run', 'program'),
+      ),
    };
    my $class = $class_for->{$type} // $type;
 
    try { use_module($class) }
-   catch { ouch 400, "invalid action type '$type'" };
+   catch { ouch 400, "invalid action type '$type' ($_)" };
+
+   $args{spec} = $class->parse(delete $args{raw})
+     if exists($args{raw}) && ! exists($args{spec});
 
    return $class->create(%args, factory => $self, type => $type);
 } ## end sub _create_instance
@@ -83,6 +95,8 @@ sub _instance_for_array ($self, $actions, $args) {
 sub _instance_for_hash ($self, $spec, $args) {
    my $feedback = $self->_add_context('hash');
    my $guard = __check_circular($args, R => refaddr($spec), $feedback);
+
+   $spec->{type} = $self->dwim_type($spec);
    ouch 400, 'missing type in action specification'
      unless defined $spec->{type};
 
@@ -91,6 +105,12 @@ sub _instance_for_hash ($self, $spec, $args) {
 
    $self->_create_instance($spec->{type}, args => $args, spec => $spec);
 } ## end sub _instance_for_hash
+
+sub dwim_type ($self, $spec) {
+   return $spec->{type} if exists $spec->{type};
+   return IMMEDIATE if exists($spec->{run}) || exists($spec->{program});
+   return PACK if exists($spec->{pack}) || exists($spec->{dibspack});
+}
 
 sub _instance_for_name ($self, $name, $args) {
    my $config = $self->_config;
@@ -137,5 +157,7 @@ sub _instance_for_remote ($self, $locator, $args) {
 sub _clone_ancestors ($self, $override) {
    return [($override // $self->ancestors)->@*];
 }
+
+sub _build_zone_factory ($self) { $self->dibspack_factory->zone_factory }
 
 1;

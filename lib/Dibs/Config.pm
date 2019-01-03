@@ -23,6 +23,9 @@ use constant DEFAULTS_FIELD    => 'defaults';
 use constant DEFINITIONS       => 'definitions';
 use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
+use constant FRAME             => 'frame';
+use constant LOG               => 'log';
+use constant FROM              => 'from';
 use constant HOST_DIBSPACKS    => 'host-dibspacks';
 use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsstrokes';
@@ -34,6 +37,7 @@ use constant ENVILE            => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
 use constant OPERATE           => 'operate';
+use constant PACK              => 'pack';
 use constant PROJECT           => 'project';
 use constant IMMEDIATE         => 'immediate';
 use constant SKETCH            => 'sketch';
@@ -44,6 +48,7 @@ use constant DETECT_SKIP       => ((100 << 8) | 0);
 use constant INDENT            => 7;
 use constant ALIEN_PROJECT_DIR => '.';
 use constant LOCAL_PROJECT_DIR => 'dibs';
+use constant VOLUMES           => 'volumes';
 use constant CONFIG_FILE       => 'dibs.yml';
 
 use constant DEFAULTS => {
@@ -57,7 +62,7 @@ use constant DEFAULTS => {
       ENVILE, '/tmp/envile', ENVIRON,   '/tmp/env',
       SRC,    '/tmp/src',
    },
-   volumes => [
+   &VOLUMES => [
       CACHE,
       [ENVILE,    'ro'],
       [ENVIRON,   'ro'],
@@ -119,7 +124,7 @@ use constant DEFAULTS => {
    zone_names_for => {
       dibspacks_host      => [HOST_DIBSPACKS, PROJECT, SRC],
       dibspacks_container => [PROJECT, SRC, INSIDE],
-      volumes             => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
+      &VOLUMES            => [SRC, CACHE, ENVILE, ENVIRON, DIBSPACKS],
    },
 };
 use constant OPTIONS => [
@@ -174,8 +179,8 @@ our %EXPORT_TAGS = (
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
-        HOST_DIBSPACKS INDENT DEFAULTS
-        ALBUM SKETCH STROKE
+        HOST_DIBSPACKS INDENT DEFAULTS FRAME
+        ALBUM SKETCH STROKE LOG FROM VOLUMES PACK
         >
    ],
    functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],

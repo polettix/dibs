@@ -24,30 +24,14 @@ has zone => (
    },
 );
 
-sub clone_in ($self, $zone) {
-   return $self->new(
-      base => $self->base,
-      path => $self->path,
-      zone => $zone
-   );
-} ## end sub clone_in
-
-sub clone_with ($self, %changes) {
-   return $self->new(
-      base => ($changes{base} // $self->base),
-      path => ($changes{path} // $self->path),
-      zone => ($changes{zone} // $self->zone),
-   );
-}
-
 sub container_path ($s, @p) { $s->_path($s->zone->container_base, @p) }
 sub host_path ($s, @p) { $s->_path($s->zone->host_base, @p) }
 
 sub _path ($self, $zbase, @subpath) {
    return undef unless defined $zbase;
+   pop @subpath if @subpath && ! defined($subpath[-1]);
+   @subpath = $self->path if (!@subpath) && defined($self->path);
    unshift @subpath, $self->base if defined($self->base);
-   @subpath = $self->path unless @subpath;
-   pop @subpath unless defined $subpath[-1];
    return scalar(@subpath) ? $zbase->child(@subpath) : $zbase;
 } ## end sub _path
 
