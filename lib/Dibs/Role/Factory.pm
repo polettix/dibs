@@ -2,7 +2,7 @@ package Dibs::Role::Factory;
 use 5.024;
 use Ouch ':trytiny_var';
 use Module::Runtime ();
-use Scalar::Util qw< refaddr weaken >;
+use Scalar::Util qw< blessed refaddr weaken >;
 use Log::Any '$log';
 use Moo::Role;
 use Guard;

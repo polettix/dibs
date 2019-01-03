@@ -51,7 +51,7 @@ sub normalize ($self, $x, %args) {
 }
 
 sub _dwim_type ($self, $spec) {
-   return $spec->{type} if exists $spec->{type};
+   return $spec->{type} if defined $spec->{type};
 
    return SKETCH if exists $spec->{actions};
    return STROKE if exists $spec->{pack};
