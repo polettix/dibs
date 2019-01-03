@@ -27,14 +27,14 @@ throws_ok { my $a = Dibs::Action->new } qr{missing required...}i,
   'factory necessary for action';
 
 my @some_spice = qw< what ever you do >;
-my $spice = $some_spice[rand @some_spice];
-my %args = (
+my $spice      = $some_spice[rand @some_spice];
+my %args       = (
    id           => 'whatever',
    dibspack     => $dp,
    zone_factory => $factory,
-   path => 'simple-command.sh',
-   args => [@some_spice],
-   env => {THIS => $spice},
+   path         => 'simple-command.sh',
+   args         => [@some_spice],
+   env          => {THIS => $spice},
 );
 
 for my $missing (qw< dibspack id zone_factory >) {
@@ -56,10 +56,11 @@ lives_ok {
 
 my ($id, $name, $cp);
 lives_ok {
-   $id = $action->id;
+   $id   = $action->id;
    $name = $action->name;
-   $cp = $action->container_path;
-} 'proxied methods id, name and container_path';
+   $cp   = $action->container_path;
+}
+'proxied methods id, name and container_path';
 is $name, $id, 'name same as id by default';
 is $cp, '/mnt/simple-command.sh', 'container path';
 
@@ -67,15 +68,16 @@ my ($ecode, $cid, $out);
 lives_ok {
    my $ez = $factory->item('envile');
    ($ecode, $cid, $out) = $action->run(
-      keep => 0,
-      image => 'alpine:latest',
+      keep        => 0,
+      image       => 'alpine:latest',
       project_dir => $project_dir,
-      volumes => [
+      volumes     => [
          [$project_dir => '/mnt' => 'ro'],
          [$ez->host_path, $ez->container_path, 'ro'],
       ],
    );
-} 'proxied method run lives';
+} ## end lives_ok
+'proxied method run lives';
 like $out, qr{
    \A
      ^this\ on\ standard\ output$ \s*
