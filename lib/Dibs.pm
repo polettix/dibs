@@ -18,7 +18,7 @@ local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
-use Dibs::Config::Slice;
+use Dibs::Packs;
 use Dibs::Cache;
 use Dibs::Config ':all';
 use Dibs::Inflater ':all';
@@ -55,60 +55,50 @@ has zone_factory => (
 
 {    # generate members & methods:
        #
-       # - action_cache    (member)
+       # - actions         (member)
        # - action_config   (member)
        # - action          (method)
        #
-       # - dibspack_cache  (member)
+       # - dibspacks       (member)
        # - dibspack_config (member)
        # - dibspack        (method)
        #
-       # - process_cache   (member)
+       # - processes       (member)
        # - process_config  (member)
        # - process         (method)
 
-   for my $type (qw< action dibspack process >) {
-      has "${type}_cache" => (is => 'lazy');
-      has "${type}_config" => (
-         is      => 'ro',
+   for my $t (qw< action dibspack >, [qw< process processes >]) {
+      my ($singular, $plural) = ref($t) : $t->@* : ($t, $t . 's');
+      has "$plural" => (is => 'lazy');
+      has "${singular}_config" => (
+         is => 'ro',
          default => sub { return {} },
-         coerce  => sub ($config) {
-            blessed($config)
-              ? $config
-              : Dibs::Config::Slice->new(type => $type, items => $config);
-         },
+         init_arg => $plural,
       );
-      my $instancer = sub ($self, $name) {
-         my $cache_method = $self->can("${type}_cache");
-         my $cache        = $self->$cache_method;
-         my $retval       = $cache->item($name);
-         $retval = $cache->item($name, $retval->())
-           if ref($retval) eq 'CODE';    # fulfill promise to compute
-         return $retval;
+      my $instancer = sub ($self, $x) {
+         my $cache_method = $self->can($plural);
+         return $self->$cache_method->item($name);
       };
 
       # this comes last to restrict rule relaxing
       no strict 'refs';
-      *{__PACKAGE__ . '::' . $type} = $instancer;
+      *{__PACKAGE__ . '::' . $singular} = $instancer;
    } ## end for my $type (qw< action dibspack process >)
 }
 
-sub _build_action_cache ($self) {
-   my $cache = Dibs::Cache->new(type => 'action');
-   my $cfg   = $self->action_config;
-   my $dc    = $self->dibspack_cache;
-   $cache->item($_, sub { __realize_action($cfg, $dc, $_) })
-     for $cfg->names;
-   return $cache;
+sub _build_actions ($self) {
+   return Dibs::Cache->new(
+      config    => $self->action_config,
+      dibspacks => $self->dibspacks,
+      type => 'action',
+      ... # FIXME add what's missing here!
+   );
 } ## end sub _build_action_cache ($self)
 
-sub _build_dibspack_cache ($self) {
-   my $cache = Dibs::Cache->new(type => 'dibspack');
-   my $cfg   = $self->dibspack_config;
-   my $zf    = $self->zone_factory;
-   $cache->item($_, sub { __realize_dibspack($cfg, $zf, $_) })
-     for $cfg->names;
-   return $cache;
+sub _build_dibspacks ($self) {
+   my $cfg = $self->dibspack_config;
+   my $zf  = $self->zone_factory;
+   return Dibs::Packs->new(config => $cfg, zone_factory => $zf);
 } ## end sub _build_dibspack_cache ($self)
 
 sub _build_process_cache ($self) {

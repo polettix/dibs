@@ -5,8 +5,14 @@ use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-has type => (is => 'ro', required => 1);
-has _item_for => (
+has _config => (
+   is       => 'ro',
+   init_arg => 'config',
+   default  => sub { return {} }
+);
+has _dibspacks => (is => 'ro', init_arg => 'dibspacks', required => 1);
+has type       => (is => 'ro', required => 1);
+has _item_for  => (
    is       => 'ro',
    init_arg => 'items',
    default  => undef,                               # set default in coerce
@@ -17,9 +23,8 @@ has _item_for => (
    },
 );
 
-sub item ($self, $name, @value) {
+sub item ($self, $x, %opts) {
    my $hash = $self->_item_for;
-   $hash->{$name} = $value[0] if @value;
    return $hash->{$name} if exists $hash->{$name};
    my $type = $self->type;
    ouch 404, "missing $type '$name'";
@@ -28,6 +33,5 @@ sub item ($self, $name, @value) {
 sub contains ($self, $name) { exists $self->_item_for->{$name} }
 
 sub names ($self) { return keys $self->_item_for->%* }
-
 
 1;
