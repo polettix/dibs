@@ -1,6 +1,8 @@
 package Dibs::Action::Sketch;
 use 5.024;
 use Ouch ':trytiny_var';
+use Log::Any '$log';
+use Try::Catch;
 use Dibs::Action;
 #use Dibs::Config ':constants';
 use Dibs::Zone::Factory;
@@ -30,9 +32,16 @@ around create => sub ($orig, $class, %args) {
 
 sub draw ($self, %args) {
    my $args = \%args;
-   my $zf = $args->{zone_factory} //= Dibs::Zone::Factory->default;
-   $args->{volumes} //= $self->_volumes($zf);
-   $self->execute($args);
+   my $zf = $args->{zone_factory}
+      //= Dibs::Zone::Factory->default($args->{project_dir});
+   $self->_ensure_volumes($args->{volumes} //= $self->_volumes($zf));
+   try {
+      $self->execute($args);
+   }
+   catch {
+      cleanup_tags($args->{image}) if defined $args->{image};
+      die $_; # rethrow
+   };
    my @tags = ($args->{tags} // [])->@*;
    if (defined $args->{keep}) {
       unshift @tags, $args->{keep};
@@ -42,6 +51,11 @@ sub draw ($self, %args) {
    }
    say for @tags;
    return $args;
+}
+
+sub _ensure_volumes ($self, $groups) {
+   $_->[0]->mkpath for $groups->@*;
+   return $self;
 }
 
 sub _volumes ($self, $zone_factory) {

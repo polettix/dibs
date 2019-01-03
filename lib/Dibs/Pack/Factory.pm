@@ -3,6 +3,7 @@ use 5.024;
 use Carp;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< blessed refaddr >;
+use Log::Any '$log';
 use Module::Runtime 'use_module';
 use Path::Tiny 'path';
 use Dibs::Config ':constants';
@@ -38,6 +39,8 @@ sub _create ($self, $spec, %args) {
    my $type = $spec->{type} #self->dwim_type($spec)
      or ouch 400, 'no type present in pack';
 
+   $log->debug("factory: creating pack of type $type");
+
    # native types lead to static stuff in a zone named after the type
    return $self->_create_static($spec, %args)
      if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
@@ -66,7 +69,9 @@ sub _create_static ($self, $spec, @ignore) {
 
    # %location is affected by base (aliased as "raw") and path. Either
    # MUST be present, both is possible
-   my %location = (zone => $self->zone_factory->zone_for($type));
+   state $zone_name_for = { &PROJECT => PACK_STATIC };
+   my $zone_name = $zone_name_for->{$type} //= $type;
+   my %location = (zone => $self->zone_factory->zone_for($zone_name));
    my $fullpath; # useful for assigning an identifier to this pack
 
    if (defined(my $base = $spec->{base} // $spec->{raw} // undef)) {
@@ -99,7 +104,8 @@ around normalize => sub ($orig, $self, $spec) {
    $spec = $self->$orig($spec);
 
    # DWIM-my stuff here
-   if (! exists $spec->{type}) {
+   if (! defined $spec->{type}) {
+      $log->debug("no explicit type set");
       my $m;
       if (($m) = grep { exists $spec->{$_} } qw< run program >) {
          $spec->{type} = IMMEDIATE;
@@ -115,13 +121,8 @@ around normalize => sub ($orig, $self, $spec) {
       }
    }
 
-   if (exists $spec->{type}) {
-      state $reference_type_for = {
-         &PROJECT => PACK_STATIC,
-      };
-      my $type = lc $spec->{type};
-      $spec->{type} = $reference_type_for->{$type} // $type;
-   }
+   my $ptype = $spec->{type} // '(still none defined)';
+   $log->debug("normalized type: $ptype");
 
    return $spec;
 };

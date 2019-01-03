@@ -31,7 +31,7 @@ sub initialize (@as) {
    # start looking for the configuration file, refer it to the project dir
    # if relative, otherwise leave it as is
    my $cnfp = path($cmdenv->{config_file});
-   $log->info("cnfp: $cnfp");
+   $log->info("base configuration from: $cnfp");
 
    # development mode is a bit special in that dibs.yml might be *inside*
    # the repository itself and the origin needs to be cloned beforehand
@@ -66,19 +66,21 @@ sub initialize (@as) {
 sub main (@as) {
    try {
       my $config = initialize(@as);
-      say Dumper $config; exit 0;
+      $log->debug(Dumper $config);
       my $dibs   = Dibs->new($config);
       $dibs->append_envile($config->{run_variables});
+      $log->info("host project directory: " . $dibs->project_dir);
       my @actions = $config->{do}->@*;
-      my $sketch = (@actions == 1) ? $dibs->instance($actions[0]) : undef;
-      $sketch = $dibs->instance({name => 'main', actions => \@actions})
-         unless blessed($sketch) && $sketch->isa('Dibs::Action::Sketch');
+      my $sketch = $dibs->instance({actions => \@actions});
       my $name = $dibs->name;
       my $run_tag = $config->{run_variables}{DIBS_ID};
       $sketch->draw(
          env_carriers => [$dibs],
          project_dir  => $dibs->project_dir,
+         zone_factory => $dibs->zone_factory,
+         run_tag => $run_tag,
          to => "$name:$run_tag",
+         verbose => $config->{verbose},
       );
       return 0;
    } ## end try

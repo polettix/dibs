@@ -37,7 +37,7 @@ sub create ($class, %args) {
 sub fullname ($self, $default = '') {
    my $prefix = $self->_prefix;
    my $n = $self->name($default);
-   return length($n) ? "($prefix) $n" : $prefix;
+   return length($n) ? "$n ($prefix)" : $prefix;
 }
 
 sub name ($self, $default = '') { $self->_name // $default }

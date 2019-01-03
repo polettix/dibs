@@ -23,16 +23,17 @@ sub execute ($self, $args = undef) {
       my %done = ($image => 1);
       my $keep;
       for my $tag ($self->tags->@*) {
-         if (($tag eq '*') || ($tag eq ':default:')) {
-            $keep = $image;
-         }
-         else {
-            my $dst = $tag =~ m{:}mxs ? $tag : "$name:$tag";
-            next if $done{$dst}++;
-            docker_tag($image, $dst);
-            push @tags, $dst;
-         }
+         my $dst = ($tag eq '*')    ? "$name:$args->{run_tag}" 
+            : ($tag eq ':default:') ? $image
+            : ($tag =~ m{:}mxs)     ? $tag 
+            :                         "$name:$tag";
+         $keep = $image if $dst eq $image;
+         next if $done{$dst}++;
+         docker_tag($image, $dst);
+         push @tags, $dst;
       }
+
+      # everything went OK, I can set relevant variables in $args
       $args->{tags} = \@tags;
       $args->{keep} = $keep;
    }

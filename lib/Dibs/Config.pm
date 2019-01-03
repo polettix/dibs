@@ -90,7 +90,7 @@ use constant DEFAULTS => {
       PACK_STATIC,
       {
          container_base => C_PACK_STATIC,
-         host_base      => C_PACK_DYNAMIC,
+         host_base      => H_PACK_STATIC,
       },
       SRC,
       {
@@ -150,6 +150,11 @@ use constant OPTIONS => [
       help    => 'change convention for directories layout, work in .dibs',
    ],
    [
+      'loglevel|L=s',
+      default => 'INFO',
+      help => 'level of verbosity in logging',
+   ],
+   [
       'origin|O=s',
       default => undef,
       help    => 'get src from specific "location"',
@@ -159,7 +164,12 @@ use constant OPTIONS => [
       default => LOCAL_PROJECT_DIR,
       help    => 'project base directory'
    ],
-   ['#workflow'],
+   [
+      'verbose|v!',
+      DEFAULT => undef,
+      help => 'be more verbose identifying elements',
+   ],
+   ['#do'],
 ];
 use constant ENV_PREFIX => 'DIBS_';
 
@@ -210,6 +220,19 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
      if $config{help};
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
+
+   my $logger = $config{logger} // [DEFAULTS->{logger}->@*];
+   if (ref($logger) ne 'ARRAY') {
+      $logger = [
+         map {s{%([a-fA-F0-9]{2})}{chr hex $1}xgerms}
+         split m{\s+}mxs, $logger
+      ];
+   }
+   push $logger->@*, 'log_level', $config{loglevel}
+      if defined $config{loglevel};
+   $config{logger} = $logger;
+
+   $config{do} = ['default'];
    $config{do} = [map { split m{[,\s]}mxs } $cmdline->@*]
      if scalar $cmdline->@*;
    return \%config;

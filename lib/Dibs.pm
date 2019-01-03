@@ -32,8 +32,10 @@ sub BUILDARGS ($class, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
    my %retval;
 
+   $retval{name} = $args{name} if defined $args{name};
+
    # Allow acting in a dirty situation?
-   $retval{dirty} = $args{dirty} ? 1 : 0;
+   $retval{allow_dirty} = $args{dirty} ? 1 : 0;
 
    # Project directory
    ouch 400, 'missing required value for project_dir'
