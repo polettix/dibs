@@ -434,7 +434,153 @@ The split in the previous example was possible because of the assumption that
 pre-requisites change very seldom in a project (with the possible exception of
 the initial days). Anyway, it's possible that the pre-requisites have to
 change from time to time, in which case it's necessary to regenerate the base
-images to include them 
+images to include them, which might be easily overlooked.
+
+At the expense of an additional layer, though, it's possible to repeat the
+`prereqs` stroke inside the `build` and the `bundle` strokes; these will
+mostly resolve into nothing (i.e. no change) unless an addition is put in the
+prerequisites, in which case the addition will be honored. The following
+`dibs.yml` implements this approach.
+
+.dibs.yml
+[source,yaml]
+----
+name: exadev
+packs:
+    basic:
+        type: git
+        origin: https://github.com/polettix/dibspack-basic.git
+actions:
+    default: [build, bundle]
+    prereqs:
+      pack: basic
+      path: prereqs
+    builder:
+        envile:
+            DIBS_PREREQS: build
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: save builder base image
+              image_name: builder
+              tags: '1.0'
+    build:
+        envile:                            # # <1>
+            DIBS_PREREQS: build
+        actions:
+            - from: 'builder:1.0'
+            - prereqs                      # # <2>
+            - name: compile
+              pack: basic
+              path: perl/build
+            - name: save compiled artifacts in cache
+              pack:
+                run: |
+                    #!/bin/sh
+                    src_dir="$(cat DIBS_SRC_DIR)"
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    dst_dir="$cache_dir/app"
+                    set -e
+                    rm -rf "$target"
+                    mkdir -p "$target"
+                    cp -a "$src_dir/app.pl" "$target"
+                    cp -a "$src_dir/local" "$target"
+    bundler:
+        envile:
+            DIBS_PREREQS: bundle
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: save bundler base image
+              image_name: bundler
+              tags: '1.0'
+    bundle:
+        envile:                            # # <1>
+            DIBS_PREREQS: bundle
+        actions:
+            - from: 'bundler:1.0'
+            - prereqs                      # # <2>
+            - name: put artifacts in place
+              pack:
+                run: |
+                    #!/bin/sh
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    src_dir="$cache_dir/app"
+                    dst_dir="/app"
+                    rm -rf "$dst_dir"
+                    cp -a "$src_dir" "$dst_dir"
+              commit:
+                entrypoint: []
+                cmd: ['/bin/sh', '-l']
+            - name: save bundled image
+              image_name: exadev
+              tags: ['latest', '0.3']
+----
+<1> The `prereqs` program relies upon the `DIBS_PREREQS` variable, so it has
+to be set whenever `prereqs` will be used.
+<2> The `prereqs` stroke is re-introduced as the first step in both `build`
+and `bundle`. Most of the times this will be a no-op.
+
+Running the `prereqs` step can anyway draw time from the build/bundle process
+though, so in all cases in which it can be skipped it can be useful to avoid
+it. The following example does some refactoring to add `buildq` (i.e.
+the _quick_ version of `build`), leaving out `bundleq` (which can undergo a
+similar transformation).
+
+.dibs.yml
+[source,yaml]
+----
+name: exadev
+packs:
+    basic:
+        type: git
+        origin: https://github.com/polettix/dibspack-basic.git
+actions:
+    default: [build, bundle]
+    prereqs:
+        pack: basic
+        path: prereqs
+    builder:
+        envile:
+            DIBS_PREREQS: build
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: save builder base image
+              image_name: builder
+              tags: '1.0'
+    build_basics:                     # # <1>
+        - name: compile
+          pack: basic
+          path: perl/build
+        - name: save compiled artifacts in cache
+          pack:
+            run: |
+                #!/bin/sh
+                src_dir="$(cat DIBS_SRC_DIR)"
+                cache_dir="$(cat DIBS_CACHE_DIR)"
+                dst_dir="$cache_dir/app"
+                set -e
+                rm -rf "$target"
+                mkdir -p "$target"
+                cp -a "$src_dir/app.pl" "$target"
+                cp -a "$src_dir/local" "$target"
+    build:                            # # <2>
+        envile:
+            DIBS_PREREQS: build
+        actions:
+            - from: 'builder:1.0'
+            - prereqs
+            - build_basics
+    buildq:                           # # <2>
+        - from: 'builder:1.0'
+        - build_basics
+# ...
+----
+<1> `build_basics` is a new sketch that includes strokes to compile modules
+and save artifacts in the cache
+<2> the new artifact is used in both the `build` and `buildq` sketches,
+avoiding repetitions
 
 
 === Directory Layouts
