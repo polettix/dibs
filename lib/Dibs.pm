@@ -415,30 +415,18 @@ escape_var_value() {
    printf '%s' "'"
 }
 
-export_envile() {
-   local name="$(basename "$1")"
-   local value="$(escape_var_value "$(cat "$1"; printf x)")"
-   eval "export $name=${value%??}'"
-}
-
-export_enviles_from() {
-   local base="${1%/}" f file
-   shift
-   for f in "$@" ; do
-      file="$base/$f"
-      [ -e "$file" ] && export_envile "$file"
-   done
-}
-
-export_all_enviles_from() {
-   local base="${1%/}" file
+export_all_enviles() {
+   local base="${PWD%/}" file name value
    for file in "$base"/* ; do
-      [ "X${file#${file%???}}" = "X.sh" ] && continue
-      [ -e "$file" ] && export_envile "$file"
+      [ -e "$file" ]                       || continue
+      [ "X${file#${file%???}}" != "X.sh" ] || continue
+      name="$(basename "$file")"
+      value="$(escape_var_value "$(cat "$file"; printf x)")"
+      eval "export $name=${value%??}'"
    done
 }
 
-export_all_enviles_from "$PWD"
+export_all_enviles
 
 END
 
