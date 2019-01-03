@@ -10,7 +10,7 @@ use Data::Dumper;
 use POSIX 'strftime';
 
 use Exporter 'import';
-our @EXPORT_OK = qw< main create_from_cmdline >;
+our @EXPORT_OK = qw< main initialize >;
 
 use Dibs ();
 use Dibs::Config ':all';
@@ -28,30 +28,28 @@ sub initialize (@as) {
    my $cmdenv = get_config_cmdenv(\@as);
    set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
 
+   # this is where we expect to find the configuration file
+   my $cnfp = path($cmdenv->{config_file});
+
+   # freeze the zone factory with what available now
+   my $zone_factory = $cmdenv->{zone_factory}
+     = Dibs::Zone::Factory->new($cmdenv->%*);
+   my $src_dir = $zone_factory->zone_for(SRC)->host_base;
+
+   my $cloned;
+   $cloned = origin_onto_src($cmdenv, 'early ') && 1
+     if defined($cmdenv->{origin}) || $src_dir->subsumes($cnfp);
+
    # start looking for the configuration file, refer it to the project dir
    # if relative, otherwise leave it as is
-   my $cnfp = path($cmdenv->{config_file});
-   $log->info("base configuration from: $cnfp");
-
-   # development mode is a bit special in that dibs.yml might be *inside*
-   # the repository itself and the origin needs to be cloned beforehand
-   my $is_alien       = $cmdenv->{alien};
-   my $is_development = $cmdenv->{development};
-   if ((!$cnfp->exists) && ($is_alien || $is_development)) {
-      my $src_dir = origin_onto_src($cmdenv);
-
-      # there's no last chance, so config_file is set
-      $cnfp = $src_dir->child($cmdenv->{config_file});
-   } ## end if ((!$cnfp->exists) &&...)
+   $cnfp = $src_dir->child($cmdenv->{config_file})
+     if (!$cnfp->exists) && $cloned;
 
    ouch 400, 'no configuration file found' unless $cnfp->exists;
+   OUTPUT("base configuration from: $cnfp");
 
    my $overall = add_config_file($cmdenv, $cnfp);
-
-   # restore SRC if we just cloned it, we cannot allow overriding it
-   # at this point!
-   $overall->{zone_specs_for}{&SRC} = $overall->{has_cloned}
-     if $overall->{has_cloned};
+   $overall->{zone_factory} = $zone_factory;
 
    # last touch to the logger if needed
    set_logger($overall->{logger}->@*) if $overall->{logger};
@@ -60,18 +58,19 @@ sub initialize (@as) {
       DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime),
    };
 
+   # clone if necessary and not already done
+   origin_onto_src($overall) if defined($overall->{origin}) && !$cloned;
+
    return $overall;
 } ## end sub initialize (@as)
 
 sub main (@as) {
+   my $config = {};
    try {
-      my $config = initialize(@as);
-      $log->debug(Dumper $config);
+      $config = initialize(@as);
       my $dibs   = Dibs->new($config);
       $dibs->append_envile($config->{run_variables});
-      $log->info("host project directory: " . $dibs->project_dir);
-      my @actions = $config->{do}->@*;
-      my $sketch = $dibs->instance({actions => \@actions});
+      my $sketch = $dibs->sketch($config->{do});
       my $name = $dibs->name;
       my $run_tag = $config->{run_variables}{DIBS_ID};
       $sketch->draw(
@@ -85,24 +84,20 @@ sub main (@as) {
       return 0;
    } ## end try
    catch {
-      $log->fatal(ref $_ ? $_->trace : $_);
+      $log->fatal(ref($_) && $config->{verbose} ? $_->trace : bleep);
       return 1;
    };
 } ## end sub main (@as)
 
-sub origin_onto_src ($config) {
+sub origin_onto_src ($config, $early = '') {
    my $origin = $config->{origin} // '';
    $origin = cwd() . $origin
      if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
 
-   # save $src_zone in $config->{has_cloned} so that we will not clone
-   # again later AND src will not be overridden
-   my $src_zone = $config->{has_cloned} =
-     Dibs::Zone::Factory->new($config->%*)->zone_for(SRC);
-   my $src_dir = $src_zone->host_base;
+   my $src_dir = $config->{zone_factory}->zone_for(SRC)->host_base;
    my $dirty   = $config->{dirty} // undef;
 
-   ARROW_OUTPUT('=', "early clone of origin $origin");
+   ARROW_OUTPUT('=', "${early}clone of origin $origin (dirty: " . ($dirty ? 'allowed': 'not allowed') . ')');
    Dibs::Get::get_origin($origin, $src_dir,
       {clean_only => !$dirty, wipe => 1});
 

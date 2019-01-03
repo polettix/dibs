@@ -74,6 +74,8 @@ sub _build_name ($self) {
 
 sub instance ($self, $args) { $self->action_factory->instance($args) }
 
+sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }
+
 1;
 
 __END__

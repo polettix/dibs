@@ -8,6 +8,7 @@ use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 use Dibs::Run qw< assert_command >;
 use Try::Catch;
+use Dibs::Output;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub get_origin ($source, $target, $options = {}) {
@@ -46,8 +47,11 @@ sub get_origin ($source, $target, $options = {}) {
 sub _get_origin_git ($uri, $target, $options) {
    my ($origin, $ref) = split m{\#}mxs, $uri;
    require Dibs::Git;
-   ouch 400, "origin $origin is in a dirty state (see manual for --dirty)"
-      if $options->{clean_only} && Dibs::Git::is_dirty($uri);
+   if (Dibs::Git::is_dirty($uri)) {
+      OUTPUT("origin repository $origin is dirty");
+      ouch 400, "dirty state not allowed (see manual for --dirty)"
+        if $options->{clean_only};
+   }
    Dibs::Git::clone($origin, $target);
    Dibs::Git::checkout_ref($target, $ref) if length($ref // '');
    return;

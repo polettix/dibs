@@ -29,7 +29,6 @@ use constant STEPS             => 'steps';
 use constant DPFILE            => '.dibsstrokes';
 use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
-use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
 use constant C_ENVIRON         => '/tmp/env';
 use constant H_ENVIRON         => 'env';
@@ -98,11 +97,6 @@ use constant DEFAULTS => {
          host_base      => 'src',
          writeable      => 1,
       },
-      EMPTY,
-      {
-         container_base => undef,
-         host_base      => 'empty',
-      },
       INSIDE,
       {
          container_base => '/',
@@ -145,12 +139,7 @@ use constant OPTIONS => [
       help    => 'project base dir (dind-like)'
    ],
    [
-      'local|l!',
-      default => undef,
-      help    => 'change convention for directories layout, work in .dibs',
-   ],
-   [
-      'loglevel|L=s',
+      'loglevel|l=s',
       default => 'INFO',
       help => 'level of verbosity in logging',
    ],
@@ -177,7 +166,7 @@ use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [
       qw<
-        BIN CACHE DPFILE EMPTY ENVIRON GIT IMMEDIATE
+        BIN CACHE DPFILE ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
         INDENT DEFAULTS FRAME
@@ -266,18 +255,8 @@ sub add_config_file ($sofar, $cnfp) {
       );
    }
 
-   # some configurations have mutual exclusions
-   my $is_alien       = $sofar->{alien};
-   my $is_local       = $sofar->{local};
-   my $is_development = $sofar->{development};
-   my $origin         = $overall->{origin} // undef;
-   _pod2usage(
-      -message => 'cannot have both origin and local configurations',
-      -exitval => 1,
-   ) if $is_local && defined $origin;
-
-   # now I can set origin... it will be ignored by local and used by others
-   $origin //= '' if $is_development;
+   my $origin = $overall->{origin} // undef;
+   $origin //= '' if $sofar->{development};
    $overall->{origin} = cwd() . $origin
      if defined($origin) && $origin =~ m{\A (?: \#.+ | \z )}mxs;
 
@@ -324,18 +303,11 @@ sub get_config_cmdenv ($args, $defaults = undef) {
       }
    } ## end if (defined $sofar->{change_dir...})
 
-   # some configurations have mutual exclusions
-   my ($is_alien, $is_local) = $sofar->@{qw< alien local >};
-   _pod2usage(
-      -message => 'alien and local are mutually exclusive',
-      -exitval => 1,
-   ) if $is_alien && $is_local;
-
    # "frozen" stuff is frozen here and cannot be otherwise overridden
+   my $is_alien = $sofar->{alien};
    my %frozen = (
       alien       => $is_alien,
-      local       => $is_local,
-      development => (!($is_alien || $is_local)),
+      development => (!$is_alien),
    );
 
    my $project_dir = $sofar->{project_dir} // undef;
