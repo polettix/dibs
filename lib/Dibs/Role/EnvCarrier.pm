@@ -1,4 +1,4 @@
-package Dibs::Process;
+package Dibs::Role::EnvCarrier;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Moo::Role;
@@ -6,7 +6,7 @@ use Moo::Role;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-has $_ => (
+has "_$_" => (
    is => 'ro',
    default => sub { return [] },
    coerce => sub ($v) { ref($v) eq 'ARRAY' ? $v : [$v] },
@@ -26,7 +26,7 @@ sub __as_hash ($name, $first, @objects) {
          elsif ($ref) {
             ouch 400, "invalid item in $name: $ref";
          }
-         elsif (exists $ENV{$item} {
+         elsif (exists $ENV{$item}) {
             $retval{$item} = $ENV{$item};
          }
       }

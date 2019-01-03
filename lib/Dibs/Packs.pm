@@ -5,74 +5,64 @@ use Moo;
 use Scalar::Util qw< blessed refaddr >;
 use Dibs::Pack;
 use Dibs::Config ':constants';
+use Dibs::Inflater qw< inflate key_for >;
 use Module::Runtime 'use_module';
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+has _config    => (
+   is => 'ro',
+   init_arg => 'config',
+   default => sub { return {} },
+);
 has _inventory => (is => 'ro', default => sub { return {} });
 has zone_factory => (is => 'ro', required => 1);
-
-sub BUILDARGS ($class, @args) {
-   my %specs = (@args && ref($args[0])) ? $args[0]->%* : @args;
-   $specs{_inventory} = \my %inventory;
-   if (exists $specs{inventory}) {
-      my $hash = delete $specs{inventory};
-      while (my ($name, $value) = each $hash->%*) {
-         my $key = $class->_key_for($name);
-         $inventory{$key}{spec} = $value;
-      }
-   }
-   return \%specs;
-}
-
-sub _key_for($self, $x) {
-   return blessed $x ? 'id:' . $x->id
-      : ref $x       ? 'refaddr:' . refaddr($x)
-      : defined $x   ? 'string:' . $x
-      :                ouch 400, 'invalid undefined element for key';
-}
 
 sub item ($self, $x, %opts) {
    return Dibs::Pack->new( # "promise" to do something when needed
       factory => sub {
-         my $key = $self->_key_for($x);
+         my $key = key_for($x);
          my $inv = $self->_inventory;
-         my $slot = $inv->{$key} //= {spec => $x};
-         my $instance = $slot->{instance} //= do {
-            ouch "circular reference for dibspack '$key'"
-              if $opts{flags}{$key}++;
+         my $instance = $inv->{$key} //= do {
+            my $cfg = $self->_config;
+            my $spec = $cfg->{spec} = inflate(
+               %opts,
+               config    => $cfg,
+               dibspacks => $self,
+               parser    => sub ($v) { $self->_normalize($v) },
+               spec      => $x,
+               type      => 'dibspack',
+            );
 
-            my $spec = $slot->{spec} = 
-              $self->_expand($self->_normalize($slot->{spec}), %opts);
-            my $instance = $self->_inflate($spec, %opts);
-
+            # no circular references so far, protect from creation too
+            # FIXME double check this is really needed, although it does
+            # not harm really
+            $opts{flags}{$key}++;
+            my $instance = $self->_create($spec, %opts);
             delete $opts{flags}{$key};
 
-            my $id_key = $self->_key_for($instance);
-            $inv->{$id_key}{instance} //= $instance;
+            my $id_key = key_for($instance);
+            $inv->{$id_key} //= $instance;
             $instance;
          };
       },
    );
 }
 
-sub contains ($self, $x) {
-   my $key = $self->_key_for($x);
-   return exists $self->_inventory->{$key};
-}
+sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 
-sub _inflate ($self, $spec, %opts) {
+sub _create ($self, $spec, %opts) {
    my $type = $spec->{type} or ouch 400, 'no type present in dibspack';
 
    # native types lead to static stuff in a zone named after the type
-   return $self->_inflate_static($spec, %opts)
+   return $self->_create_static($spec, %opts)
      if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
 
    # otherwise it's dynamic stuff to be put in the default zone provided
-   return $self->_inflate_dynamic($spec, %opts);
+   return $self->_create_dynamic($spec, %opts);
 }
 
-sub _inflate_dynamic ($self, $spec, %opts) {
+sub _create_dynamic ($self, $spec, %opts) {
    my $type    = $spec->{type};
    my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
    my $id      = $type . ':' . $fetcher->id;
@@ -88,7 +78,7 @@ sub _inflate_dynamic ($self, $spec, %opts) {
    );
 } ## end sub _create_dynamic_dibspack
 
-sub _inflate_static ($self, $spec, %opts) {
+sub _create_static ($self, $spec, %opts) {
    my $type = $spec->{type};
    defined(my $path = $spec->{path} // $spec->{raw})
      or ouch 400, "invalid path for $type dibspack";
@@ -138,36 +128,5 @@ sub _normalize ($self, $spec) {
    $spec->{type} = lc $spec->{type} if exists $spec->{type};
    return $spec;
 } ## end sub _normalize ($spec)
-
-sub _expand ($self, $spec, %opts) {
-   my $key = $self->_key_for($spec);
-   ouch 400, "circular reference resolving $key" if $opts{flags}{$key}++;
-
-   my $rv;
-   my $ref = ref $spec;
-   if (! $ref) {
-      my $inv = $self->_inventory;
-      ouch "unknown dibspack $spec" unless exists $inv->{$key};
-      $rv = $self->_expand($self->_normalize($inv->{$key}{spec}), %opts);
-   }
-   elsif ($ref eq 'ARRAY') {
-      $rv = { map { $self->_expand($_, %opts)->%* } reverse $spec->@* };
-   }
-   elsif ($ref eq 'HASH') {
-      if (exists $spec->{extends}) {
-         my $expansions = $self->_expand(delete($spec->{extends}), %opts);
-         $spec->%* = ($expansions->%*, $spec->%*);
-      }
-      $rv = $spec;
-   }
-   else {
-      ouch 500, 'something still not implemented here?';
-   }
-   
-   # free this up for avoiding circular references
-   delete $opts{flags}{$key};
-
-   return $rv;
-}
 
 1;

@@ -7,6 +7,7 @@ use Scalar::Util qw< blessed >;
 use Dibs::Location;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+with 'Dibs::Role::EnvCarrier';
 requires qw< location supportable_zones >;
 
 has id => (is => 'ro', required => 1);
