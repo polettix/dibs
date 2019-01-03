@@ -8,10 +8,13 @@ use Path::Tiny qw< path cwd >;
 use lib path(__FILE__)->parent->stringify;
 use DibsTest;
 
-plan skip_all => "bot docker and git MUST be available for this test"
+plan skip_all => "both docker and git MUST be available for this test"
   unless has_docker() && has_git();
 
-use Dibs;
+diag 'takes a bit...';
+
+use Test::Exception;
+use Dibs::App ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 use Data::Dumper;
@@ -22,22 +25,14 @@ my $work_dir = path(__FILE__ . '.d')->absolute;
 my $guard = directory_guard($work_dir);
 init_git($work_dir);
 
-diag 'this may take a little while';
-
-my $dibs = Dibs->create_from_cmdline(
-   -C => $work_dir,
-   qw< foo bar >
-);
-isa_ok $dibs, 'Dibs';
-
 my ($err, $out);
 lives_ok {
    local *STDERR;
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   $dibs->run;
-} 'call to dibs->run survives'
+   Dibs::App::main(-C => $work_dir, qw< foo bar >);
+} 'call to Dibs::App::main survives'
    or diag bleep();
 
 is $out, undef, 'output of the whole thing';

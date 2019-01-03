@@ -10,7 +10,7 @@ defaults:
 dibspacks:
    for_bar_name:
       name: 'bar! bar! bar!'
-   for_bar: 
+   for_bar:
       extends: for_bar_name
       run: |
          #!/bin/sh
@@ -28,15 +28,13 @@ dibspacks:
          printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
          FOO="$(cat "$env_dir/FOO")"
          printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
-steps:
+actions:
    bar:
-      from: alpine:latest
-      actions:
-         - dibspack: for_bar
-           envile:
-             BAR: baaaz
-           args: [*one, *two]
+      - from: alpine:latest
+      - pack: foo_bar
+        envile:
+         BAR: baaaz
+        args: [*one, *two]
    foo:
-      from: alpine:latest
-      actions:
-         - dibspack: for_foo
+      - from: alpine:latest
+      - pack: for_foo
