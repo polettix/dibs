@@ -1,101 +1,165 @@
 ---
 name: dibsy
-defaults:
-   variables:
-      - &base_image     'alpine:3.6'
-      - &version_major           '0'
-      - &version_minor           '3'
-      - &version_patch           '1'
-      - function: &version
-         ['join', '.', *version_major, *version_minor, *version_patch]
-      - function: &version_maj_min
-         ['join', '.', *version_major, *version_minor]
-      - commit: &commit
-         name: dibsy
-         tags: [ 'latest', *version ]
-         entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-               "--", "/profilexec", "/app/bin/dibs" ]
-         cmd: [ '--help' ]
-      - buildish: &buildish
-         step: build
-      - bundlish: &bundlish
-         step: bundle
+logger: ['Stderr', 'log_level', 'info']
 
-draw:
-   - qbuild
-   - qbundle
+variables:
+   - &base_image     'alpine:3.6'
+   - &version_major           '0'
+   - &version_minor           '4'
+   - &version_patch           '1'
+   - &base_builder_image 'dibs-builder:0.4'
+   - &base_runner_image  'dibs-runner:0.4'
+   - function: &version
+      ['join', '.', *version_major, *version_minor, *version_patch]
+   - function: &version_maj_min
+      ['join', '.', *version_major, *version_minor]
+   - commit: &commit
+      name: dibsy
+      tags: [ 'latest', *version ]
+      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
+            "--", "/profilexec", "/app/bin/dibs" ]
+      cmd: [ '--help' ]
+   - &basic_commit
+      entrypoint: [ ]
+      cmd: [ '/bin/sh', '-l' ]
+      user: root
+      workdir: /root
+   - &base_tags ['*', 'latest', *version_maj_min]
+   - &extended_tags ['*', 'latest', *version_maj_min, *version]
 
-strokes:
-   user: &user
-      dibspack: basic
-      path:     wrapexec/stripexec
-      args:     ['suexec', '-u', 'user', '-h', '/app']
-      user:     root
-   prereqs: &prereqs
-      dibspack: basic
-      path:     prereqs
-      user:     root
-   build_bare: &build_bare
-      - 'src:dibspacks/src-in-app.sh'
-      - dibspack: basic
-        path:     perl/build
-        args:     ['-w', '/app', '-V', *version]
-      - dibspack:  basic
-        path:     install/with-dibsignore
-        args:     ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
-   bundle_bare: &bundle_bare
-      - dibspack: basic
-        path:     install/plain-copy
-        args:     [{path_cache: 'perl-app'}, '/app']
-        user:     root
-
-dibspacks:
+packs:
    basic:
       type:   git
-      origin: https://github.com/polettix/dibspack-basic.git
-      user:   user
+      origin: /home/poletti/sviluppo/perl/dibspack-basic#evo
 
-sketches:
-   builder:
-      extends: *buildish
-      from:    *base_image
-      commit:  # explicit caching: persist although buildish
-         name: 'dibs-builder'
-         tags: [ 'latest', *version_maj_min ]
-      actions: [*user, *prereqs]
-   runner:
-      extends: *bundlish
-      from:    *base_image
-      commit:
-         name: 'dibs-runner'
-         tags: [ 'latest', *version_maj_min ]
-      actions:
-         - [*user, *prereqs]
-         - dibspack: basic
-           path:     wrapexec/install
-           args:     ['suexec', 'profilexec']
-           user:     root
-   build: &build
-      extends: *buildish
-      from:    'dibs-builder:0.3'
-      actions: [*prereqs, *build_bare]
-   bundle: &bundle
-      extends: *bundlish
-      from:    'dibs-runner:0.3'
-      commit:  *commit
-      actions: [*prereqs, *bundle_bare]
-   qbuild:
-      extends: build
-      strokes: build_bare
-   qbundle:
-      extends: *bundle
-      strokes: [*bundle_bare]
-   tester:
-      from: *base_image
-      strokes:
-         - run: |
+actions:
+   default: [message]
+
+   message:
+      type: log
+      message: |
+         Howdy!
+
+   placeholder:
+      pack:
+         run: |
             #!/bin/sh
-            printf 'I am in %s, #params = %d\n' "$PWD" "$#"
-            . export-enviles.sh
-            env | grep DIBS
-           args: [ciao, a, tutti]
+            exec >&2
+            printf '%s\n' 'Placeholder...'
+            whoami
+            env
+      user: root
+      commit: *basic_commit
+
+   user:
+      pack: basic
+      path: wrapexec/suexec
+      args: ['-u', 'user', '-h', '/app']
+      user: root
+
+   prereqs:
+      name: install OS-level prerequisites
+      pack: basic
+      path: prereqs
+      user: root
+      commit: *basic_commit
+
+   install_profile_exec:
+      pack: basic
+      path: wrapexec/install
+      args: ['suexec', 'profilexec']
+      user: root
+
+   base:
+      - from: *base_image
+      - user
+      - prereqs
+
+
+   buildish:
+      envile:
+         DIBS_PREREQS: build
+
+   'copy into src':
+      pack: 'src:dibspacks/src-in-app.sh'
+      user: root
+
+   'build perl application':
+      pack: basic
+      path: perl/build
+      args: ['-w', '/app', '-V', *version]
+      user: user
+
+   'copy with .dibsignore':
+      pack: basic
+      path: install/with-dibsignore
+      args: ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
+      user: root
+
+   build_base:
+      extends: buildish
+      actions:
+         - base
+         - name: save builder image
+           image_name: dibs-builder
+           tags: *base_tags
+
+   build_bare:
+      - 'copy into src'
+      - 'build perl application'
+      - 'copy with .dibsignore'
+
+   build:
+      extends: buildish
+      actions:
+         - from: *base_builder_image
+         - prereqs
+         - build_bare
+
+   buildq:
+      - from: *base_builder_image
+      - build_bare
+
+
+   bundlish:
+      envile:
+         DIBS_PREREQS: bundle
+
+   'copy built artifacts to destination':
+      pack: basic
+      path: install/plain-copy
+      args: [{path_cache: 'perl-app'}, '/app']
+      user: root
+      commit:
+         entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
+            "--", "/profilexec", "/app/bin/dibs" ]
+         cmd: [ "--help" ]
+         workdir: '/app'
+
+   'save bundled image':
+      image_name: dibs
+      tags: *base_tags
+
+   bundle_base:
+      extends: bundlish
+      actions:
+         - base
+         - install_profile_exec
+         - name: save runner image
+           image_name: dibs-runner
+           tags: *extended_tags
+
+   bundle_bare:
+      - 'copy built artifacts to destination'
+      - 'save bundled image'
+
+   bundle:
+      extends: bundlish
+      actions:
+         - from: *base_runner_image
+         - prereqs
+         - bundle_bare
+
+   bundleq:
+      - from: *base_runner_image
+      - bundle_bare

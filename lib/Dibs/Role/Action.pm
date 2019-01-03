@@ -25,7 +25,9 @@ sub fullname ($self, $default = '') {
    return length($n) ? "$n ($prefix)" : $prefix;
 }
 
-sub name ($self, $default = '') { $self->_name // $default }
+sub name ($self, $default = '') {
+   $self->_name // $self->_previousname // $default;
+}
 
 sub output_marked ($self, %args) {
    my $char = $self->output_char;
@@ -42,6 +44,12 @@ sub output_marked ($self, %args) {
 sub output ($self, $message) { OUTPUT($message) }
 
 sub _prefix ($s) { join ' -> ', map { $_->name } $s->breadcrumbs->@* }
+
+sub _previousname ($self) {
+   my $bcs = $self->breadcrumbs;
+   return $bcs->[0][0] if $bcs->@* && ! ref $bcs->[0][0];
+   return;
+}
 
 sub type ($self) { lc(ref $self) =~ s{\A.*::}{}rmxs }
 

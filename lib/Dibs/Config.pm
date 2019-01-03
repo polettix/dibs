@@ -7,6 +7,7 @@ use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< GetOptionsFromArray :config gnu_getopt >;
 use Log::Any qw< $log >;
 use YAML::XS qw< LoadFile >;
+use JSON::PP 'decode_json';
 use Path::Tiny qw< path cwd >;
 use Data::Dumper;
 use Ouch qw< :trytiny_var >;
@@ -210,16 +211,14 @@ sub get_cmdline ($optspecs = OPTIONS, $cmdline = []) {
    _pod2usage(-verbose => 2) if $config{man};
    $config{optname($_)} = delete $config{$_} for keys %config;
 
-   my $logger = $config{logger} // [DEFAULTS->{logger}->@*];
-   if (ref($logger) ne 'ARRAY') {
-      $logger = [
-         map {s{%([a-fA-F0-9]{2})}{chr hex $1}xgerms}
-         split m{\s+}mxs, $logger
-      ];
+   if (defined(my $logger = $config{logger})) {
+      $logger = decode_json($logger) unless ref $logger;
+      $config{logger} = $logger;
    }
-   push $logger->@*, 'log_level', $config{loglevel}
-      if defined $config{loglevel};
-   $config{logger} = $logger;
+   if (defined $config{loglevel}) {
+      my $logger = $config{logger} //= [DEFAULTS->{logger}->@*];
+      push $logger->@*, 'log_level', $config{loglevel};
+   }
 
    $config{do} = ['default'];
    $config{do} = [map { split m{[,\s]}mxs } $cmdline->@*]

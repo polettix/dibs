@@ -7,15 +7,20 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 with 'Dibs::Role::Action';
 
+has dump => (is => 'ro', default => undef);
+has message => (is => 'ro', default => undef);
+has '+output_char' => (is => 'ro', default => '~');
+
 sub execute ($self, $args = undef) {
-   $self->output(Dumper $args);
-   $self->output_marked(prefix => 'end of ');
+   $self->output(Dumper $args) if $self->dump;
+   if (defined(my $message = $self->message)) {
+      $self->output($message);
+   }
+   # $self->output_marked(prefix => 'end of ');
    return $args;
 }
 
 sub parse ($self, $type, $raw) { return {type => $type, name => $raw} }
-
-sub output_footer ($self) { $self->output_body('*** END OF LOG ***') }
 
 1,
 __END__

@@ -31,9 +31,9 @@ sub BUILDARGS ($class, @args) {
                if defined($project_dir) && $host_base->is_relative;
          }
          $zone = Dibs::Zone->new(
-            name           => $_,
-            container_base => $spec->{container_base},
-            host_base      => $host_base,
+            $spec->%*,
+            host_base => $host_base,
+            name      => $_,
          );
       }
       $_ => $zone;

@@ -5,6 +5,7 @@ use Moo;
 use Log::Any qw< $log >;
 use Path::Tiny ();
 use Digest::MD5 qw< md5_hex >;
+use Dibs::Output;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
@@ -30,8 +31,11 @@ sub BUILDARGS ($class, @args) {
 sub id ($self) { return md5_hex($self->origin) }
 
 sub materialize_in ($self, $location) {
+   my $origin = $self->origin;
+   my $local_dir = $location->host_path;
+   OUTPUT "git: $origin -> $local_dir";
    require Dibs::Git;
-   Dibs::Git::fetch($self->origin, $location->host_path);
+   Dibs::Git::fetch($origin, $local_dir);
    return;
 }
 

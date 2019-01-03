@@ -116,7 +116,7 @@ sub execute ($self, $args = undef) {
    }
    catch {
       my $e = $_;
-      $log->error("SOMETHING WENT WRONG!");
+      $self->output('ERROR: ' . bleep $e);
       docker_rm($cid) if defined $cid;
       die $e;
    };
@@ -138,7 +138,10 @@ sub _write_enviles ($self, $spec) {
       }
    } ## end if ($env_dir->exists &&...)
    $env_dir->mkpath;
-   while (my ($name, $value) = each $spec->%*) {
+
+   my %envile_for = $spec->%*;
+   $envile_for{DIBS_STROKE_NAME} //= $self->name;
+   while (my ($name, $value) = each %envile_for) {
       $env_dir->child($name)->spew_raw($value);
    }
 

@@ -132,7 +132,7 @@ sub pre_inflate ($self, $x, %args) {
    return $x if $ref eq 'HASH';
    ouch 400, "invalid input for instance ($ref -> $x)" if $ref ne '';
 
-   if (my ($type, $raw) = $x =~ m{\A (\w+ (::\w+)*) : (.*) \z}mxs) {
+   if (my ($type, $raw) = $x =~ m{\A (\w+ (?: ::\w+)*) : (.*) \z}mxs) {
       my $class = $self->class_for({type => $type}, %args);
       my $retval = $class->parse($type, $raw);
       $retval->{type} //= $type;

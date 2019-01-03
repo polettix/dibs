@@ -12,6 +12,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 with 'Dibs::Role::Action';
+with 'Dibs::Role::EnvCarrier';
 
 has actions => (is => 'ro', default => sub { return [] });
 has '+output_char' => (is => 'ro', default => '=');
@@ -72,6 +73,8 @@ sub execute ($self, $args = undef) {
    my $name = $self->name('(unknown)');
    my $id = 0;
    my @outputs;
+   my $env_carriers = $args->{env_carriers} //= [];
+   push $env_carriers->@*, $self;
    for my $action ($self->actions->@*) {
       $id++;
       $action->output_marked(
@@ -81,6 +84,7 @@ sub execute ($self, $args = undef) {
       my $oargs = $action->execute($args);
       push @outputs, [$action->type, delete $oargs->{out}];
    }
+   pop $env_carriers->@*;
    $args->{out} = \@outputs;
    return $args;
 }
