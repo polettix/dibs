@@ -31,6 +31,7 @@ use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
+use constant ENV               => 'env';
 use constant ENVILE            => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
@@ -47,17 +48,61 @@ use constant CONFIG_FILE       => 'dibs.yml';
 
 use constant DEFAULTS => {
    project_dirs => {
-      CACHE,   'cache', DIBSPACKS, 'dibspacks',
-      ENVILE, 'envile', ENVIRON, 'env',   SRC,       'src',
-      EMPTY,   'empty'
+      CACHE,  'cache',  DIBSPACKS, 'dibspacks',
+      ENVILE, 'envile', ENVIRON,   'env',
+      SRC,    'src',    EMPTY,     'empty'
    },
    container_dirs => {
-      CACHE,   '/tmp/cache', DIBSPACKS, '/tmp/dibspacks',
-      ENVILE, '/tmp/envile', ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
+      CACHE,  '/tmp/cache',  DIBSPACKS, '/tmp/dibspacks',
+      ENVILE, '/tmp/envile', ENVIRON,   '/tmp/env',
+      SRC,    '/tmp/src',
    },
-   volumes =>
-     [CACHE, [ENVILE, 'ro'], [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
-   dibspack_dirs => [SRC, CACHE, ENVILE, ENVIRON],
+   volumes => [
+      CACHE,
+      [ENVILE,    'ro'],
+      [ENVIRON,   'ro'],
+      [DIBSPACKS, 'ro'],
+      SRC,
+      [EMPTY, 'ro']
+   ],
+   dibspack_dirs  => [SRC, CACHE, ENVILE, ENVIRON],
+   logger         => [qw< Stderr log_level info >],
+   zone_specs_for => {
+      CACHE,
+      {
+         container_base => '/tmp/cache',
+         host_base      => 'cache',
+      },
+      DIBSPACKS,
+      {
+         container_base => '/tmp/dibspacks',
+         host_base      => 'dibspacks',
+      },
+      HOST_DIBSPACKS,
+      {
+         container_base => undef, host_base => 'host-dibspacks',
+      },
+      EMPTY,
+      {
+         container_base => undef,
+         host_base      => 'empty',
+      },
+      ENVILE,
+      {
+         container_base => '/tmp/envile',
+         host_base      => 'envile',
+      },
+      ENV,
+      {
+         container_base => '/tmp/env',
+         host_base      => 'env',
+      },
+      SRC,
+      {
+         container_base => '/tmp/src',
+         host_base      => 'src',
+      },
+   },
 };
 use constant OPTIONS => [
    [

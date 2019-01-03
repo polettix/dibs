@@ -13,7 +13,8 @@ use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
-use Data::Dumper; local $Data::Dumper::Indent = 1;
+use Data::Dumper;
+local $Data::Dumper::Indent = 1;
 no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
@@ -23,27 +24,45 @@ use Dibs::Pack;
 use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
+use Dibs::ZoneFactory;
 
 has _config => (
-   is => 'ro',
+   is       => 'ro',
    required => 1,
    init_arg => 'config',
 );
-has _project_dir => (is => 'lazy');
+has _project_dir      => (is => 'lazy');
 has _host_project_dir => (is => 'lazy');
-has _actions_for => (is => 'ro', default => sub { return {} });
-has _dibspack_for => (is => 'ro', default => sub { return {} });
-has all_metadata => (is => 'ro', default => sub { return {} });
+has _actions_for      => (is => 'ro', default => sub { return {} });
+has _dibspack_for     => (is => 'ro', default => sub { return {} });
+has all_metadata      => (is => 'ro', default => sub { return {} });
+
+has allow_dirty => (is => 'ro', default => 0, init_arg => 'dirty');
+has logger =>
+  (is => 'ro', default => sub { DEFAULTS->{logger} });
+has zone_factory =>
+  (is => 'ro', lazy => 1, default => __complain('zone_factory'));
+
+sub __complain { ouch 400, "missing member $_[1]" }
+
+sub __set_logger (@args) {
+   state $set = 0;
+   return if $set++ && ! @args;
+   my @logger = scalar(@args) ? @args : DEFAULTS->{logger}->@*;
+   Log::Any::Adapter->set(@logger);
+} ## end sub __set_logger (@args)
+
+sub zone_for ($self, $name) { $self->zone_factory->zone_for($name) }
 
 sub __expand_extends ($hash, $type, $definition_for, $flags = {}) {
    defined(my $ds = delete($hash->{extends})) or return;
    $definition_for //= {};
    for my $source (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) {
       my $defaults = (ref($source) ? $source : $definition_for->{$source})
-         or ouch 500, "no $type '$source', typo?";
+        or ouch 500, "no $type '$source', typo?";
 
       # protect aginst circular dependencies
-      my $id  = refaddr($defaults);
+      my $id = refaddr($defaults);
       if ($flags->{$id}++) {
          my $name = ref($source) ? 'internal reference' : $source;
          ouch 400, "circular reference involving $type ($name)";
@@ -58,18 +77,12 @@ sub __expand_extends ($hash, $type, $definition_for, $flags = {}) {
 
       # the same default might be ancestor to multiple things
       delete $flags->{$id};
-   }
+   } ## end for my $source (ref($ds...))
    return $hash;
-}
-
-sub __set_logger (@args) {
-   state $set = 0;
-   return if $set++;
-   my @logger = scalar(@args) ? @args : ('Stderr', log_level => 'info');
-   Log::Any::Adapter->set(@logger);
-}
+} ## end sub __expand_extends
 
 sub build_actions_array ($self, $step) {
+
    # first of all check what comes from the configuration
    my $ds = $self->sconfig($step => ACTIONS);
    return (ref($ds) eq 'ARRAY' ? $ds->@* : $ds) if defined $ds;
@@ -86,9 +99,9 @@ sub build_actions_array ($self, $step) {
 
    # if dir, iterate over its contents
    if ($ds_path->child($step)->is_dir) {
-      return  map {
+      return map {
          my $child = $_;
-         my $bn = $child->basename;
+         my $bn    = $child->basename;
          next if ($bn eq '_') || (substr($bn, 0, 1) eq '.');
          $child->child(OPERATE) if $child->is_dir;
          next unless $child->is_file && -x $child;
@@ -97,36 +110,36 @@ sub build_actions_array ($self, $step) {
             path => $child->relative($src_dir),
          };
       } sort { $a cmp $b } $ds_path->child($step)->children;
-   }
+   } ## end if ($ds_path->child($step...))
 
    ouch 400, "no actions found for step $step";
-   return; # unreached
-}
+   return;    # unreached
+} ## end sub build_actions_array
 
 sub dibspack_for ($self, $spec) {
    my $dibspack_for = $self->config(DIBSPACKS) // {};
-   if (! ref($spec)) {
+   if (!ref($spec)) {
       my $ns = $dibspack_for->{$spec}
-         or ouch 400, "no dibspack '$spec' in defaults, typo?";
+        or ouch 400, "no dibspack '$spec' in defaults, typo?";
       $spec = $ns;
    }
    __expand_extends($spec, DIBSPACK, $dibspack_for)
-      if ref($spec) eq 'HASH'; # in-place expansion of hash specifications
+     if ref($spec) eq 'HASH';   # in-place expansion of hash specifications
    my $dibspack = Dibs::Pack->create($spec, $self);
 
    # materialize and cache dibspack if needed
    my $id = $dibspack->id;
    my $df = $self->_dibspack_for;
-   if (! exists($df->{$id})) {
+   if (!exists($df->{$id})) {
       if ($dibspack->can('materialize')) {
          ARROW_OUTPUT('-', 'materialize dibspack');
          $dibspack->materialize;
       }
       $df->{$id} = $dibspack;
-   }
+   } ## end if (!exists($df->{$id}...))
 
    return $df->{$id};
-}
+} ## end sub dibspack_for
 
 sub add_metadata ($self, %pairs) {
    my $md = $self->all_metadata;
@@ -138,7 +151,7 @@ sub metadata_for ($self, $key) { $self->all_metadata->{$key} // undef }
 
 sub name ($self, $step) {
    defined(my $n = $self->sconfig($step, 'commit', 'name'))
-      or return $self->config('name');
+     or return $self->config('name');
    return $n;
 }
 
@@ -160,28 +173,28 @@ sub _build__host_project_dir ($self) {
 
 sub project_dir ($self, @subdirs) {
    my $pd = $self->_project_dir;
-   return(@subdirs ? $pd->child(@subdirs) : $pd);
+   return (@subdirs ? $pd->child(@subdirs) : $pd);
 }
 
 sub host_project_dir ($self, @subdirs) {
    my $hpd = $self->_host_project_dir;
-   return(@subdirs ? $hpd->child(@subdirs) : $hpd);
+   return (@subdirs ? $hpd->child(@subdirs) : $hpd);
 }
 
 sub workflow ($self) {
    my $s = $self->config(WORKFLOW);
    ouch 400, 'no workflow defined for execution'
-      unless (ref($s) eq 'ARRAY') && scalar($s->@*);
+     unless (ref($s) eq 'ARRAY') && scalar($s->@*);
    return $s->@*;
-}
+} ## end sub workflow ($self)
 
 sub _resolve_path ($self, $space, $zone, $path) {
-   defined (my $base = $self->config($space => $zone))
-      or ouch 400, "unknown zone $zone for resolution inside container";
+   defined(my $base = $self->config($space => $zone))
+     or ouch 400, "unknown zone $zone for resolution inside container";
    my $retval = path($base);
    $retval = $retval->child($path) if length($path // '');
    return $retval->stringify;
-}
+} ## end sub _resolve_path
 
 sub resolve_project_path ($self, $zone, $path = undef) {
    $self->project_dir($self->_resolve_path(project_dirs => $zone, $path));
@@ -191,10 +204,7 @@ sub resolve_container_path ($self, $zone, $path = undef) {
    return $self->_resolve_path(container_dirs => $zone, $path);
 }
 
-sub set_logger($self = undef) {
-   my $logger = $self->config('logger') // [];
-   __set_logger($logger->@*);
-}
+sub set_logger($self) { __set_logger($self->logger->@*) }
 
 sub set_run_metadata ($self) {
    $self->add_metadata(DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime));
@@ -205,30 +215,30 @@ sub dump_configuration ($self) {
    local $Data::Dumper::Indent = 1;
    $log->debug(Data::Dumper::Dumper($self->config));
    return;
-}
+} ## end sub dump_configuration ($self)
 
-sub wipe_directory ($self, $name) {
-   my $dir_for = $self->config('project_dirs');
-   my $dir = $self->project_dir($dir_for->{$name});
+sub wipe_directory ($self, $zone) {
+   $zone = $self->zone_for($zone);
+   my $dir = $zone->host_base;
    if ($dir->exists) {
-      try   { $dir->remove_tree({safe => 0}) }
+      try { $dir->remove_tree({safe => 0}) }
       catch { ouch 500, "cannot delete $dir, check permissions maybe?" };
    }
    return $dir;
-}
+} ## end sub wipe_directory
 
 sub origin_onto_src ($self, $origin) {
    my $src_dir = $self->wipe_directory(SRC);
-   my $dirty = $self->config('dirty') // undef;
+   my $dirty   = $self->allow_dirty // undef;
    Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty});
-   return path($src_dir);
-}
+   return $src_dir;
+} ## end sub origin_onto_src
 
 sub ensure_host_directories ($self) {
    my $is_local = $self->config('local');
 
-   my $pd = $self->project_dir;
-   my $pds = $self->config('project_dirs');
+   my $pd   = $self->project_dir;
+   my $pds  = $self->config('project_dirs');
    my @dirs = (CACHE, DIBSPACKS, ENVIRON);
 
    # in local-mode the current (development) directory is used directly
@@ -239,12 +249,12 @@ sub ensure_host_directories ($self) {
    # SRC might be special and require to be fetched from somewhere
    my $origin = $self->config('origin');
    if (defined $origin) {
-      if (! $self->config('has_cloned')) {
+      if (!$self->config('has_cloned')) {
          ARROW_OUTPUT('=', "clone of origin '$origin'");
          $self->origin_onto_src($origin);
       }
-   }
-   elsif (!$is_local)   { push @dirs, SRC }
+   } ## end if (defined $origin)
+   elsif (!$is_local) { push @dirs, SRC }
 
    # create missing directories in host
    for my $name (@dirs) {
@@ -253,20 +263,21 @@ sub ensure_host_directories ($self) {
    }
 
    return;
-}
+} ## end sub ensure_host_directories ($self)
 
 sub actions_for ($self, $step) {
    my $afor = $self->_actions_for;
-   if (! $afor->{$step}) {
+   if (!$afor->{$step}) {
+
       # build the flattened list of actions for this step. We have to
       # simulate a stack of recursive calls so that we can allow nested
       # definitions; on the way we will check for circular inclusions
       # and complain about them
       my $adf = $self->config(ACTIONS) // {};
-      my @stack = { queue => [$self->build_actions_array($step)] };
+      my @stack = {queue => [$self->build_actions_array($step)]};
       $afor->{$step} = \my @retval;
-      my %seen; # circular inclusion avoidance
-      ITEM:
+      my %seen;    # circular inclusion avoidance
+    ITEM:
       while (@stack) {
          my $queue = $stack[-1]{queue};
          if (scalar($queue->@*) == 0) {
@@ -275,46 +286,47 @@ sub actions_for ($self, $step) {
             # the "parent" of this frame can be removed from circular
             # inclusion avoidance from now on
             delete $seen{$exhausted_frame->{parent}}
-               if exists $exhausted_frame->{parent};
+              if exists $exhausted_frame->{parent};
 
             next ITEM;
-         }
+         } ## end if (scalar($queue->@*)...)
 
          my $item = shift $queue->@*;
-         my $ref = ref $item;
-         if ($ref eq 'ARRAY') { # array -> do "recursive" flattening
+         my $ref  = ref $item;
+         if ($ref eq 'ARRAY') {    # array -> do "recursive" flattening
             my $id = refaddr($item);
             ouch 400, "circular reference in actions for $step"
-               if $seen{$id}++;
+              if $seen{$id}++;
 
             # this $id will trigger circular inclusion error from now
             # until the stack frame is eventually removed
-            push @stack, { parent => $id, queue  => [$item->@*] };
+            push @stack, {parent => $id, queue => [$item->@*]};
 
             next ITEM;
-         }
+         } ## end if ($ref eq 'ARRAY')
          elsif ($ref eq 'HASH') {
             __expand_extends($item, ACTIONS, $adf);
             push @retval, Dibs::Action->create($item, $self);
             next ITEM;
          }
-         elsif ((! $ref) && exists($adf->{$item})) {
+         elsif ((!$ref) && exists($adf->{$item})) {
             unshift $queue->@*, $adf->{$item};
             next ITEM;
          }
-         elsif (! $ref) {
+         elsif (!$ref) {
             push @retval, Dibs::Action->create($item, $self);
             next ITEM;
          }
          else {
             ouch 400, "unknown action of type $ref";
          }
-      }
-   }
+      } ## end ITEM: while (@stack)
+   } ## end if (!$afor->{$step})
    return $afor->{$step}->@*;
-}
+} ## end sub actions_for
 
 sub iterate_actions ($self, $step) {
+
    # continue only if it makes sense...
    my @actions = $self->actions_for($step) or return;
 
@@ -322,24 +334,24 @@ sub iterate_actions ($self, $step) {
    # actions in this specific step
    my $args = $self->prepare_args($step);
    try {
-      DIBSPACK:
+    DIBSPACK:
       for my $action (@actions) {
          my $name = $action->name;
          ARROW_OUTPUT('+', "action $name");
 
          $args->{$_} = $self->coalesce_envs($action, $step, $args, $_)
-            for qw< env envile >;
+           for qw< env envile >;
 
          ARROW_OUTPUT('-', 'run');
          $self->call_action($action, $step, $args);
-      }
-   }
+      } ## end DIBSPACK: for my $action (@actions)
+   } ## end try
    catch {
       $self->cleanup_tags($step, $args->{image});
-      die $_; # rethrow
+      die $_;    # rethrow
    };
    return $args->{image};
-}
+} ## end sub iterate_actions
 
 sub call_action ($self, $action, $step, $args) {
    my $p = path($action->container_path)->stringify;
@@ -355,22 +367,22 @@ sub call_action ($self, $action, $step, $args) {
 
          # overriding everything above
          keep    => 1,
-         volumes => [ $self->list_volumes ],
+         volumes => [$self->list_volumes],
          workdir => $self->resolve_container_path(ENVILE),
-         command => [ $p, $self->expand_command_args($step, $action->args)]
+         command => [$p, $self->expand_command_args($step, $action->args)]
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
       Dibs::Docker::docker_commit($cid, $args->@{qw< image changes >});
       (my $__cid, $cid) = ($cid, undef);
       Dibs::Docker::docker_rm($__cid);
-   }
+   } ## end try
    catch {
       Dibs::Docker::docker_rm($cid) if defined $cid;
-      die $_; # rethrow
+      die $_;    # rethrow
    };
    return;
-}
+} ## end sub call_action
 
 sub write_enviles ($self, $spec) {
    my $env_dir = path($self->resolve_project_path(ENVILE));
@@ -382,7 +394,7 @@ sub write_enviles ($self, $spec) {
          $log->info("skipping writing enviles");
          return;
       }
-   }
+   } ## end if ($env_dir->exists &&...)
    $env_dir->mkpath;
    while (my ($name, $value) = each $spec->%*) {
       $env_dir->child($name)->spew_raw($value);
@@ -431,7 +443,7 @@ export_all_enviles
 END
 
    return $env_dir;
-}
+} ## end sub write_enviles
 
 sub metadata_for_envile ($self, $action, $step, $args) {
    my $step_name = $self->sconfig($step, 'step') // $step;
@@ -443,37 +455,36 @@ sub metadata_for_envile ($self, $action, $step, $args) {
          DIBS_STEP       => $step_name,
       },
    );
-}
+} ## end sub metadata_for_envile
 
 sub coalesce_envs ($self, $action, $step, $args, $key = 'env') {
-   my $stepc = $self->sconfig($step);
+   my $stepc  = $self->sconfig($step);
    my $method = $self->can("metadata_for_$key");
    return __merge_envs(
       $self->config(defaults => $key),
-      $stepc->{$key},
-      $action->$key,
+      $stepc->{$key}, $action->$key,
       ($method ? $self->$method($action, $step, $args) : ()),
    );
-}
+} ## end sub coalesce_envs
 
 sub prepare_args ($self, $step) {
    my $stepc = $self->sconfig($step);
-   my $from = $stepc->{from};
-   my $to   = $self->target_name($step);
+   my $from  = $stepc->{from};
+   my $to    = $self->target_name($step);
    my $image = try {
       Dibs::Docker::docker_tag($from, $to);
    }
    catch {
       ouch 400,
-         "Unable to use image '$from' as '$to'. Maybe it can be build with "
-       . "some other different step before?";
+        "Unable to use image '$from' as '$to'. Maybe it can be build with "
+        . "some other different step before?";
    };
    return {
-      image => $image,
-      changes => $self->changes_for_commit($step),
+      image       => $image,
+      changes     => $self->changes_for_commit($step),
       project_dir => $self->project_dir,
    };
-}
+} ## end sub prepare_args
 
 sub normalized_commit_config ($self, $cfg) {
    return {keep => 0} unless $cfg;
@@ -484,25 +495,25 @@ sub normalized_commit_config ($self, $cfg) {
 
    # the "false" one is probably overkill here
    return {keep => 0}
-      if $cfg =~ m{\A(?:n|N|no|No|NO|false|False|FALSE|off|Off|OFF)\z}mxs;
+     if $cfg =~ m{\A(?:n|N|no|No|NO|false|False|FALSE|off|Off|OFF)\z}mxs;
    return {keep => 1, tags => [':default:']}
-      if $cfg =~ m{\A(?:y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON)\z}mxs;
+     if $cfg =~ m{\A(?:y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON)\z}mxs;
 
    ouch 400, "unhandled ref type $ref for commit field" if $ref;
    return {keep => 1, tags => [$cfg]};
-}
+} ## end sub normalized_commit_config
 
 sub changes_for_commit ($self, $step) {
    my $cfg = $self->sconfig($step, 'commit');
    my %changes = (
-      cmd => [],
+      cmd        => [],
       entrypoint => [qw< /bin/sh -l >],
    );
    for my $key (qw< entrypoint cmd workdir user >) {
       $changes{$key} = $cfg->{$key} if defined $cfg->{$key};
    }
    return \%changes;
-}
+} ## end sub changes_for_commit
 
 sub cleanup_tags ($self, $step, @tags) {
    for my $tag (@tags) {
@@ -510,7 +521,7 @@ sub cleanup_tags ($self, $step, @tags) {
       catch { $log->error("failed to remove $tag") };
    }
    return;
-}
+} ## end sub cleanup_tags
 
 sub additional_tags ($self, $step, $image, $new_tags) {
    return ($image) unless $new_tags;
@@ -528,21 +539,21 @@ sub additional_tags ($self, $step, $image, $new_tags) {
             next if $dst eq $image;
             Dibs::Docker::docker_tag($image, $dst);
             push @tags, $dst;
-         }
-      }
-   }
+         } ## end else [ if (($tag eq '*') || (...))]
+      } ## end for my $tag ($new_tags->...)
+   } ## end try
    catch {
       $self->cleanup_tags($step, @tags);
-      die $_; # rethrow
+      die $_;    # rethrow
    };
 
    # get rid of the default image, if "makes sense". Never get rid of
    # a tag if it's the only one, or requested to keep it.
    $self->cleanup_tags($step, shift @tags)
-      unless (@tags == 1) || $keep_default;
+     unless (@tags == 1) || $keep_default;
 
    return @tags;
-}
+} ## end sub additional_tags
 
 sub __merge_envs (@envs) {
    my %all;
@@ -560,9 +571,9 @@ sub __merge_envs (@envs) {
       elsif (defined $env) {
          $all{$env} = $ENV{$env} if exists $ENV{$env};
       }
-   }
+   } ## end while (@envs)
    return \%all;
-}
+} ## end sub __merge_envs (@envs)
 
 sub list_dirs ($self) {
    my $cds = $self->config('container_dirs');
@@ -571,7 +582,7 @@ sub list_dirs ($self) {
 }
 
 sub list_volumes ($self) {
-   my $pd = $self->host_project_dir;
+   my $pd  = $self->host_project_dir;
    my $pds = $self->config('project_dirs');
    my $cds = $self->config('container_dirs');
 
@@ -589,12 +600,13 @@ sub list_volumes ($self) {
          my $host_src_dir = cwd;
          my $host_prj_dir = $pd->absolute;
          if ($host_src_dir->subsumes($host_prj_dir)) {
-            my $subdir = $host_prj_dir->relative($host_src_dir);
+            my $subdir            = $host_prj_dir->relative($host_src_dir);
             my $container_src_dir = path($cds->{&SRC})->absolute;
             my $target = $subdir->absolute($container_src_dir)->stringify;
             @r = ($pd->child($pds->{$name})->stringify, $target, @mode);
-         }
-      }
+         } ## end if ($host_src_dir->subsumes...)
+      } ## end elsif ($is_local && ($name...))
+
       # otherwise everything is looked for inside the project_dir and
       # EMPTY is ignored
       elsif ($name ne EMPTY) {
@@ -604,27 +616,29 @@ sub list_volumes ($self) {
       # save a reference if there's something to be saved, skip otherwise
       @r ? \@r : ();
    } $self->config('volumes')->@*;
-}
+} ## end sub list_volumes ($self)
 
 sub expand_command_args ($self, $step, @args) {
    map {
       my $ref = ref $_;
       if ($ref eq 'HASH') {
          my %data = $_->%*;
-         my ($type, $data) = (scalar(keys %data) == 1) ? %data
-            : (delete $data{type}, \%data);
+         my ($type, $data) =
+           (scalar(keys %data) == 1)
+           ? %data
+           : (delete $data{type}, \%data);
          ouch 'unknown type for arg of dibspack' unless defined $type;
          ($type, $data) = ($data, undef) if $type eq 'type';
          if (my ($ptype) = $type =~ m{\A path_ (.+) \z}mxs) {
             $type = 'path';
-            $data = { $ptype => $data };
+            $data = {$ptype => $data};
          }
          if ($type eq 'path') {
             ouch 400, 'unrecognized request for path resolution'
-               unless (ref($data) eq 'HASH')
-                   && (scalar(keys $data->%*) == 1);
+              unless (ref($data) eq 'HASH')
+              && (scalar(keys $data->%*) == 1);
             $self->resolve_container_path($data->%*);
-         }
+         } ## end if ($type eq 'path')
          elsif ($type eq 'step_id') { $step }
          elsif ($type eq 'step_name') {
             $self->sconfig($step, 'step') // $step;
@@ -632,7 +646,7 @@ sub expand_command_args ($self, $step, @args) {
          else {
             ouch 400, "unrecognized arg for dibspack (type: $type)";
          }
-      }
+      } ## end if ($ref eq 'HASH')
       elsif (!$ref) {
          $_;
       }
@@ -640,7 +654,7 @@ sub expand_command_args ($self, $step, @args) {
          ouch 400, "invalid arg for dibspack (ref: $ref)";
       }
    } @args;
-}
+} ## end sub expand_command_args
 
 sub target_name ($self, $step) {
    join ':', $self->name($step), $self->metadata_for('DIBS_ID');
@@ -649,7 +663,7 @@ sub target_name ($self, $step) {
 sub step_config_for ($self, $name) {
    my $definitions_for = $self->sconfig;
    defined(my $sc = $definitions_for->{$name})
-      or ouch 400, "no definitions for $name";
+     or ouch 400, "no definitions for $name";
 
    # allow for recursive defaulting
    __expand_extends($sc, STEPS, $definitions_for);
@@ -659,7 +673,7 @@ sub step_config_for ($self, $name) {
    my $pc = $sc->{commit} = $self->normalized_commit_config($sc->{commit});
 
    return $sc;
-}
+} ## end sub step_config_for
 
 sub run_step ($self, $step) {
    my $sc = $self->step_config_for($step);
@@ -672,13 +686,13 @@ sub run_step ($self, $step) {
    # check if commit is required, otherwise default to ditch this container
    if ($pc->{keep}) {
       ARROW_OUTPUT('+', 'saving working image, commit required');
-      return $self->additional_tags($step, $image, $pc->{tags})
+      return $self->additional_tags($step, $image, $pc->{tags});
    }
    else {
       ARROW_OUTPUT('+', 'removing working image, no commit required');
       return $self->cleanup_tags($step, $image);
    }
-}
+} ## end sub run_step
 
 sub run ($self) {
    $self->set_logger;
@@ -694,22 +708,23 @@ sub run ($self) {
          if (my @tags = $self->run_step($step)) {
             push @tags_lists, [$step, @tags];
          }
-      }
+      } ## end for my $step ($self->workflow)
       for (@tags_lists) {
          my ($step, @tags) = $_->@*;
          say "$step: @tags";
       }
-   }
+   } ## end try
    catch {
       my $e = $_;
       $self->cleanup_tags($_->@*) for reverse @tags_lists;
       die $e;
    };
    return 0;
-}
+} ## end sub run ($self)
 
-sub create_from_cmdline ($package, @as) {
+sub create_from_cmdline ($class, @as) {
    my $cmdenv = get_config_cmdenv(\@as);
+   __set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
 
    # start looking for the configuration file, refer it to the project dir
    # if relative, otherwise leave it as is
@@ -717,42 +732,46 @@ sub create_from_cmdline ($package, @as) {
 
    # development mode is a bit special in that dibs.yml might be *inside*
    # the repository itself and the origin needs to be cloned beforehand
-   my $is_alien = $cmdenv->{alien};
+   my $is_alien       = $cmdenv->{alien};
    my $is_development = $cmdenv->{development};
-   if ((! $cnfp->exists) && ($is_alien || $is_development)) {
-      my $tmp = $package->new(config => $cmdenv);
-      $tmp->set_logger; # ensure we can output stuff on log channel
+   if ((!$cnfp->exists) && ($is_alien || $is_development)) {
+      my $tmp = $class->new(
+         zone_factory => Zone::Factory->new(
+            project_dir => $cmdenv->{project_dir},
+            zone_specs_for => DEFAULTS->{zone_specs_for},
+         )
+      );
 
       my $origin = $cmdenv->{origin} // '';
       $origin = cwd() . $origin
-         if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
+        if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
       ARROW_OUTPUT('=', "early clone of origin '$origin'");
 
       my $src_dir = $tmp->origin_onto_src($origin);
       $cmdenv->{has_cloned} = 1;
 
-      # there's no last chance, so config_file is set 
+      # there's no last chance, so config_file is set
       $cnfp = $src_dir->child($cmdenv->{config_file});
-   }
+   } ## end if ((!$cnfp->exists) &&...)
 
    ouch 400, 'no configuration file found' unless $cnfp->exists;
 
    my $overall = add_config_file($cmdenv, $cnfp);
-	return $package->new(config => $overall);
-}
+   return $class->new(config => $overall);
+} ## end sub create_from_cmdline
 
 sub main ($pkg, @as) {
    my $retval = try {
+      __set_logger(); # initialize with defaults
       my $dibs = $pkg->create_from_cmdline(@as);
       $dibs->run;
    }
    catch {
-      __set_logger();
       $log->fatal(bleep);
       1;
    };
-   return($retval // 0);
-}
+   return ($retval // 0);
+} ## end sub main
 
 1;
 __END__
