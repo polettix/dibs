@@ -52,7 +52,7 @@ sub _create ($self, $spec, %args) {
 sub _create_dynamic ($self, $spec, %args) {
    my $type    = $spec->{type};
    my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
-   my $id      = $type . ':' . $fetcher->id;
+   my $id      = $type . '/' . $fetcher->id;
    my $dyn_zone_name = $args{dynamic_zone} // PACK_HOST_ONLY; # FIXME
    my $zone    = $self->zone_factory->zone_for($dyn_zone_name);
 
