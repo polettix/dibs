@@ -91,7 +91,7 @@ sub resolve_dibspack ($spec, %args) {
       return $spec;
    }
    return {
-      dibspack => $args{dibspacks}->item($spec->{'@'}, %args),
+      dibspack => $args{dibspack_factory}->item($spec->{'@'}, %args),
       path     => $spec->{path},
       datapath => $spec->{datapath},
    };
@@ -107,10 +107,10 @@ sub load_from_dibspack ($spec, %as) {
    # ensure the needed data are there
    my $data = data_in($whole, $p->{datapath});
 
-   my $zf = $as{zone_factory} // $as{dibspacks}->zone_factory;
+   my $zf = $as{zone_factory} // $as{dispack_factory}->zone_factory;
    my $cf = $whole->{&DIBSPACKS} // {};
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
-   return inflate($data, %as, dibspacks => $ldps, config => $cf);
+   return inflate($data, %as, dispack_factory => $ldps, config => $cf);
 }
 
 sub data_in ($data, $datapath) {

@@ -29,7 +29,11 @@ use Dibs::Pack;
 use Dibs::Docker;
 use Dibs::Output;
 use Dibs::Get;
-use Dibs::ZoneFactory;
+use Dibs::Zone::Factory;
+
+has action_factory => (
+   
+);
 
 has allow_dirty => (
    is       => 'ro',
@@ -45,13 +49,42 @@ has project_dir => (
 );
 
 has zone_factory => (
-   is       => 'ro',
-   required => 1,
-   coerce   => sub ($def) {
+   is      => 'lazy',
+   coerce  => sub ($def) {
       return $def if blessed($def) && $def->isa('Dibs::ZoneFactory');
-      return Dibs::ZoneFactory->new($def);
+      return Dibs::Zone::Factory->new($def);
    },
 );
+
+sub _build_zone_factory ($self) {
+   return Dibs::Zone::Factory->default($self->project_dir);
+}
+
+sub BUILDARGS ($class, @args) {
+   my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
+   my %retval;
+
+   # Allow acting in a dirty situation?
+   $retval{dirty} = $args{dirty} ? 1 : 0;
+
+   # Project directory
+   ouch 400, 'missing required value for project_dir'
+      unless defined $args{project_dir};
+   my $pd = $retval{project_dir} = path($args{project_dir})->absolute;
+
+   # Zones factory
+   my $zone_specs = $args{zone_specs} // DEFAULT->{zone_specs_for};
+   my $zone_groups = $args{zone_groups} // DEFAULT->{zone_names_for};
+   my $zf = $retval{zone_factory} = Dibs::Zone::Factory->new(
+      project_dir => $pd,
+      zone_specs_for => $zone_specs,
+      zone_names_for => $zone_groups,
+   );
+
+   return \%retval;
+}
+
+__END__
 
 {    # generate members & methods:
        #

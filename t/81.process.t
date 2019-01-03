@@ -27,7 +27,7 @@ my $spice      = $some_spice[rand @some_spice];
 my $a_factory;
 lives_ok {
    $a_factory = Dibs::Action::Factory->new(
-      dibspacks_factory => $dp_factory,
+      dibspack_factory => $dp_factory,
       config            => {
          my_target => {
             id           => 'action whatever',
@@ -46,7 +46,7 @@ throws_ok { Dibs::Process->new } qr{missing required...}i,
   'process constructor needs factory method';
 
 my %args = (
-   actions_factory => $a_factory,
+   action_factory => $a_factory,
    id => 'whatever',
    from => 'alpine:latest',
 );

@@ -26,7 +26,7 @@ my $spice      = $some_spice[rand @some_spice];
 my $a_factory;
 lives_ok {
    $a_factory = Dibs::Action::Factory->new(
-      dibspacks_factory => $dp_factory,
+      dibspack_factory => $dp_factory,
       config            => {
          my_target => {
             id           => 'action whatever',
@@ -50,7 +50,7 @@ my %args = (
 my $process_factory;
 lives_ok {
    $process_factory = Dibs::Process::Factory->new(
-      actions_factory => $a_factory,
+      action_factory => $a_factory,
       config => {
          'work-please' => {
             actions_factory => $a_factory,

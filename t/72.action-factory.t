@@ -23,7 +23,7 @@ my $dp_factory = Dibs::Pack::Factory->new(zone_factory => $zone_factory);
 isa_ok $dp_factory, 'Dibs::Pack::Factory';
 
 throws_ok { my $f = Dibs::Action::Factory->new }
-qr{missing required...}i, 'factory constructor throws without dibspacks_factory';
+qr{missing required...}i, 'factory constructor throws without dibspack_factory';
 
 
 my @some_spice = qw< what ever you do >;
@@ -39,7 +39,7 @@ my %args       = (
 
 my $factory;
 lives_ok { $factory = Dibs::Action::Factory->new(
-      dibspacks_factory => $dp_factory,
+      dibspack_factory => $dp_factory,
       config => {
          my_target => \%args,
       },

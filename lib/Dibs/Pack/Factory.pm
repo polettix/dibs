@@ -28,7 +28,7 @@ sub instance ($self, $x, %args) {
    return $instance;
 }
 
-sub dibspacks_factory ($self) { return $self }
+sub dibspack_factory ($self) { return $self }
 
 sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 

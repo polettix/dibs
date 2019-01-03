@@ -14,11 +14,11 @@ no warnings qw< experimental::postderef experimental::signatures >;
 with 'Dibs::Role::EnvCarrier';
 with 'Dibs::Role::Identifier';
 
-has actions_factory => (is => 'ro', required => 1);
-has dibspacks_factory => (
+has action_factory => (is => 'ro', required => 1);
+has dibspack_factory => (
    is      => 'ro',
    lazy    => 1,
-   default => sub ($self) { $self->actions_factory->dibspacks_factory },
+   default => sub ($self) { $self->action_factory->dibspack_factory },
 );
 
 has all_actions => (is => 'lazy');
@@ -27,7 +27,7 @@ has commit  => (is => 'ro', default  => undef, coerce => \&_coerce_commit);
 has from    => (is => 'ro', required => 1);
 
 sub _build_all_actions ($self) {
-   my $af = $self->actions_factory;
+   my $af = $self->action_factory;
    return [ map { $af->item($_) } flatten_array($self->actions) ];
 }
 
