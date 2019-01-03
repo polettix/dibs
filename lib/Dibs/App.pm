@@ -1,24 +1,110 @@
-package Dibs;
+package Dibs::App;
 use 5.024;
-use Carp;
-use English qw< -no_match_vars >;
+use Try::Catch;
 use Log::Any qw< $log >;
 use Log::Any::Adapter;
-use Path::Tiny qw< path cwd >;
 use Ouch qw< :trytiny_var >;
-use Try::Catch;
+use Path::Tiny qw< path cwd >;
+
+use Exporter 'import';
+our @EXPORT_OK = qw< main create_from_cmdline >;
+
+use Dibs ();
+use Dibs::Config ':all';
+use Dibs::Get ();
+use Dibs::Output;
+use Dibs::Zone ();
+use Dibs::ZoneFactory ();
+
+use experimental qw< postderef signatures >;
+no warnings qw< experimental::postderef experimental::signatures >;
+
+sub create_from_cmdline (@as) {
+   my $cmdenv = get_config_cmdenv(\@as);
+   set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
+
+   # start looking for the configuration file, refer it to the project dir
+   # if relative, otherwise leave it as is
+   my $cnfp = path($cmdenv->{config_file});
+   $log->info("cnfp: $cnfp");
+
+   # development mode is a bit special in that dibs.yml might be *inside*
+   # the repository itself and the origin needs to be cloned beforehand
+   my $is_alien       = $cmdenv->{alien};
+   my $is_development = $cmdenv->{development};
+   if ((!$cnfp->exists) && ($is_alien || $is_development)) {
+      my $src_dir = origin_onto_src($cmdenv);
+
+      # there's no last chance, so config_file is set
+      $cnfp = $src_dir->child($cmdenv->{config_file});
+   } ## end if ((!$cnfp->exists) &&...)
+
+   ouch 400, 'no configuration file found' unless $cnfp->exists;
+
+   my $overall = add_config_file($cmdenv, $cnfp);
+   $overall->{zone_specs_for}{&SRC} = $overall->{has_cloned}
+      if $overall->{has_cloned};
+
+   return Dibs->new($overall);
+} ## end sub create_from_cmdline
+
+sub origin_onto_src ($config) {
+   my $origin = $config->{origin} // '';
+   $origin = cwd() . $origin
+      if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
+
+   my $zone_factory = Dibs::ZoneFactory->new(
+      project_dir => $config->{project_dir},
+      zone_specs_for => $config->{zone_specs_for},
+   );
+
+   # keep the src zone around, so that it cannot be overridden by
+   # a configuration file
+   $config->{has_cloned} = $zone_factory->zone_for(SRC);
+   $log->info("zone: $config->{has_cloned}");
+
+   # use a temporary Dibs object for the cloning, it already knows what
+   # to do and repeating code is not good
+   ARROW_OUTPUT('=', "early clone of origin $origin");
+   return Dibs->new(
+      dirty        => $config->{dirty},
+      zone_factory => $zone_factory,
+   )->origin_onto_src($origin);
+}
+
+sub main (@as) {
+   my $retval = try {
+      set_logger(); # initialize with defaults
+      my $dibs = create_from_cmdline(@as);
+      $dibs->run;
+   }
+   catch {
+      $log->fatal(bleep);
+      1;
+   };
+   return ($retval // 0);
+} ## end sub main
+
+sub set_logger (@args) {
+   state $set = 0;
+   return if $set++ && ! @args;
+   my @logger = scalar(@args) ? @args : DEFAULTS->{logger}->@*;
+   Log::Any::Adapter->set(@logger);
+} ## end sub __set_logger (@args)
+
+1;
+
+__END__
+
 use POSIX qw< strftime >;
 use Scalar::Util qw< refaddr >;
 use YAML::XS qw< LoadFile >;
-use experimental qw< postderef signatures >;
 use Moo;
 use Guard;
 use Data::Dumper;
 local $Data::Dumper::Indent = 1;
-no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
-use Dibs::Config ':all';
 use Dibs::Action;
 use Dibs::Pack;
 use Dibs::Docker;
@@ -26,13 +112,13 @@ use Dibs::Output;
 use Dibs::Get;
 use Dibs::ZoneFactory;
 
-has _project_dir => (
-   is => 'ro',
-   lazy => 1,
-   default => __complain('project_dir'),
-   init_arg => 'project_dir',
-   coerce => sub ($path) { return path($path)->absolute },
+has _config => (
+   is       => 'ro',
+   required => 1,
+   init_arg => 'config',
 );
+has _project_dir      => (is => 'lazy');
+has _host_project_dir => (is => 'lazy');
 has _actions_for      => (is => 'ro', default => sub { return {} });
 has _dibspack_for     => (is => 'ro', default => sub { return {} });
 has all_metadata      => (is => 'ro', default => sub { return {} });
@@ -40,33 +126,11 @@ has all_metadata      => (is => 'ro', default => sub { return {} });
 has allow_dirty => (is => 'ro', default => 0, init_arg => 'dirty');
 has logger =>
   (is => 'ro', default => sub { DEFAULTS->{logger} });
-has zone_factory => (
-   is => 'ro',
-   lazy => 1,
-   default => __complain('zone_factory'),
-);
+has zone_factory =>
+  (is => 'ro', lazy => 1, default => __complain('zone_factory'));
 
-sub BUILDARGS ($self, @as) {
-   my %args = (@as && ref($as[0])) ? $as[0]->%* : @as;
-   if (exists $args{zone_specs_for}) {
-      $args{zone_factory} = Dibs::ZoneFactory->new(
-         project_dir => $args{project_dir},
-         zone_specs_for => $args{zone_specs_for},
-      );
-   }
-   return \%args;
-}
+sub __complain { ouch 400, "missing member $_[1]" }
 
-sub __complain ($member) {
-   return sub {ouch 400, "missing member $member" };
-}
-
-sub __set_logger (@args) {
-   state $set = 0;
-   return if $set++ && ! @args;
-   my @logger = scalar(@args) ? @args : DEFAULTS->{logger}->@*;
-   Log::Any::Adapter->set(@logger);
-} ## end sub __set_logger (@args)
 
 sub zone_for ($self, $name) { $self->zone_factory->zone_for($name) }
 
@@ -232,23 +296,6 @@ sub dump_configuration ($self) {
    $log->debug(Data::Dumper::Dumper($self->config));
    return;
 } ## end sub dump_configuration ($self)
-
-sub wipe_directory ($self, $zone) {
-   $zone = $self->zone_for($zone);
-   my $dir = $zone->host_base;
-   if ($dir->exists) {
-      try { $dir->remove_tree({safe => 0}) }
-      catch { ouch 500, "cannot delete $dir, check permissions maybe?" };
-   }
-   return $dir;
-} ## end sub wipe_directory
-
-sub origin_onto_src ($self, $origin) {
-   my $src_dir = $self->wipe_directory(SRC);
-   my $dirty   = $self->allow_dirty // undef;
-   Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty});
-   return $src_dir;
-} ## end sub origin_onto_src
 
 sub ensure_host_directories ($self) {
    my $is_local = $self->config('local');
@@ -738,56 +785,7 @@ sub run ($self) {
    return 0;
 } ## end sub run ($self)
 
-sub create_from_cmdline ($class, @as) {
-   my $cmdenv = get_config_cmdenv(\@as);
-   __set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
 
-   # start looking for the configuration file, refer it to the project dir
-   # if relative, otherwise leave it as is
-   my $cnfp = path($cmdenv->{config_file});
-
-   # development mode is a bit special in that dibs.yml might be *inside*
-   # the repository itself and the origin needs to be cloned beforehand
-   my $is_alien       = $cmdenv->{alien};
-   my $is_development = $cmdenv->{development};
-   if ((!$cnfp->exists) && ($is_alien || $is_development)) {
-      my $tmp = $class->new(
-         zone_factory => Zone::Factory->new(
-            project_dir => $cmdenv->{project_dir},
-            zone_specs_for => DEFAULTS->{zone_specs_for},
-         )
-      );
-
-      my $origin = $cmdenv->{origin} // '';
-      $origin = cwd() . $origin
-        if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
-      ARROW_OUTPUT('=', "early clone of origin '$origin'");
-
-      my $src_dir = $tmp->origin_onto_src($origin);
-      $cmdenv->{has_cloned} = 1;
-
-      # there's no last chance, so config_file is set
-      $cnfp = $src_dir->child($cmdenv->{config_file});
-   } ## end if ((!$cnfp->exists) &&...)
-
-   ouch 400, 'no configuration file found' unless $cnfp->exists;
-
-   my $overall = add_config_file($cmdenv, $cnfp);
-   return $class->new(config => $overall);
-} ## end sub create_from_cmdline
-
-sub main ($pkg, @as) {
-   my $retval = try {
-      __set_logger(); # initialize with defaults
-      my $dibs = $pkg->create_from_cmdline(@as);
-      $dibs->run;
-   }
-   catch {
-      $log->fatal(bleep);
-      1;
-   };
-   return ($retval // 0);
-} ## end sub main
 
 1;
 __END__

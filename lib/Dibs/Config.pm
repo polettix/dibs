@@ -31,7 +31,6 @@ use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
-use constant ENV               => 'env';
 use constant ENVILE            => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
@@ -92,7 +91,7 @@ use constant DEFAULTS => {
          container_base => '/tmp/envile',
          host_base      => 'envile',
       },
-      ENV,
+      ENVIRON,
       {
          container_base => '/tmp/env',
          host_base      => 'env',
@@ -156,7 +155,7 @@ our %EXPORT_TAGS = (
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
-        HOST_DIBSPACKS INDENT
+        HOST_DIBSPACKS INDENT DEFAULTS
         >
    ],
    functions => [qw< get_config_cmdenv add_config_file yaml_boolean >],
@@ -219,7 +218,13 @@ sub add_config_file ($sofar, $cnfp) {
 
    # configurations from the file must have higher precedence with respect
    # to the defaults. The "frozen" stuff takes highest precedence anyway.
-   my $overall = _merge($frozen, $cmdline, $env, $cnffile, $defaults);
+   my @contributors = ($frozen, $cmdline, $env, $cnffile, $defaults);
+   my $overall = _merge(@contributors);
+   for my $key (qw< zone_specs_for >) {
+      $overall->{$key} = _merge(
+         map { exists($_->{$key}) ? $_->{$key} : () } @contributors
+      );
+   }
 
    # some configurations have mutual exclusions
    my $is_alien       = $sofar->{alien};

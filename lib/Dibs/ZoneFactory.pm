@@ -16,17 +16,25 @@ sub BUILDARGS ($class, @args) {
    my $project_dir =
      defined($specs{project_dir}) ? path($specs{project_dir}) : undef;
    my %map = map {
-      my $host_base = $zone_specs_for{$_}->{host_base};
-      if (defined $host_base) {
-         $host_base = path($host_base);
-         $host_base = $project_dir->child($host_base)
-            if defined($project_dir) && $host_base->is_relative;
+      my $spec = $zone_specs_for->{$_};
+      my $zone;
+      if (blessed($spec) && $spec->isa('Dibs::Zone')) {
+         $zone = $spec;
       }
-      $_ => Dibs::Zone->new(
-         name           => $_,
-         container_base => $zone_specs_for{$_}->{container_base},
-         host_base      => $host_base,
-        )
+      else {
+         my $host_base = $spec->{host_base};
+         if (defined $host_base) {
+            $host_base = path($host_base);
+            $host_base = $project_dir->child($host_base)
+               if defined($project_dir) && $host_base->is_relative;
+         }
+         $zone = Dibs::Zone->new(
+            name           => $_,
+            container_base => $spec->{container_base},
+            host_base      => $host_base,
+         );
+      }
+      $_ => $zone;
    } keys $zone_specs_for->%*;
    return {_map => \%map};
 } ## end sub BUILDARGS
