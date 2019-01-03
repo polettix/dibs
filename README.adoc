@@ -93,68 +93,55 @@ operations.
 
 The https://docs.docker.com/engine/reference/builder/#run[RUN] directive in
 the https://docs.docker.com/engine/reference/builder/[Dockerfile] is very
-powerful, but it allows you to execute either direct commands or some
+powerful, but it allows executing either direct commands or some
 script/program that are available inside the container during its
 construction. While very powerful (it’s actually all that is strictly needed),
 it’s quite difficult to reuse operations consistently.
 
-`dibs` allows defining _packs_ of operations.footnote:[The name is inspired to
-https://www.heroku.com/[Heroku]'s buildpacks, but the semantics is nowadays
-very different.] in many different ways, which include grouping them in a git
-repository that can be shared across multiple projects. An example of such a
-repository is https://github.com/polettix/dibspack-basic[dibspack-basic].
+`dibs` allows defining _packs_ of operations{blank}footnote:[The name is
+inspired to https://www.heroku.com/[Heroku]'s buildpacks, but the semantics is
+nowadays very different.] in many different ways, which include grouping them
+in a git repository that can be shared across multiple projects. An example of
+such a repository is
+https://github.com/polettix/dibspack-basic[dibspack-basic].
 
 == Basics
 
 The basic metaphor used in Dibs is inspired to drawing (because the aim is to
-generate... an image).
+generate... an image). To generate an image, multiple _actions_ are available:
 
-To generate an image, multiple _actions_ are required:
-
-- 
+- setting the starting point for an image is to _prepare_ it, much like the
+  https://docs.docker.com/engine/reference/builder/#from[FROM] directive in
+  the https://docs.docker.com/engine/reference/builder/[Dockerfile];
 - a single operation step performed inside a container is a _stroke_. It can
-  be thought as a single 'RUN` step inside a Dockerfile;
-- 
-
-
-
-Some basic concepts to understand how to use `dibs`.
-
-=== Workflow
+  be thought as a single 'RUN`
+  https://docs.docker.com/engine/reference/builder/#run[RUN] directive in the
+  https://docs.docker.com/engine/reference/builder/[Dockerfile];
+- finalizing an image is to _frame_ it (there is no equivalent operation in
+  the https://docs.docker.com/engine/reference/builder/[Dockerfile]);
+- collecting multiple actions together is to create a _sketch_ (it can contain
+  other __sketch__es itself).
 
 When run, `dibs` goes through two main phases: the setup and the execution of
-_steps_.
+_actions_:
 
-The setup phase collects all available information for the specific run. It
-merges together different sources (command line parameters, environment
-variables, and the configuration file), making also sure that the source code
-is fetched and made ready for operating the different steps.
+- in the setup phase collects all available information for the specific run.
+  It merges together different sources (command line parameters, environment
+  variables, and the configuration file that will be described below), making
+  also sure that the source code is fetched and made ready for operating the
+  different steps;
+- in the execution phases, `dibs` executes the required actions. This may end
+  up in an image or not, depending on the needs.
 
-The steps phase runs through a customized series of steps. Each step runs
-a series of operations starting from a container image and operating in layers
-on top of it; these operations are performed through _dibspacks_ (see below).
-When the series is complete, the step might just through away the resulting
-pile of container layers, or save them in a container image. This makes it
-possible to ditch away container layers for _build_ steps, and keep those for
-_bundle_ steps (where the target image is packaged).
+The operations in a _stroke_ are performed through __dibspack__s (or simply
+__pack__s). They are the specification of where _something_ can be found, most
+probably a program or a group of programs that can be executed inside the
+container.footnote:[Packs can be used also to locate other configuration
+files, although this feature is yet to be introduced.]
 
-=== Dibspacks
-
-The actual operations are performed through __dibspack__s. The starting
-idea is taken from https://www.heroku.com/[Heroku]’s
-https://devcenter.heroku.com/articles/buildpacks[buildpacks], but there
-is actually little resemblance left as of now.
-
-A _dibspack_ is a program (whose location can be specified flexibly);
-this program can be used to perform an action within a container. This
-is more or less what the `build` program in a buildpack is for; the
-other programs are not supported (either because they can be embedded in
-the main dibspack program, like `detect`, or because they are not used
-by `dibs`).
-
-The program will be executed inside containers. The resulting container
-is then used as a base for further dibspacks executions inside the same
-step and also for saving a final image (if so configured).
+For __stroke__s, a program will be executed inside containers. The resulting
+container is then used as a base for further __stroke__s executions inside the
+same step and also for saving a final image (if so requested).
 
 === Directory Layouts
 
