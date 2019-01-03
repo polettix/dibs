@@ -8,7 +8,7 @@ use Path::Tiny qw< path cwd >;
 use Ouch qw< :trytiny_var >;
 use Try::Catch;
 use POSIX qw< strftime >;
-use Scalar::Util qw< refaddr >;
+use Scalar::Util qw< refaddr blessed >;
 use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 use Moo;
@@ -26,47 +26,133 @@ use Dibs::Output;
 use Dibs::Get;
 use Dibs::ZoneFactory;
 
-has _project_dir => (
+has _actions_for => (is => 'ro', default => sub { return {} });
+
+has allow_dirty => (
    is => 'ro',
-   lazy => 1,
-   default => __complain('project_dir'),
-   init_arg => 'project_dir',
+   default => 0,
+   init_arg => 'dirty',
+   coerce => sub ($x) { $x ? 1 : 0 },
+);
+
+has project_dir => (
+   is => 'ro',
+   required => 1,
    coerce => sub ($path) { return path($path)->absolute },
 );
-has _actions_for      => (is => 'ro', default => sub { return {} });
+
+has _raw_actions => (
+   is => 'ro',
+   default => sub { return {} },
+   init_arg => 'actions',
+);
+
+has _steps => (
+   is => 'ro',
+   default => sub { return {} },
+   init_arg => 'steps',
+);
+
+has workflow => (
+   is => 'ro',
+   required => 1,
+   isa => sub ($v) {
+      ouch 400, 'invalid workflow' unless ref($v) eq 'ARRAY' && $v->@*;
+   },
+);
+
+has zone_factory => (
+   is => 'ro',
+   required => 1,
+   coerce => sub ($def) {
+      return $def if blessed($def) && $def->isa('Dibs::ZoneFactory');
+      return Dibs::ZoneFactory->new($def);
+   },
+);
+
 has _dibspack_for     => (is => 'ro', default => sub { return {} });
 has all_metadata      => (is => 'ro', default => sub { return {} });
 
-has allow_dirty => (is => 'ro', default => 0, init_arg => 'dirty');
-has logger =>
-  (is => 'ro', default => sub { DEFAULTS->{logger} });
-has zone_factory => (
-   is => 'ro',
-   lazy => 1,
-   default => __complain('zone_factory'),
-);
+sub actions_for ($self, $step) {
+   my $afor = $self->_actions_for;
+   if (!$afor->{$step}) {
+
+      # build the flattened list of actions for this step. We have to
+      # simulate a stack of recursive calls so that we can allow nested
+      # definitions; on the way we will check for circular inclusions
+      # and complain about them
+      my $adf = $self->_raw_actions;
+      my @stack = {queue => [$self->build_actions_array($step)]};
+      $afor->{$step} = \my @retval;
+      my %seen;    # circular inclusion avoidance
+    ITEM:
+      while (@stack) {
+         my $queue = $stack[-1]{queue};
+         if (scalar($queue->@*) == 0) {
+            my $exhausted_frame = pop @stack;
+
+            # the "parent" of this frame can be removed from circular
+            # inclusion avoidance
+            delete $seen{$exhausted_frame->{parent}}
+              if exists $exhausted_frame->{parent};
+
+            next ITEM;
+         } ## end if (scalar($queue->@*)...)
+
+         my $item = shift $queue->@*;
+         my $ref  = ref $item;
+         if ($ref eq 'ARRAY') {    # array -> do "recursive" flattening
+            my $id = refaddr($item);
+            ouch 400, "circular reference in actions for $step"
+              if $seen{$id}++;
+
+            # this $id will trigger circular inclusion error from now
+            # until the stack frame is eventually removed
+            push @stack, {parent => $id, queue => [$item->@*]};
+
+            next ITEM;
+         } ## end if ($ref eq 'ARRAY')
+         elsif ($ref eq 'HASH') {
+            __expand_extends($item, ACTIONS, $adf);
+            push @retval, Dibs::Action->create($item, $self);
+            next ITEM;
+         }
+         elsif ((!$ref) && exists($adf->{$item})) {
+            unshift $queue->@*, $adf->{$item};
+            next ITEM;
+         }
+         elsif (!$ref) {
+            push @retval, Dibs::Action->create($item, $self);
+            next ITEM;
+         }
+         else {
+            ouch 400, "unknown action of type $ref";
+         }
+      } ## end ITEM: while (@stack)
+   } ## end if (!$afor->{$step})
+
+   return $afor->{$step}->@*;
+} ## end sub actions_for
 
 sub BUILDARGS ($self, @as) {
    my %args = (@as && ref($as[0])) ? $as[0]->%* : @as;
-   if (exists $args{zone_specs_for}) {
-      $args{zone_factory} = Dibs::ZoneFactory->new(
-         project_dir => $args{project_dir},
+
+   ouch 400, 'missing project_dir' unless length($args{project_dir} // '');
+
+   $args{zone_factory} //= Dibs::ZoneFactory->new(
+      {
+         project_dir    => $args{project_dir},
          zone_specs_for => $args{zone_specs_for},
-      );
-   }
+      }
+   ) if exists $args{zone_specs_for};
+   ouch 400, 'missing zone_factory' unless defined($args{zone_factory});
+
    return \%args;
 }
 
-sub __complain ($member) {
-   return sub {ouch 400, "missing member $member" };
-}
+sub step_for ($self, $name) {
 
-sub __set_logger (@args) {
-   state $set = 0;
-   return if $set++ && ! @args;
-   my @logger = scalar(@args) ? @args : DEFAULTS->{logger}->@*;
-   Log::Any::Adapter->set(@logger);
-} ## end sub __set_logger (@args)
+}
 
 sub zone_for ($self, $name) { $self->zone_factory->zone_for($name) }
 
@@ -197,13 +283,6 @@ sub host_project_dir ($self, @subdirs) {
    return (@subdirs ? $hpd->child(@subdirs) : $hpd);
 }
 
-sub workflow ($self) {
-   my $s = $self->config(WORKFLOW);
-   ouch 400, 'no workflow defined for execution'
-     unless (ref($s) eq 'ARRAY') && scalar($s->@*);
-   return $s->@*;
-} ## end sub workflow ($self)
-
 sub _resolve_path ($self, $space, $zone, $path) {
    defined(my $base = $self->config($space => $zone))
      or ouch 400, "unknown zone $zone for resolution inside container";
@@ -220,8 +299,6 @@ sub resolve_container_path ($self, $zone, $path = undef) {
    return $self->_resolve_path(container_dirs => $zone, $path);
 }
 
-sub set_logger($self) { __set_logger($self->logger->@*) }
-
 sub set_run_metadata ($self) {
    $self->add_metadata(DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime));
 }
@@ -233,20 +310,10 @@ sub dump_configuration ($self) {
    return;
 } ## end sub dump_configuration ($self)
 
-sub wipe_directory ($self, $zone) {
-   $zone = $self->zone_for($zone);
-   my $dir = $zone->host_base;
-   if ($dir->exists) {
-      try { $dir->remove_tree({safe => 0}) }
-      catch { ouch 500, "cannot delete $dir, check permissions maybe?" };
-   }
-   return $dir;
-} ## end sub wipe_directory
-
 sub origin_onto_src ($self, $origin) {
-   my $src_dir = $self->wipe_directory(SRC);
+   my $src_dir = $self->zone_for(SRC)->host_base;
    my $dirty   = $self->allow_dirty // undef;
-   Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty});
+   Dibs::Get::get_origin($origin, $src_dir, {clean_only => !$dirty, wipe => 1});
    return $src_dir;
 } ## end sub origin_onto_src
 
@@ -280,66 +347,6 @@ sub ensure_host_directories ($self) {
 
    return;
 } ## end sub ensure_host_directories ($self)
-
-sub actions_for ($self, $step) {
-   my $afor = $self->_actions_for;
-   if (!$afor->{$step}) {
-
-      # build the flattened list of actions for this step. We have to
-      # simulate a stack of recursive calls so that we can allow nested
-      # definitions; on the way we will check for circular inclusions
-      # and complain about them
-      my $adf = $self->config(ACTIONS) // {};
-      my @stack = {queue => [$self->build_actions_array($step)]};
-      $afor->{$step} = \my @retval;
-      my %seen;    # circular inclusion avoidance
-    ITEM:
-      while (@stack) {
-         my $queue = $stack[-1]{queue};
-         if (scalar($queue->@*) == 0) {
-            my $exhausted_frame = pop @stack;
-
-            # the "parent" of this frame can be removed from circular
-            # inclusion avoidance from now on
-            delete $seen{$exhausted_frame->{parent}}
-              if exists $exhausted_frame->{parent};
-
-            next ITEM;
-         } ## end if (scalar($queue->@*)...)
-
-         my $item = shift $queue->@*;
-         my $ref  = ref $item;
-         if ($ref eq 'ARRAY') {    # array -> do "recursive" flattening
-            my $id = refaddr($item);
-            ouch 400, "circular reference in actions for $step"
-              if $seen{$id}++;
-
-            # this $id will trigger circular inclusion error from now
-            # until the stack frame is eventually removed
-            push @stack, {parent => $id, queue => [$item->@*]};
-
-            next ITEM;
-         } ## end if ($ref eq 'ARRAY')
-         elsif ($ref eq 'HASH') {
-            __expand_extends($item, ACTIONS, $adf);
-            push @retval, Dibs::Action->create($item, $self);
-            next ITEM;
-         }
-         elsif ((!$ref) && exists($adf->{$item})) {
-            unshift $queue->@*, $adf->{$item};
-            next ITEM;
-         }
-         elsif (!$ref) {
-            push @retval, Dibs::Action->create($item, $self);
-            next ITEM;
-         }
-         else {
-            ouch 400, "unknown action of type $ref";
-         }
-      } ## end ITEM: while (@stack)
-   } ## end if (!$afor->{$step})
-   return $afor->{$step}->@*;
-} ## end sub actions_for
 
 sub iterate_actions ($self, $step) {
 
@@ -711,7 +718,6 @@ sub run_step ($self, $step) {
 } ## end sub run_step
 
 sub run ($self) {
-   $self->set_logger;
    $self->set_run_metadata;
    $self->dump_configuration;
 
@@ -719,12 +725,12 @@ sub run ($self) {
    try {
       $self->ensure_host_directories;
 
-      for my $step ($self->workflow) {
+      for my $step ($self->workflow->@*) {
          ARROW_OUTPUT('=', "step $step");
          if (my @tags = $self->run_step($step)) {
             push @tags_lists, [$step, @tags];
          }
-      } ## end for my $step ($self->workflow)
+      } ## end for my $step ($self->workflow->@*)
       for (@tags_lists) {
          my ($step, @tags) = $_->@*;
          say "$step: @tags";
@@ -737,57 +743,6 @@ sub run ($self) {
    };
    return 0;
 } ## end sub run ($self)
-
-sub create_from_cmdline ($class, @as) {
-   my $cmdenv = get_config_cmdenv(\@as);
-   __set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
-
-   # start looking for the configuration file, refer it to the project dir
-   # if relative, otherwise leave it as is
-   my $cnfp = path($cmdenv->{config_file});
-
-   # development mode is a bit special in that dibs.yml might be *inside*
-   # the repository itself and the origin needs to be cloned beforehand
-   my $is_alien       = $cmdenv->{alien};
-   my $is_development = $cmdenv->{development};
-   if ((!$cnfp->exists) && ($is_alien || $is_development)) {
-      my $tmp = $class->new(
-         zone_factory => Zone::Factory->new(
-            project_dir => $cmdenv->{project_dir},
-            zone_specs_for => DEFAULTS->{zone_specs_for},
-         )
-      );
-
-      my $origin = $cmdenv->{origin} // '';
-      $origin = cwd() . $origin
-        if ($origin eq '') || ($origin =~ m{\A\#.+}mxs);
-      ARROW_OUTPUT('=', "early clone of origin '$origin'");
-
-      my $src_dir = $tmp->origin_onto_src($origin);
-      $cmdenv->{has_cloned} = 1;
-
-      # there's no last chance, so config_file is set
-      $cnfp = $src_dir->child($cmdenv->{config_file});
-   } ## end if ((!$cnfp->exists) &&...)
-
-   ouch 400, 'no configuration file found' unless $cnfp->exists;
-
-   my $overall = add_config_file($cmdenv, $cnfp);
-   return $class->new(config => $overall);
-} ## end sub create_from_cmdline
-
-sub main ($pkg, @as) {
-   my $retval = try {
-      __set_logger(); # initialize with defaults
-      my $dibs = $pkg->create_from_cmdline(@as);
-      $dibs->run;
-   }
-   catch {
-      $log->fatal(bleep);
-      1;
-   };
-   return ($retval // 0);
-} ## end sub main
 
 1;
 __END__

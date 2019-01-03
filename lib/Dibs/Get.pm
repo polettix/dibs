@@ -7,12 +7,16 @@ use Path::Tiny qw< path >;
 use Log::Any qw< $log >;
 use Ouch qw< :trytiny_var >;
 use Dibs::Run qw< assert_command >;
+use Try::Catch;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 sub get_origin ($source, $target, $options = {}) {
-   # complain loudly if $target exists. Ensure it's a plain string
    $target = path($target);
-   ouch 500, "target directory $target exists" if $target->exists;
+   if ($target->exists) {
+      ouch 500, "target directory $target exists" unless $options->{wipe};
+      try { $target->remove_tree({safe => 0}) }
+      catch { ouch 500, "cannot delete $target, permissions maybe?" };
+   }
    $target = $target->stringify;
 
    # the definition of the source might be an associative array or a string
