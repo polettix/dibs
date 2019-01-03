@@ -258,29 +258,39 @@ sub ensure_host_directories ($self) {
 sub actions_for ($self, $step) {
    my $afor = $self->_actions_for;
    if (! $afor->{$step}) {
+      # build the flattened list of actions for this step. We have to
+      # simulate a stack of recursive calls so that we can allow nested
+      # definitions; on the way we will check for circular inclusions
+      # and complain about them
       my $adf = $self->config(ACTIONS) // {};
-      my @stack = {
-         parent => '',
-         queue => [$self->build_actions_array($step)],
-      };                             # starting point
-      $afor->{$step} = \my @retval;  # result
-      my %seen = ('' => 1);          # circular inclusion avoidance
+      my @stack = { queue => [$self->build_actions_array($step)] };
+      $afor->{$step} = \my @retval;
+      my %seen; # circular inclusion avoidance
       ITEM:
       while (@stack) {
          my $queue = $stack[-1]{queue};
          if (scalar($queue->@*) == 0) {
-            delete $seen{$stack[-1]{parent}};
-            pop @stack;
+            my $exhausted_frame = pop @stack;
+
+            # the "parent" of this frame can be removed from circular
+            # inclusion avoidance from now on
+            delete $seen{$exhausted_frame->{parent}}
+               if exists $exhausted_frame->{parent};
+
             next ITEM;
          }
 
          my $item = shift $queue->@*;
          my $ref = ref $item;
-         if ($ref eq 'ARRAY') { # "recursive" flattening
+         if ($ref eq 'ARRAY') { # array -> do "recursive" flattening
             my $id = refaddr($item);
             ouch 400, "circular reference in actions for $step"
                if $seen{$id}++;
+
+            # this $id will trigger circular inclusion error from now
+            # until the stack frame is eventually removed
             push @stack, { parent => $id, queue  => [$item->@*] };
+
             next ITEM;
          }
          elsif ($ref eq 'HASH') {
