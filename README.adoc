@@ -122,8 +122,8 @@ generate... an image). To generate an image, multiple _actions_ are available:
 - collecting multiple actions together is to create a _sketch_ (it can contain
   other __sketch__es itself).
 
-When run, `dibs` goes through two main phases: the setup and the execution of
-_actions_:
+When run, `dibs` goes through two main phases, namely the setup and the
+execution of actions:
 
 - in the setup phase collects all available information for the specific run.
   It merges together different sources (command line parameters, environment
@@ -139,9 +139,152 @@ probably a program or a group of programs that can be executed inside the
 container.footnote:[Packs can be used also to locate other configuration
 files, although this feature is yet to be introduced.]
 
-For __stroke__s, a program will be executed inside containers. The resulting
-container is then used as a base for further __stroke__s executions inside the
-same step and also for saving a final image (if so requested).
+All actions (and something more) are defined inside a _configuration
+file_,footnote:[This might turn in multiple ones in a future release.], whose
+structure will be described below.
+
+Dibs elects a directory as a base camp for its operations, called the _project
+directory_. Depending on the specific configuration, it defaults to a `dibs`
+sub-directory of the current directory, or to the current directory itself.
+The configuration file and other directories _shared_ across all stroke
+executions are related to the _project directory_, and are:
+
+- `src`: where the source (code, prerequisites, etc.) is made available,
+  read-write;
+- `cache`: a convenience area where build artifacts can be stored, e.g. to pass
+  them across different strokes or entire phases. Available in read-write mode
+  inside the container
+- `env` and `envile`: read-only directories where data is passed from the
+  outside. The former can be used to set up data from the user, the latter is
+  used by `dibs` itself to set them in the form of keys (filename) associated
+  to data (the contents of the files);
+- `pack`, `auto/open`: where dibpacks are stored (the former local to the
+  specific project, the latter generated automatically by `dibs` from
+  remote/dynamic dibspacks).
+
+== Examples
+
+It's better to start looking at a couple of examples to better understand how
+`dibs` works in its two main modes of operation: _development_ and _alien_.
+
+=== Development Mode
+
+As the name implies, _development mode_ is best used when developing the
+software and generating the container image during development itself (e.g. as
+a developer).
+
+The example assumes the following layout of files and directories:
+
+.directory layout
+----
+.git/
+    [...]
+app.pl
+cpanfile
+dibs.yml
+prereqs/
+    alpine.build
+    alpine.bundle
+----
+
+where:
+
+- `.git` indicates that the whole project is tracked with `ŋit`;
+- `app.pl` is a Perl program;
+- `cpanfile` details the module dependencies of the Perl program;
+- `dibs.yml` is `dibs`'s configuration file;
+- `prereqs` is a directory for storing pre-requirements files
+- `alpine.build` and `alpine.bundle` are two programs that, when executed
+  inside a container, make sure to install the OS packages needed by `app.pl`
+  or any of the modules that will be installed by `cpanfile`. Each program
+  installs the requirements for a specific phase, in this case `build` and
+  `bundle` represent the build phase (where artifacts are generated) and the
+  bundle phase (where the artifacts are put in place along with the runtime
+  environment).
+
+The `dibs.yml` configuration file in this example is the following (note: this
+is quite simple at this stage, additional features will be shown later):
+
+.dibs.yml
+[source,yaml]
+----
+name: exadev  // <1>
+packs:        // <2>
+    basic:
+        type: git
+        origin: https://github.com/polettix/dibspack-basic.git
+actions:
+    default: [build, bundle]  // <3>
+    prereqs:                  // <4>
+      pack: basic
+      path: prereqs
+    build:                    // <5>
+        envile:               // <6>
+            DIBS_PREREQS: build
+        actions:
+            - from: 'alpine:3.6'  // <7>
+            - prereqs             // <8>
+            - name: compile       // <9>
+              pack: basic
+              path: perl/build
+            - name: save compiled artifacts in cache
+              pack:
+                run: |            // <10>
+                    #!/bin/sh
+                    src_dir="$(cat DIBS_SRC_DIR)"
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    dst_dir="$cache_dir/app"
+                    set -e
+                    rm -rf "$target"
+                    mkdir -p "$target"
+                    cp -a "$src_dir/app.pl" "$target"
+                    cp -a "$src_dir/local" "$target"
+    bundle:
+        envile:
+            DIBS_PREREQS: bundle
+        actions:
+            - from: 'alpine:3.6'
+            - prereqs
+            - name: put artifacts in place
+              pack:
+                run: |
+                    #!/bin/sh
+                    cache_dir="$(cat DIBS_CACHE_DIR)"
+                    src_dir="$cache_dir/app"
+                    dst_dir="/app"
+                    rm -rf "$dst_dir"
+                    cp -a "$src_dir" "$dst_dir"
+              commit:          // <11>
+                entrypoint: []
+                cmd: ['/bin/sh', '-l']
+            - name: save bundled image  // <12>
+              image_name: exadev
+              tags: ['latest', '0.3']
+----
+<1> the name is used for temporary images
+<2> it's possible to define named packs and refer to them later
+<3> an _action_ named `default` is what is executed... by default
+<4> this is the specification of a _stroke_, based on the `basic` _pack_.
+<5> this is the specification of a _sketch_ (because it contains a list of
+__action__s)
+<6> __envile__s are similar to environment variables, but less invasive
+<7> this is equivalent to FROM in a Dockerfile
+<8> this "calls" the `prereqs' _stroke_ defined elsewhere (above in this case)
+<9> this is a _stroke_ where a name is assigned explicitly, so that it will be
+shown when executed
+<10> this is an _immediate_ pack that is saved as a script and then executed
+inside the container
+<11> adding a `commit` sets additional traits of the image layer, e.g.
+`entrypoint`, `cmd`, `user`, ...
+<12> this is a _frame_, i.e. the actual saving of an image
+
+
+
+
+=== Alien Mode
+
+
+
 
 === Directory Layouts
 
