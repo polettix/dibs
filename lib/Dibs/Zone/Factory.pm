@@ -42,7 +42,7 @@ sub BUILDARGS ($class, @args) {
    my %zones_for;
    if (defined(my $href = $specs{zone_names_for})) {
       while (my ($key, $names) = each $href->%*) {
-         $dps_zones_for{$key} = \my @zones;
+         $zones_for{$key} = \my @zones;
          for my $name ($names->@*) {
             ouch 400, "unknown zone $name" unless exists $map{$name};
             push @zones, $map{$name};
@@ -50,7 +50,7 @@ sub BUILDARGS ($class, @args) {
       }
    }
 
-   return {_map => \%map, _zones_for => \%dps_zones_for};
+   return {_map => \%map, _zones_for => \%zones_for};
 } ## end sub BUILDARGS
 
 sub zone_for ($self, $zone) {
@@ -64,7 +64,7 @@ sub item ($self, $zone) { return $self->zone_for($zone) }
 
 sub items ($self, $filter = undef) {
    if (defined $filter) {
-      my $zones_for = $self->zones_for;
+      my $zones_for = $self->_zones_for;
       ouch 400, "invalid filter $filter for zones filtering"
          unless exists $zones_for->{$filter};
       return $zones_for->{$filter}->@*;
@@ -72,10 +72,6 @@ sub items ($self, $filter = undef) {
    else {
       return values $self->_map->%*;
    }
-}
-
-sub dibspacks_items ($self, $side) {
-   return $self->_dibspacks_zones_for->{$side}->@*;
 }
 
 sub default ($class, $project_dir = undef) {
