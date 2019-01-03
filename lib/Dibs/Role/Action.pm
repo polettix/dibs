@@ -8,30 +8,15 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 requires qw< execute >;
 
-has ancestors => (is => 'ro', default => sub { return [] });
+has breadcrumbs => (is => 'ro', default => sub { return [] });
 has _name => (is => 'lazy', init_arg => 'name');
 has output_char => (is => 'ro', default => ' ');
 
 sub _build__name ($self) { return }
 
+# this is the default create, override if you need more stuff from %args
 sub create ($class, %args) {
-
-   # $spec is the recipe to generate the sketch
-   # $factory is what we can use to generate actions (or their proxies),
-   #   it triggered create() as well most probably
-   # $factory_args is what we inherited, e.g. might contain 'flags' for
-   #   circular dependency avoidance
-   my ($spec, $factory_args) = @args{qw< spec args >};
-   $spec = $class->parse($spec) unless ref $spec;
-
-   my %constructor_args = (
-      $spec->%*,
-      ancestors => $factory_args->{ancestors},
-   );
-   if (defined(my $name = ($spec->{name} // $factory_args->{name}))) {
-      $constructor_args{name} = $name;
-   }
-   return $class->new(%constructor_args);
+   return $class->new($args{spec}->%*);
 }
 
 sub fullname ($self, $default = '') {
@@ -56,7 +41,7 @@ sub output_marked ($self, %args) {
 
 sub output ($self, $message) { OUTPUT($message) }
 
-sub _prefix ($self) { join ' -> ', map { $_->name } $self->ancestors->@* }
+sub _prefix ($s) { join ' -> ', map { $_->name } $s->breadcrumbs->@* }
 
 sub type ($self) { lc(ref $self) =~ s{\A.*::}{}rmxs }
 

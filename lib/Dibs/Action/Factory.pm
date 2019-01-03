@@ -71,10 +71,6 @@ sub _dwim_type ($self, $spec) {
    return;
 }
 
-sub _clone_ancestors ($self, $override) {
-   return [($override // $self->ancestors)->@*];
-}
-
 sub _build_zone_factory ($self) { $self->pack_factory->zone_factory }
 
 1;
