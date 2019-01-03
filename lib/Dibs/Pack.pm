@@ -10,40 +10,29 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Config qw< :constants >;
 
-has _locations => (is => 'ro', default => []);
-has name => (is => 'ro', required => 1);
+has _locations => (is => 'ro', default  => []);
+has name       => (is => 'ro', required => 1);
 
 sub create ($package, $spec, $zone_factory) {
 
 }
 
-sub location ($self, @zones) {
-   return undef unless $self->_locations->@*;
-   my %ok = map { $_ => 1 } @zones;
-   return $self->_locations->[0] unless keys %ok;
-   return first { $ok{$_->zone} } $self->_locations->@*;
+# interface, these MUST be overridden
+sub first_material_location ($self, @candidate_zones) {
+   ouch 500, $self->name . ': unimplemented';
 }
 
-sub locations ($self, @zones) {
-   return unless $self->_locations->@*;
-   my %ok = map { $_ => 1 } @zones;
-   return $self->_locations->@* unless keys %ok;
-   return grep { $ok{$_->zone} } $self->_locations->@*;
+sub first_supportable_zone ($self, @candidate_zones) {
+   ouch 500, $self->name . ': unimplemented';
 }
 
-sub materialize ($self, @candidate_zones) {
-   $self->location(@zones) or ouch 400, 'cannot materialize';
-}
-
-sub supportable_zone ($s, @w) { ($s->supportable_zones(@w))[0] }
-
-sub supportable_zones ($self, @wanted) { $self->zones(@wanted) }
-
-sub zone ($self, @wanted) { ($self->zones(@wanted))[0] }
-
-sub zones ($self, @wanted) { map {$_->zone} $self->locations(@wanted) }
-
-
+# protected methods, useful in derived classes
+sub _first_location_in ($self, @candidate_zones) {
+   my @ls = $self->_locations->@* or return undef;
+   return $ls[0] unless @candidate_zones;
+   my %is_candidate = map { $_ => 1 } @candidate_zones;
+   return first { $is_candidate{$_->zone} } @ls;
+} ## end sub location
 
 sub _inflate_location ($self_or_package, $spec) {
    return $spec if blessed($spec) && $spec->isa('Dibs::Location');
@@ -51,31 +40,24 @@ sub _inflate_location ($self_or_package, $spec) {
    ouch 400, q{invalid location for pack '} . $self->name . q{'};
 }
 
-
-
-
-
 1;
 __END__
 
 
 interface
 
-- zones(@zones): returns zones where it's present, filtering @zones
-                 or giving all available
-- zone(@zones): returns the first available zone in @zone, or in general
-                if @zones is empty
-- materialize($zone): ensures pack is in place and returns location. If
-                      $zone is not present it might be added... or not! If
-                      $zone is undef it uses the first available.
-- location($zone): just the location (might not be materilized), undef if
-                   $zone is currently not served
-
 
 How to use:
 
    my $instance = $pkg->create($spec, $zf);
    ...
+   my $zone = $self->first_supportable_zone(@candidates) # also empty
+      ouch 400, 'no zone found';
+   my $location = $self->first_material_location($zone);
+
+   # or rely on exceptions
+   my $location = $self->first_material_location(@candidate_zones);
+
    # list already supported zones
    my @zones = $instance->zones(@useful_zones);
 
