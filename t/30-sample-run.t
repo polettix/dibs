@@ -40,11 +40,11 @@ is $out, undef, 'output of the whole thing';
 
 for my $sentence (
       'Hello, world! In foo, FOO starts as <>',
-      'Hello, world! This is foo and FOO is bar',
-      'Here BAR is <baaaz>',
+      'Hello, world! This is foo and FOO is <bar>',
+      'FOO<bar> BAR<baaaz>',
       'Hello, world! This is bar [one] [two (2)]',
-      '+++++> action bar! bar! bar!',
-      '+++++> action foo! Foo! FOO!',
+      '-----> stroke bar! bar! bar!',
+      '-----> stroke foo! Foo! FOO!',
 ) {
    like $err, qr{\Q$sentence\E}, "sentence: $sentence";
 }

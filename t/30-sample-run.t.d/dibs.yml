@@ -1,40 +1,39 @@
 ---
 name: dibstest
 defaults:
-   envile:
-      - FOO: bar
-        BAR: baz
+   envile: &common_envile
+      FOO: bar
+      BAR: baz
    variables:
       - &one one
       - &two 'two (2)'
-dibspacks:
-   for_bar_name:
-      name: 'bar! bar! bar!'
+packs:
    for_bar:
-      extends: for_bar_name
       run: |
          #!/bin/sh
          env_dir="$PWD"
          printf >&2 '%s\n' "Hello, world! This is bar [$1] [$2]"
+         FOO="$(cat "$env_dir/FOO")"
          BAR="$(cat "$env_dir/BAR")"
-         printf >&2 '%s\n' "Here BAR is <$BAR>"
-   for_foo_name: &for_foo
-      name: 'foo! Foo! FOO!'
+         printf >&2 '%s\n' "FOO<$FOO> BAR<$BAR>"
    for_foo:
-      extends: *for_foo
       run: |
          #!/bin/sh
          env_dir="$PWD"
-         printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
+         printf >&2 '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
          FOO="$(cat "$env_dir/FOO")"
-         printf '%s\n' "Hello, world! This is foo and FOO is $FOO"
+         printf >&2 '%s\n' "Hello, world! This is foo and FOO is <$FOO>"
 actions:
    bar:
       - from: alpine:latest
-      - pack: foo_bar
+      - name: 'bar! bar! bar!'
+        pack: for_bar
         envile:
-         BAR: baaaz
+         - *common_envile
+         - BAR: baaaz
         args: [*one, *two]
    foo:
       - from: alpine:latest
-      - pack: for_foo
+      - name: 'foo! Foo! FOO!'
+        pack: for_foo
+        envile: *common_envile

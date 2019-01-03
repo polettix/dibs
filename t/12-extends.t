@@ -2,6 +2,7 @@ use strict;
 use Test::More;
 use Data::Dumper;
 use Dibs;
+#use Log::Any::Adapter qw< Stderr log_level TRACE >;
 
 my $config = {
    project_dir => '.',
@@ -23,16 +24,37 @@ my $dibs = Dibs->new($config);
 isa_ok $dibs, 'Dibs';
 
 my $exp_hash = {
-   pack => { run => 'foo' },
    args => [1..3],
    env => [{THIS => 'that'}],
+   extends => [qw< foo bar >],
+   pack => { run => 'foo' },
+   breadcrumbs => [
+      [
+         {
+            env => [{THIS => 'that'}],
+            extends => [qw< foo bar >],
+         },
+         {
+            env => [{THIS => 'that'}],
+            extends => [qw< foo bar >],
+         },
+      ],
+      [qw< foo foo >],
+      [
+         { pack => { run => 'foo' } },
+         { pack => { run => 'foo' } },
+      ],
+   ],
 };
 my $got_hash = $dibs->action_factory->inflate($config->{actions}{baz});
 is_deeply $got_hash, $exp_hash, 'extends worked'
    or diag Dumper $got_hash;
 
-is_deeply $config->{actions}{baz}, $exp_hash, 'extension in cached conf',
-   or diag Dumper $config;
+ok !exists($config->{actions}{baz}{args}), 'passed conf not touched';
+
+my $got_2_hash = $dibs->action_factory->inflate('baz');
+unshift @{$exp_hash->{breadcrumbs}}, [qw< baz baz >];
+is_deeply $got_2_hash, $exp_hash, 'initial breadcrumb with name ';
 
 my $stroke = $dibs->instance('baz');
 isa_ok $stroke, 'Dibs::Action::Stroke';
