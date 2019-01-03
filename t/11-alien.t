@@ -10,6 +10,11 @@ use lib path(__FILE__)->parent->stringify;
 use DibsTest;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+plan skip_all => "docker MUST be available for this test"
+  unless has_docker();
+
+diag 'takes a bit...';
+
 my $work_dir = path(__FILE__ . '.d')->absolute;
 clean_environment();
 my $guard = directory_guard($work_dir);
