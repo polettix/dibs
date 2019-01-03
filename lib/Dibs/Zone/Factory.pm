@@ -1,4 +1,4 @@
-package Dibs::ZoneFactory;
+package Dibs::Zone::Factory;
 use 5.024;
 use Dibs::Zone;
 use Scalar::Util 'blessed';
@@ -46,10 +46,12 @@ sub zone_for ($self, $zone) {
    ouch 400, "no zone '$zone' available (typo?)";
 } ## end sub zone_for
 
+sub item ($self, $zone) { return $self->zone_for($zone) }
+
 sub default ($class, $project_dir = undef) {
    require Dibs::Config;
    $project_dir //= cwd->absolute;
-   return Dibs::ZoneFactory->new(
+   return Dibs::Zone::Factory->new(
       project_dir => $project_dir,
       zone_specs_for => Dibs::Config::DEFAULTS->{zone_specs_for},
    );
