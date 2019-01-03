@@ -14,7 +14,10 @@ my $config = get_config_cmdenv([ -C => $work_dir, qw< foo bar > ]);
 is cwd->stringify, $work_dir->stringify, 'changed directory';
 is_deeply $config->{do}, [qw< foo bar >], 'config positionals';
 
-$config->{name} = 'foobar';
+$config = add_config_file($config, $work_dir->child('dibs.yml'));
+use Data::Dumper;
+diag Dumper $config;
+
 my $dibs = Dibs->new($config);
 isa_ok $dibs, 'Dibs';
 is $dibs->name, $config->{name}, 'name';
@@ -29,6 +32,8 @@ my $actions = $sketch->actions;
 is scalar(@$actions), 2, 'right number of actions in sketch';
 isa_ok $_, 'Dibs::Action' for @$actions;
 can_ok $actions->[0], qw< execute output output_marked >;
+
+
 
 done_testing();
 __END__

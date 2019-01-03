@@ -67,20 +67,9 @@ sub initialize (@as) {
 sub main (@as) {
    my $config = {};
    try {
-      $config = initialize(@as);
-      my $dibs   = Dibs->new($config);
-      $dibs->append_envile($config->{run_variables});
-      my $sketch = $dibs->sketch($config->{do});
-      my $name = $dibs->name;
-      my $run_tag = $config->{run_variables}{DIBS_ID};
-      $sketch->draw(
-         env_carriers => [$dibs],
-         project_dir  => $dibs->project_dir,
-         zone_factory => $dibs->zone_factory,
-         run_tag => $run_tag,
-         to => "$name:$run_tag",
-         verbose => $config->{verbose},
-      );
+      $config  = initialize(@as);
+      my $dibs = Dibs->new($config);
+      $dibs->draw($config);
       return 0;
    } ## end try
    catch {
