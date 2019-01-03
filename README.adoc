@@ -3,21 +3,14 @@
 :toc:
 :toc-placement!:
 
-`dibs` aims at automating the process from code to Docker image, with
-flexibility as to the base images used (mainly to enable building on top
-of Alpine Linux). To some extent, it can be seen as an alternative to
+Dibs makes it simple to turn code into Docker images.
+
+To some extent, it can be seen as an alternative to
 using a https://docs.docker.com/engine/reference/builder/[Dockerfile],
 with the difference that `dibs` provides finer control over the
-different phases and might completely ditch intermediate containers
-during the process.
+different phases and makes it easier to land on a trimmed image.
 
-`dibs` itself is a driver program that does nearly nothing… or better:
-
-* supports a sophisticated way of providing configurations
-* iterates over steps defined in the configuration
-* automates lookup of code to execute in each step, calling `docker`
-when needed and saving images along the way, when requested to do so
-* automates rollback of saved images if something goes wrong
+*THIS DOCUMENT IS CURRENTLY OBSOLETE AND NEEDS REWORKING AFTER REFACTORING*
 
 toc::[]
 
@@ -35,7 +28,8 @@ Just putting the code inside a container is not sufficient, because…
 * … it probably needs a runtime environment (Perl, Java, Python, …)
 inside the image too
 * … it might need additional pre-requisites in form of other software or
-libraries
+libraries, often provided by the underlying Linux distribution in the form of
+packages
 * … it might need to have some parts compiled or undergo a _build_
 process
 * … it will probably need the container to be set so that the invocation
@@ -55,36 +49,40 @@ https://docs.docker.com/engine/reference/builder/[Dockerfile], thus
 making it difficult to cache or pinpoint the tools themselves.
 
 The idea behind `dibs` is that the path from the code to the Docker
-image can be broken into _steps_:
+image is not necessarily _linear_ and might be walked through different lanes,
+or _phases_
 
-* each step runs a sequence of operations that stack upon a container
-image much like a
-https://docs.docker.com/engine/reference/builder/[Dockerfile] does;
-* different steps can pass artifacts around thanks to some shared
-directories;
-* only the containers of the steps of interest are kept, others are
-thrown away.
+- each phase runs a sequence of operations that stack upon a container image
+  much like a https://docs.docker.com/engine/reference/builder/[Dockerfile]
+  does;
+- different phases share artifacts around through shared directories; only the
+- containers of interest are saved as images, others are thrown away.
 
-For example, a _build, then bundle_ process might be broken into two
-steps like this:
+As an example, a common patter is to divide the composition of an image into
+two phases, one where artifacts are compiled (through compilation and build
+tools) and one where these artifacts are installed along with runtime
+components. For this reason, two base images can be setup.footnote:[For
+example, using `dibs` itself.] and used in two different phases, one for
+building and one for bundling the final artifact.
 
 ....
-  _____________     +-------------+
- /             \    |             | - start from "build"-ready image, with
- | Shared dirs |----| Build Step  |   compiler & other build tools inside
- | ----------- |    |             | - compile in container
- |             |    +-------------+ - save in cache
+  _____________     +--------------+
+ /             \    |              | - start from "build"-ready image, with
+ | Shared dirs |----| Build Phase  |   compiler & other build tools inside
+ | ----------- |    |              | - compile in container
+ |             |    +--------------+ - save in cache
  |       src - |    
- |     cache - |    +-------------+
- |       env - |    |             | - start from "runtime"-ready image
- |       ... - |----| Bundle Step | - copy artifacts from cache
- \_____________/    |             |   to destination
-                    +-------------+ - set up entry point
+ |     cache - |    +--------------+
+ |       env - |    |              | - start from "runtime"-ready image
+ |       ... - |----| Bundle Phase | - copy artifacts from cache
+ \_____________/    |              |   to destination
+                    +--------------+ - set up entry point
 ....
 
-In this way, _build_ operations can be performed in the context of a
-_heavier_ container image, while the _bundle_ operation relies on a
-_leaner_ starting container image, providing a _leaner_ result.
+In this way, _build_ operations can be performed from a _heavier_ container
+image (the one with the build tools), while the _bundle_ operation relies on a
+_leaner_ starting container image (the one with just the runtime), providing a
+_leaner_ result.
 
 === Reuse of operations
 
@@ -93,22 +91,32 @@ https://docs.docker.com/engine/reference/builder/[Dockerfile]s has to do
 with how container images are customized, e.g. to execute build/bundle
 operations.
 
-The https://docs.docker.com/engine/reference/builder/#run[RUN] directive
-in the https://docs.docker.com/engine/reference/builder/[Dockerfile] is
-surely very powerful, but it allows you to execute either direct
-commands or some script/program that you made somehow visible inside the
-container during its construction. While very powerful (it’s actually
-all that is strictly needed), it’s quite difficult to reuse operations
-consistently.
+The https://docs.docker.com/engine/reference/builder/#run[RUN] directive in
+the https://docs.docker.com/engine/reference/builder/[Dockerfile] is very
+powerful, but it allows you to execute either direct commands or some
+script/program that are available inside the container during its
+construction. While very powerful (it’s actually all that is strictly needed),
+it’s quite difficult to reuse operations consistently.
 
-`dibs` draws inspiration from how https://www.heroku.com/[Heroku]
-addressed this problem, i.e.
-https://devcenter.heroku.com/articles/buildpacks[buildpacks]. Much in
-the same spirit, `dibs` leverages _dibspacks_ to accomplish operations;
-these can be shared and loaded easily and automatically, so that the
-user only has to select and configure the right ones.
+`dibs` allows defining _packs_ of operations.footnote:[The name is inspired to
+https://www.heroku.com/[Heroku]'s buildpacks, but the semantics is nowadays
+very different.] in many different ways, which include grouping them in a git
+repository that can be shared across multiple projects. An example of such a
+repository is https://github.com/polettix/dibspack-basic[dibspack-basic].
 
 == Basics
+
+The basic metaphor used in Dibs is inspired to drawing (because the aim is to
+generate... an image).
+
+To generate an image, multiple _actions_ are required:
+
+- 
+- a single operation step performed inside a container is a _stroke_. It can
+  be thought as a single 'RUN` step inside a Dockerfile;
+- 
+
+
 
 Some basic concepts to understand how to use `dibs`.
 
