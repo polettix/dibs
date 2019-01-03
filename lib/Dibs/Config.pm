@@ -379,7 +379,8 @@ sub adjust_definitions ($overall) {
 } ## end sub adjust_definitions ($overall)
 
 sub adjust_default_variables ($overall) {
-   my $variables = $overall->{defaults}{variables} // [];
+   my $variables = $overall->{variables}
+      // $overall->{defaults}{variables} // [];
    for my $var ($variables->@*) {
       next unless (ref($var) eq 'HASH') && (scalar(keys $var->%*) == 1);
       my ($key, $value) = $var->%*;
