@@ -1,10 +1,20 @@
 package Dibs::Pack;
 use 5.024;
-use experimental qw< postderef signatures >;
-use Ouch qw< :trytiny_var >;
-use Module::Runtime qw< use_module >;
-no warnings qw< experimental::postderef experimental::signatures >;
+use Moo;
 
+with 'Dibs::Role::Proxy';
+
+__PACKAGE__->_proxy_methods(
+   'id',                #
+   'name',              #
+   'location',          #
+   'supportable_zones', #
+);
+
+1;
+__END__
+
+use Module::Runtime qw< use_module >;
 use Dibs::Config qw< :constants >;
 use Dibs::Pack::Dynamic;
 

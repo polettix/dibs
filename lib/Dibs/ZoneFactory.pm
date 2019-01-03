@@ -3,7 +3,7 @@ use 5.024;
 use Dibs::Zone;
 use Scalar::Util 'blessed';
 use Ouch qw< :trytiny_var >;
-use Path::Tiny 'path';
+use Path::Tiny qw< path cwd >;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -45,5 +45,14 @@ sub zone_for ($self, $zone) {
    return $map->{$zone} if exists $map->{$zone};
    ouch 400, "no zone '$zone' available (typo?)";
 } ## end sub zone_for
+
+sub default ($class, $project_dir = undef) {
+   require Dibs::Config;
+   $project_dir //= cwd->absolute;
+   return Dibs::ZoneFactory->new(
+      project_dir => $project_dir,
+      zone_specs_for => Dibs::Config::DEFAULTS->{zone_specs_for},
+   );
+}
 
 1;
