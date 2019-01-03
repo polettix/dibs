@@ -9,9 +9,11 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 has _map => (is => 'ro', required => 1);
+has _zones_for => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, @args) {
    my %specs = (@args && ref($args[0])) ? $args[0]->%* : @args;
+
    my $zone_specs_for = $specs{zone_specs_for};
    my $project_dir =
      defined($specs{project_dir}) ? path($specs{project_dir}) : undef;
@@ -36,7 +38,19 @@ sub BUILDARGS ($class, @args) {
       }
       $_ => $zone;
    } keys $zone_specs_for->%*;
-   return {_map => \%map};
+
+   my %zones_for;
+   if (defined(my $href = $specs{zone_names_for})) {
+      while (my ($key, $names) = each $href->%*) {
+         $dps_zones_for{$key} = \my @zones;
+         for my $name ($names->@*) {
+            ouch 400, "unknown zone $name" unless exists $map{$name};
+            push @zones, $map{$name};
+         }
+      }
+   }
+
+   return {_map => \%map, _zones_for => \%dps_zones_for};
 } ## end sub BUILDARGS
 
 sub zone_for ($self, $zone) {
@@ -48,12 +62,30 @@ sub zone_for ($self, $zone) {
 
 sub item ($self, $zone) { return $self->zone_for($zone) }
 
+sub items ($self, $filter = undef) {
+   if (defined $filter) {
+      my $zones_for = $self->zones_for;
+      ouch 400, "invalid filter $filter for zones filtering"
+         unless exists $zones_for->{$filter};
+      return $zones_for->{$filter}->@*;
+   }
+   else {
+      return values $self->_map->%*;
+   }
+}
+
+sub dibspacks_items ($self, $side) {
+   return $self->_dibspacks_zones_for->{$side}->@*;
+}
+
 sub default ($class, $project_dir = undef) {
    require Dibs::Config;
    $project_dir //= cwd->absolute;
+   my $defaults = Dibs::Config::DEFAULTS();
    return Dibs::Zone::Factory->new(
       project_dir => $project_dir,
-      zone_specs_for => Dibs::Config::DEFAULTS->{zone_specs_for},
+      zone_specs_for => $defaults->{zone_specs_for},
+      zone_names_for => $defaults->{zone_names_for},
    );
 }
 

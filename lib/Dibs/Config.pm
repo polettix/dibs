@@ -79,7 +79,13 @@ use constant DEFAULTS => {
       },
       HOST_DIBSPACKS,
       {
-         container_base => undef, host_base => 'host-dibspacks',
+         container_base => undef,
+         host_base => 'host-dibspacks',
+      },
+      INSIDE,
+      {
+         container_base => '/',
+         host_base      => undef,
       },
       EMPTY,
       {
@@ -96,11 +102,21 @@ use constant DEFAULTS => {
          container_base => '/tmp/env',
          host_base      => 'env',
       },
+      PROJECT,
+      {
+         container_base => '/tmp/dibspacks',
+         host_base      => 'dibspacks',
+      },
       SRC,
       {
          container_base => '/tmp/src',
          host_base      => 'src',
       },
+   },
+   zone_names_for => {
+      dibspacks_host      => [HOST_DIBSPACKS, PROJECT, SRC],
+      dibspacks_container => [PROJECT, SRC, INSIDE],
+      dibspack_dirs       => [SRC, CACHE, ENVILE, ENVIRON],
    },
 };
 use constant OPTIONS => [

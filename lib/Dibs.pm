@@ -69,14 +69,15 @@ has zone_factory => (
 
    for my $t (qw< action dibspack >, [qw< process processes >]) {
       my ($singular, $plural) = ref($t) : $t->@* : ($t, $t . 's');
-      has "$plural" => (is => 'lazy');
+      my $factory = $plural . '_factory';
+      has $factory => (is => 'lazy');
       has "${singular}_config" => (
          is => 'ro',
          default => sub { return {} },
          init_arg => $plural,
       );
       my $instancer = sub ($self, $x) {
-         my $cache_method = $self->can($plural);
+         my $cache_method = $self->can($factory);
          return $self->$cache_method->item($name);
       };
 

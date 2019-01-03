@@ -4,13 +4,18 @@ use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< refaddr blessed >;
 use Moo;
 use Dibs::Config ':constants';
-use Dibs::Packs;
+use Dibs::Pack::Factory;
 use YAML::XS qw< LoadFile >;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 use Exporter 'import';
-our @EXPORT_OK = qw< inflate key_for resolve_buildpack load_from_buildpack >;
+our @EXPORT_OK = qw<
+   flatten_array
+   inflate key_for
+   resolve_buildpack
+   load_from_buildpack
+>;
 our %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
 sub key_for($x) {
@@ -101,9 +106,9 @@ sub load_from_dibspack ($spec, %as) {
    my $data = data_in($whole, $p->{datapath});
 
    my $zf = $as{zone_factory} // $as{dibspacks}->zone_factory;
-   my $cfg = $whole->{&DIBSPACKS} // {};
-   my $ldps = Dibs::Packs->new(config => $cfg, zone_factory => $zf);
-   return inflate(%as, dibspacks => $ldps, config => $cfg, spec => $data);
+   my $cf = $whole->{&DIBSPACKS} // {};
+   my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
+   return inflate(%as, dibspacks => $ldps, config => $cf, spec => $data);
 }
 
 sub data_in ($data, $datapath) {
@@ -130,6 +135,19 @@ sub data_in ($data, $datapath) {
       }
    }
    return $data;
+}
+
+sub flatten_array ($aref, $flags = {}) {
+   map {
+      if (ref($_) eq 'ARRAY') {
+         my $key = refaddr $_;
+         ouch 400, 'circular dependency flattening array'
+            if $flags->{$key}++;
+         flatten_array($_, $flags);
+         delete $flags->{$key};
+      }
+      else { $_ }
+   } $aref->@*;
 }
 
 1;

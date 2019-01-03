@@ -14,7 +14,7 @@ has "_$_" => (
 ) for qw< env envile >;
 
 sub __as_hash ($name, $first, @objects) {
-   unshift @objects, $first if ref $first;
+   unshift @objects, $first if ref $first; # use as class method too
    my $method = "_$name";
    my %retval;
    for my $instance (@objects) {

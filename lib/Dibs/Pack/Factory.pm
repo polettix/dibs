@@ -1,53 +1,33 @@
 package Dibs::Pack::Factory;
 use 5.024;
 use Ouch qw< :trytiny_var >;
-use Moo;
 use Scalar::Util qw< blessed refaddr >;
-use Dibs::Pack;
-use Dibs::Config ':constants';
-use Dibs::Inflater qw< inflate key_for >;
 use Module::Runtime 'use_module';
+use Dibs::Config ':constants';
+use Dibs::Inflater qw< key_for >;
+use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-has _config    => (
-   is => 'ro',
-   init_arg => 'config',
-   default => sub { return {} },
-);
-has _inventory => (is => 'ro', default => sub { return {} });
+with 'Dibs::Role::Factory'; # _config, _inventory
+
 has zone_factory => (is => 'ro', required => 1);
 
-sub item ($self, $x, %opts) {
-   return Dibs::Pack->new( # "promise" to do something when needed
-      factory => sub {
-         my $key = key_for($x);
-         my $inv = $self->_inventory;
-         my $instance = $inv->{$key} //= do {
-            my $cfg = $self->_config;
-            my $spec = $cfg->{spec} = inflate(
-               %opts,
-               config    => $cfg,
-               dibspacks => $self,
-               parser    => sub ($v) { $self->_normalize($v) },
-               spec      => $x,
-               type      => 'dibspack',
-            );
+sub instance ($self, $x, %opts) {
+   my $spec = $self->inflate($x, %opts);
 
-            # no circular references so far, protect from creation too
-            # FIXME double check this is really needed, although it does
-            # not harm really
-            $opts{flags}{$key}++;
-            my $instance = $self->_create($spec, %opts);
-            delete $opts{flags}{$key};
+   # no circular references so far, protect from creation too
+   # FIXME double check this is really needed, although it does
+   # not harm really
+   my $key = key_for($x);
+   $opts{flags}{$key}++;
+   my $instance = $self->_create($spec, %opts);
+   delete $opts{flags}{$key};
 
-            my $id_key = key_for($instance);
-            $inv->{$id_key} //= $instance;
-            $instance;
-         };
-      },
-   );
+   return $instance;
 }
+
+sub dibspacks_factory ($self) { return $self }
 
 sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 
@@ -96,7 +76,7 @@ sub _create_static ($self, $spec, %opts) {
    return use_module('Dibs::Pack::Static')->new(@args);
 } ## end sub _create_static_dibspack
 
-sub _normalize ($self, $spec) {
+sub parse ($self, $spec) {
    if (!ref($spec)) {
       my %hash;
       if ($spec =~ m{\A git://}mxs) {
@@ -127,6 +107,6 @@ sub _normalize ($self, $spec) {
 
    $spec->{type} = lc $spec->{type} if exists $spec->{type};
    return $spec;
-} ## end sub _normalize ($spec)
+} ## end sub parse ($spec)
 
 1;

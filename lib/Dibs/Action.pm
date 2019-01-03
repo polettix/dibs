@@ -1,5 +1,21 @@
 package Dibs::Action;
 use 5.024;
+use Moo;
+
+with 'Dibs::Role::Proxy';
+
+__PACKAGE__->_proxy_methods(
+   'id',                #
+   'name',              #
+   'run',               #
+);
+
+1;
+__END__
+
+
+package Dibs::Action;
+use 5.024;
 use Carp;
 use English qw< -no_match_vars >;
 use experimental qw< postderef signatures >;

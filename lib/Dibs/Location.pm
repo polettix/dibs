@@ -32,6 +32,14 @@ sub clone_in ($self, $zone) {
    );
 } ## end sub clone_in
 
+sub clone_with ($self, %changes) {
+   return $self->new(
+      base => ($changes{base} // $self->base),
+      path => ($changes{path} // $self->path),
+      zone => ($changes{zone} // $self->zone),
+   );
+}
+
 sub container_path ($s, @p) { $s->_path($s->zone->container_base, @p) }
 sub host_path ($s, @p) { $s->_path($s->zone->host_base, @p) }
 
