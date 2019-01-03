@@ -208,28 +208,28 @@ is quite simple at this stage, additional features will be shown later):
 .dibs.yml
 [source,yaml]
 ----
-name: exadev                            # <1>
-packs:                                  # <2>
+name: exadev                            # # <1>
+packs:                                  # # <2>
     basic:
         type: git
         origin: https://github.com/polettix/dibspack-basic.git
 actions:
-    default: [build, bundle]            # <3>
-    prereqs:                            # <4>
+    default: [build, bundle]            # # <3>
+    prereqs:                            # # <4>
       pack: basic
       path: prereqs
-    build:                              # <5>
-        envile:                         # <6>
+    build:                              # # <5>
+        envile:                         # # <6>
             DIBS_PREREQS: build
         actions:
-            - from: 'alpine:3.6'        # <7>
-            - prereqs                   # <8>
-            - name: compile             # <9>
+            - from: 'alpine:3.6'        # # <7>
+            - prereqs                   # # <8>
+            - name: compile             # # <9>
               pack: basic
               path: perl/build
             - name: save compiled artifacts in cache
               pack:
-                run: |                  # <10>
+                run: |                  # # <10>
                     #!/bin/sh
                     src_dir="$(cat DIBS_SRC_DIR)"
                     cache_dir="$(cat DIBS_CACHE_DIR)"
@@ -254,10 +254,10 @@ actions:
                     dst_dir="/app"
                     rm -rf "$dst_dir"
                     cp -a "$src_dir" "$dst_dir"
-              commit:                   # <11>
+              commit:                   # # <11>
                 entrypoint: []
                 cmd: ['/bin/sh', '-l']
-            - name: save bundled image  # <12>
+            - name: save bundled image  # # <12>
               image_name: exadev
               tags: ['latest', '0.3']
 ----
