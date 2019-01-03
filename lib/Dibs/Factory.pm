@@ -30,8 +30,11 @@ sub _create_instance ($self, $type, %args) {
 
    state $class_for = {
       &SKETCH => 'Dibs::Action::Sketch',
+      &GIT    => 'Dibs::Action::Fetch::Git',
+      &HTTP   => 'Dibs::Action::Fetch::Http',
+      &SNAP   => 'Dibs::Action::Snap',
       map { $_ => ('Dibs::Action::Stroke::' . ucfirst(lc $_)) }
-        (GIT, HTTP, IMMEDIATE, INSIDE, PROJECT, SRC),
+        (IMMEDIATE, INSIDE, PROJECT, SRC),
    };
    my $class = $class_for->{$type} // $type;
 
