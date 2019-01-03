@@ -16,23 +16,23 @@ has _config => (
 
 has _inventory => (is => 'ro', default => sub { return {} });
 
-sub inflate ($self, $x, %opts) {
+sub inflate ($self, $x, %args) {
    return Dibs::Inflater::inflate(
-      %opts,
+      $x,
+      %args,
       config    => $self->_config,
       dibspacks => $self->dibspacks_factory,
       parser    => sub ($v) { $self->parse($v) },
-      spec      => $x,
       type      => $self->type,
    );
 }
 
-sub item ($self, $x, %opts) {
+sub item ($self, $x, %args) {
    return $self->proxy_class->new( # "promise" to do something when needed
       factory => sub {
          my $inventory = $self->_inventory;
          $inventory->{key_for($x)} //= do {
-            my $instance = $self->instance($x, %opts);
+            my $instance = $self->instance($x, %args);
             $inventory->{key_for($instance)} //= $instance;
             $instance;
          };

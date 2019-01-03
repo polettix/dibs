@@ -5,6 +5,8 @@ use Moo;
 with 'Dibs::Role::Proxy';
 
 __PACKAGE__->_proxy_methods(
+   'env',               #
+   'envile',            #
    'id',                #
    'name',              #
    'location',          #

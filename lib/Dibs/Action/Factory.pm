@@ -5,16 +5,16 @@ use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Role::Factory';
-
 has dibspacks_factory => (is => 'ro', required => 1);
 
-sub instance ($self, $x, %opts) {
+with 'Dibs::Role::Factory';
+
+sub instance ($self, $x, %args) {
    my $dibspacks_factory = $self->dibspacks_factory;
-   my $spec = $self->inflate($x, %opts);
+   my $spec = $self->inflate($x, %args);
    return Dibs::Action::Instance->new(
       $spec->%*,
-      dibspack => $dibspacks_factory->item($spec->{dibspack}, %opts),
+      dibspack => $dibspacks_factory->item($spec->{dibspack}, %args),
       zone_factory => $dibspacks_factory->zone_factory,
    );
 }

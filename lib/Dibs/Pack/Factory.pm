@@ -3,6 +3,7 @@ use 5.024;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< blessed refaddr >;
 use Module::Runtime 'use_module';
+use Path::Tiny 'path';
 use Dibs::Config ':constants';
 use Dibs::Inflater qw< key_for >;
 use Moo;
@@ -13,16 +14,16 @@ with 'Dibs::Role::Factory'; # _config, _inventory
 
 has zone_factory => (is => 'ro', required => 1);
 
-sub instance ($self, $x, %opts) {
-   my $spec = $self->inflate($x, %opts);
+sub instance ($self, $x, %args) {
+   my $spec = $self->inflate($x, %args);
 
    # no circular references so far, protect from creation too
    # FIXME double check this is really needed, although it does
    # not harm really
    my $key = key_for($x);
-   $opts{flags}{$key}++;
-   my $instance = $self->_create($spec, %opts);
-   delete $opts{flags}{$key};
+   $args{flags}{$key}++;
+   my $instance = $self->_create($spec, %args);
+   delete $args{flags}{$key};
 
    return $instance;
 }
@@ -31,49 +32,61 @@ sub dibspacks_factory ($self) { return $self }
 
 sub contains ($s, $x) { return exists $s->_inventory->{key_for($x)} }
 
-sub _create ($self, $spec, %opts) {
+sub _create ($self, $spec, %args) {
    my $type = $spec->{type} or ouch 400, 'no type present in dibspack';
 
    # native types lead to static stuff in a zone named after the type
-   return $self->_create_static($spec, %opts)
+   return $self->_create_static($spec, %args)
      if ($type eq PROJECT) || ($type eq SRC) || ($type eq INSIDE);
 
    # otherwise it's dynamic stuff to be put in the default zone provided
-   return $self->_create_dynamic($spec, %opts);
+   return $self->_create_dynamic($spec, %args);
 }
 
-sub _create_dynamic ($self, $spec, %opts) {
+sub _create_dynamic ($self, $spec, %args) {
    my $type    = $spec->{type};
    my $fetcher = use_module('Dibs::Fetcher::' . ucfirst $type)->new($spec);
    my $id      = $type . ':' . $fetcher->id;
-   my $dyn_zone_name = $opts{dynamic_zone} // HOST_DIBSPACKS;
+   my $dyn_zone_name = $args{dynamic_zone} // HOST_DIBSPACKS;
    my $zone    = $self->zone_factory->zone_for($dyn_zone_name);
 
    return use_module('Dibs::Pack::Dynamic')->new(
       $spec->%*,    # anything from the specification, with overrides below
       id       => $id,
-      cloner   => $opts{cloner},
+      cloner   => $args{cloner},
       fetcher  => $fetcher,
       location => {path => $id, zone => $zone},
    );
 } ## end sub _create_dynamic_dibspack
 
-sub _create_static ($self, $spec, %opts) {
+sub _create_static ($self, $spec, @ignore) {
    my $type = $spec->{type};
-   defined(my $path = $spec->{path} // $spec->{raw})
-     or ouch 400, "invalid path for $type dibspack";
 
-   # build @args for call to Dibs::Pack::Static's constructor
-   my $zone = $self->zone_factory->zone_for($type);
-   my @args = (
-      id       => "$type:$path",
-      location => {path => $path, zone => $zone},
-   );
+   # %location is affected by base (aliased as "raw") and path. Either
+   # MUST be present, both is possible
+   my %location = (zone => $self->zone_factory->zone_for($type));
+   my $fullpath; # useful for assigning an identifier to this dibspack
+
+   if (defined(my $base = $spec->{base} // $spec->{raw} // undef)) {
+      $location{base} = $base;
+      $fullpath = path($base);
+   }
+
+   if (defined(my $path = $spec->{path} // undef)) {
+      $location{path} = $path;
+      $fullpath = $fullpath ? $fullpath->child($path) : path($path);
+   }
+
+   # if $fullpath is not true, none of base(/raw) or path was set
+   $fullpath or ouch 400, "invalid base/path for $type dibspack";
+
+   # build %subargs for call to Dibs::Pack::Static's constructor
+   my %args = (id => "$type:$fullpath", location => \%location);
 
    # name presence is optional, rely on default from class if absent
-   push @args, name => $spec->{name} if exists $spec->{name};
+   $args{name} = $spec->{name} if exists $spec->{name};
 
-   return use_module('Dibs::Pack::Static')->new(@args);
+   return use_module('Dibs::Pack::Static')->new(%args);
 } ## end sub _create_static_dibspack
 
 sub parse ($self, $spec) {

@@ -2,7 +2,6 @@ package Dibs::Process::Factory;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Dibs::Process::Instance;
-use Dibs::Inflater qw< inflate key_for >;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -16,8 +15,8 @@ has dibspacks_factory => (
    default => sub ($self) { $self->actions_factory->dibspacks_factory },
 );
 
-sub instance ($self, $x, %opts) {
-   my $spec = $self->inflate($x, %opts);
+sub instance ($self, $x, %args) {
+   my $spec = $self->inflate($x, %args);
    return Dibs::Process::Instance->new(
       $spec->%*,
       actions_factory   => $self->actions_factory,

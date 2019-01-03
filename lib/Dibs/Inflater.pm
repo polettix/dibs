@@ -2,6 +2,7 @@ package Dibs::Inflater;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Scalar::Util qw< refaddr blessed >;
+use Log::Any '$log';
 use Moo;
 use Dibs::Config ':constants';
 use Dibs::Pack::Factory;
@@ -25,38 +26,39 @@ sub key_for($x) {
       :                ouch 400, 'invalid undefined element for key';
 }
 
-sub inflate {
-   my %args = (@_ && ref $_[0]) ? $_[0]->%* : @_;
-   my $spec = delete $args{spec};
+sub inflate ($spec, %args) {
+   defined $spec or ouch 400, "undefined specification for $args{type}";
 
    # check circular dependencies, complain if present
    my $key  = key_for($spec);
    ouch 400, "circular reference resolving $args{type} $key"
       if $args{flags}{$key}++;
+
    my $rv;
    my $ref = ref $spec;
-   if (! $ref) {
+   if (! $ref) { # scalar, treat as string
       if (substr($spec, 0, 1) eq '@') { # import from somewhere
          $rv = load_from_dibspack($spec, %args);
       }
       else {
-         ouch 400, "unknown $args{type} $spec"
-           unless exists $args{config}{$spec};
-         my $parser = $args{parser} // sub ($x) { return $x };
-         $rv = inflate(%args, spec => $parser->($args{config}{$spec}));
+         $rv = exists $args{config}{$spec} ? $args{config}{$spec}
+            :  exists $args{parser}        ? $args{parser}->($spec)
+            :                                undef;
+         defined $rv or ouch 400, "unknown $args{type} $spec";
+         $rv = inflate($rv, %args);
       }
    }
    elsif ($ref eq 'ARRAY') {
       $rv = [
          map {
-            my $item = inflate(%args, spec => $_);
+            my $item = inflate($_, %args);
             ref($item) eq 'ARRAY' ? $item->@* : $item; # "flatten"
          } $spec->@*
       ];
    }
    elsif ($ref eq 'HASH') {
       if (exists $spec->{extends}) {
-         my $exts = inflate(%args, spec => delete($spec->{extends}));
+         my $exts = inflate(delete($spec->{extends}), %args);
          my %exts = map { $_->%* }
             ref($exts) eq 'ARRAY' ? reverse($exts->@*) : $exts;
          $spec->%* = (%exts, $spec->%*);
@@ -108,7 +110,7 @@ sub load_from_dibspack ($spec, %as) {
    my $zf = $as{zone_factory} // $as{dibspacks}->zone_factory;
    my $cf = $whole->{&DIBSPACKS} // {};
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
-   return inflate(%as, dibspacks => $ldps, config => $cf, spec => $data);
+   return inflate($data, %as, dibspacks => $ldps, config => $cf);
 }
 
 sub data_in ($data, $datapath) {
