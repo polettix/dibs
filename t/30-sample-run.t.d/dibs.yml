@@ -14,8 +14,8 @@ dibspacks:
       extends: for_bar_name
       run: |
          #!/bin/sh
-         env_dir="$3/iles"
-         printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+         env_dir="$PWD"
+         printf >&2 '%s\n' "Hello, world! This is bar [$1] [$2]"
          BAR="$(cat "$env_dir/BAR")"
          printf >&2 '%s\n' "Here BAR is <$BAR>"
    for_foo_name: &for_foo
@@ -24,7 +24,7 @@ dibspacks:
       extends: *for_foo
       run: |
          #!/bin/sh
-         env_dir="$3/iles"
+         env_dir="$PWD"
          printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
          FOO="$(cat "$env_dir/FOO")"
          printf '%s\n' "Hello, world! This is foo and FOO is $FOO"

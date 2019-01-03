@@ -90,3 +90,12 @@ steps:
    qbundle:
       extends: *bundle
       actions: [*bundle_bare]
+   tester:
+      from: *base_image
+      actions:
+         - run: |
+            #!/bin/sh
+            printf 'I am in %s, #params = %d\n' "$PWD" "$#"
+            . export-enviles.sh
+            env | grep DIBS
+           args: [ciao, a, tutti]

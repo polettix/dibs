@@ -41,6 +41,8 @@ sub docker_rmi ($tag) {
 }
 
 sub docker_run (%args) {
+   ouch 400, 'no image provided' unless defined $args{image};
+
    my @command = qw< docker run >;
    my $cidfile = path($args{project_dir})->child("cidfile-$$.tmp");
    $cidfile->remove if $cidfile->exists;
@@ -54,14 +56,9 @@ sub docker_run (%args) {
    push @command, '--user', $args{user} if exists $args{user};
    push @command, expand_volumes($args{volumes});
    push @command, expand_environment($args{env});
-   my ($entrypoint, @ep_args) = $args{command}->@*;
-   push @command, '--entrypoint' => $entrypoint;
-
-   ouch 400, "no image provided in $entrypoint"
-     unless defined $args{image};
-   push @command, $args{image};
-
-   push @command, @ep_args;
+   push @command, '--entrypoint' => ''; # disable, only use CMD below
+   push @command, '--workdir' => $args{workdir} if defined $args{workdir};
+   push @command, $args{image}, $args{command}->@*;
 
    my $retval = run_command(\@command, $args{indent} ? INDENT : 0);
    return $retval unless wantarray;

@@ -356,8 +356,8 @@ sub call_action ($self, $action, $step, $args) {
          # overriding everything above
          keep    => 1,
          volumes => [ $self->list_volumes ],
-         command => [ $p, $self->list_dirs,
-            $self->expand_command_args($step, $action->args)],
+         workdir => $self->resolve_container_path(ENVILE),
+         command => [ $p, $self->expand_command_args($step, $action->args)]
       );
       ouch 500, "failure ($exitcode)" if $exitcode;
 
@@ -373,7 +373,7 @@ sub call_action ($self, $action, $step, $args) {
 }
 
 sub write_enviles ($self, $spec) {
-   my $env_dir = path($self->resolve_project_path(ENVIRON), 'iles');
+   my $env_dir = path($self->resolve_project_path(ENVILE));
    if ($env_dir->exists && !$env_dir->is_dir) {
       if ($env_dir->is_dir) {
          $env_dir->remove_tree({safe => 0});
@@ -387,6 +387,64 @@ sub write_enviles ($self, $spec) {
    while (my ($name, $value) = each $spec->%*) {
       $env_dir->child($name)->spew_raw($value);
    }
+
+   my $cds = $self->config('container_dirs');
+   for my $dir_name ($self->config('dibspack_dirs')->@*) {
+      my $name = 'DIBS_DIR_' . uc($dir_name);
+      $env_dir->child($name)->spew_raw($cds->{$dir_name});
+   }
+
+   $env_dir->child('export-enviles.sh')->spew_raw(<<'END');
+#!/bin/sh
+
+escape_var_value() {
+   local value=$1
+   printf '%s' "'"
+   while : ; do
+      case "$value" in
+         (*\'*)
+            printf '%s%s' "${value%%\'*}" "'\\''"
+            value=${value#*\'}
+            ;;
+         (*)
+            printf '%s' "$value"
+            break
+            ;;
+      esac
+   done
+   printf '%s' "'"
+}
+
+export_envile() {
+   local name="$(basename "$1")"
+   local value="$(escape_var_value "$(cat "$1"; printf x)")"
+   eval "export $name=${value%??}'"
+}
+
+export_enviles_from() {
+   local base="${1%/}" f file
+   shift
+   for f in "$@" ; do
+      file="$base/$f"
+      [ -e "$file" ] && export_envile "$file"
+   done
+}
+
+export_all_enviles_from() {
+   local base="${1%/}" file
+   for file in "$base"/DIBS* ; do
+      [ -e "$file" ] && export_envile "$file"
+   done
+}
+
+if [ "$#" -gt 0 ] ; then
+   export_enviles_from "$PWD" "$@"
+else
+   export_all_enviles_from "$PWD"
+fi
+
+END
+
    return $env_dir;
 }
 

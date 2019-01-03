@@ -10,7 +10,7 @@ steps:
       actions:
          - run: |
                #!/bin/sh
-               printf >&2 '%s\n' "Hello, world! This is bar [$4] [$5]"
+               printf >&2 '%s\n' "Hello, world! This is bar [$1] [$2]"
            args: [*one, *two]
    foo:
       from: alpine:latest

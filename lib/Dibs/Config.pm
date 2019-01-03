@@ -29,6 +29,7 @@ use constant DPFILE            => '.dibsactions';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
 use constant ENVIRON           => 'env';
+use constant ENVILE            => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
 use constant OPERATE           => 'operate';
@@ -45,16 +46,16 @@ use constant CONFIG_FILE       => 'dibs.yml';
 use constant DEFAULTS => {
    project_dirs => {
       CACHE,   'cache', DIBSPACKS, 'dibspacks',
-      ENVIRON, 'env',   SRC,       'src',
+      ENVILE, 'envile', ENVIRON, 'env',   SRC,       'src',
       EMPTY,   'empty'
    },
    container_dirs => {
       CACHE,   '/tmp/cache', DIBSPACKS, '/tmp/dibspacks',
-      ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
+      ENVILE, '/tmp/envile', ENVIRON, '/tmp/env',   SRC,       '/tmp/src',
    },
    volumes =>
-     [CACHE, [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
-   dibspack_dirs => [SRC, CACHE, ENVIRON],
+     [CACHE, [ENVILE, 'ro'], [ENVIRON, 'ro'], [DIBSPACKS, 'ro'], SRC, [EMPTY, 'ro']],
+   dibspack_dirs => [SRC, CACHE, ENVILE, ENVIRON],
 };
 use constant OPTIONS => [
    [
@@ -106,7 +107,7 @@ our %EXPORT_TAGS = (
    constants => [
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
-        INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
+        ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW
         INDENT
         >
