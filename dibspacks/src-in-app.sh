@@ -1,6 +1,6 @@
 #!/bin/sh
 rm -rf /app
-cp -a "$1" /app
+cp -a "$(cat DIBS_DIR_SRC)" /app
 rm -rf /app/local
 mkdir -p /app/.profile.d
 cat >/app/.profile <<'END'
