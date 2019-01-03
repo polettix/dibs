@@ -97,6 +97,7 @@ sub _instance_for_hash ($self, $spec, $args) {
    my $feedback = $self->_add_context('hash');
    my $guard = __check_circular($args, R => refaddr($spec), $feedback);
 
+   $spec = $self->inflate($spec, $args->%*);
    $spec->{type} = $self->dwim_type($spec);
    ouch 400, 'missing type in action specification'
      unless defined $spec->{type};
