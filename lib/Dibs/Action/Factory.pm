@@ -1,4 +1,4 @@
-package Dibs::Factory;
+package Dibs::Action::Factory;
 use 5.024;
 use Ouch ':trytiny_var';
 use Log::Any '$log';
