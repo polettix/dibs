@@ -1,4 +1,4 @@
-package Dibs::Action;
+package Dibs::Stroke;
 use 5.024;
 use Moo;
 
@@ -10,7 +10,7 @@ __PACKAGE__->_proxy_methods(
    'id',                #
    'container_path',    #
    'name',              #
-   'run',               #
+   'draw',              #
 );
 
 1;

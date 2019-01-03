@@ -1,4 +1,4 @@
-package Dibs::Process;
+package Dibs::Sketch;
 use 5.024;
 use Moo;
 
@@ -9,7 +9,7 @@ __PACKAGE__->_proxy_methods(
    'envile',    #
    'id',        #
    'name',      #
-   'run',       #
+   'draw',      #
 );
 
 1;

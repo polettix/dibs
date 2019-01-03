@@ -4,10 +4,8 @@ use Test::More;
 use Test::Exception;
 use Dibs::Zone::Factory;
 use Dibs::Pack::Static;
-use Dibs::Pack::Factory;
-use Dibs::Action::Factory;
-use Dibs::Action;
-use Dibs::Action::Instance;
+use Dibs::Stroke;
+use Dibs::Stroke::Instance;
 use Path::Tiny 'path';
 use lib path(__FILE__)->parent->stringify;
 use DibsTest;
@@ -16,43 +14,51 @@ my $project_dir = path(__FILE__ . '.d')->absolute;
 $project_dir->mkpath unless $project_dir->exists;
 my $guard = directory_guard($project_dir);
 
-my $zone_factory = Dibs::Zone::Factory->default($project_dir);
-isa_ok $zone_factory, 'Dibs::Zone::Factory';
+my $factory = Dibs::Zone::Factory->default($project_dir);
+isa_ok $factory, 'Dibs::Zone::Factory';
 
-my $dp_factory = Dibs::Pack::Factory->new(zone_factory => $zone_factory);
-isa_ok $dp_factory, 'Dibs::Pack::Factory';
+my $dp = Dibs::Pack::Static->new(
+   id       => 'whatever',
+   location => {zone => $factory->item('inside'), base => 'mnt'},
+);
+can_ok $dp, qw< location env envile >;
 
-throws_ok { my $f = Dibs::Action::Factory->new }
-qr{missing required...}i, 'factory constructor throws without dibspack_factory';
-
+throws_ok { my $a = Dibs::Stroke->new } qr{missing required...}i,
+  'factory necessary for stroke';
 
 my @some_spice = qw< what ever you do >;
 my $spice      = $some_spice[rand @some_spice];
 my %args       = (
    id           => 'whatever',
-   dibspack     => 'inside:mnt',
-   zone_factory => $zone_factory,
+   dibspack     => $dp,
+   zone_factory => $factory,
    path         => 'simple-command.sh',
    args         => [@some_spice],
    env          => {THIS => $spice},
 );
 
-my $factory;
-lives_ok { $factory = Dibs::Action::Factory->new(
-      dibspack_factory => $dp_factory,
-      config => {
-         my_target => \%args,
-      },
-   ) } 'constructor with all args';
+for my $missing (qw< dibspack id zone_factory >) {
+   my %margs = %args;
+   delete $margs{$missing};
+   throws_ok { my $fake = Dibs::Stroke::Instance->new(%margs) }
+   qr{missing.*\Q$missing\E...}i, "$missing necessary for stroke instance";
+} ## end for my $missing (qw< dibspack id zone_factory >)
 
-my $action;
-lives_ok { $action = $factory->item('my_target') } 'proxy action creation';
+my $stroke_instance;
+lives_ok { $stroke_instance = Dibs::Stroke::Instance->new(%args) }
+'instance creation';
+
+my $stroke;
+lives_ok {
+   $stroke = Dibs::Stroke->new(factory => sub { $stroke_instance })
+}
+'proxy stroke creation';
 
 my ($id, $name, $cp);
 lives_ok {
-   $id   = $action->id;
-   $name = $action->name;
-   $cp   = $action->container_path;
+   $id   = $stroke->id;
+   $name = $stroke->name;
+   $cp   = $stroke->container_path;
 }
 'proxied methods id, name and container_path';
 is $name, $id, 'name same as id by default';
@@ -60,8 +66,8 @@ is $cp, '/mnt/simple-command.sh', 'container path';
 
 my ($ecode, $cid, $out);
 lives_ok {
-   my $ez = $zone_factory->item('envile');
-   ($ecode, $cid, $out) = $action->run(
+   my $ez = $factory->item('envile');
+   ($ecode, $cid, $out) = $stroke->draw(
       keep        => 0,
       image       => 'alpine:latest',
       project_dir => $project_dir,

@@ -1,4 +1,4 @@
-package Dibs::Action::Instance;
+package Dibs::Stroke::Instance;
 use 5.024;
 use Ouch ':trytiny_var';
 use Log::Any '$log';
@@ -30,9 +30,9 @@ sub _location ($self) { # this is something executed inside the container!
    return $self->dibspack->location(@allowed_zones);
 }
 
-sub run ($self, @args) {
+sub draw ($self, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
-   ARROW_OUTPUT('+', 'action ' . $self->name);
+   ARROW_OUTPUT('+', 'stroke ' . $self->name);
 
    my @carriers = ( # $self is considered implicitly
       ($args{env_carriers} // [])->@*,
@@ -68,7 +68,7 @@ sub _command ($self, $args) {
            (scalar(keys %data) == 1)
            ? %data
            : (delete $data{type}, \%data);
-         ouch 400, 'unknown type for arg of action' unless defined $type;
+         ouch 400, 'unknown type for arg of stroke' unless defined $type;
          ($type, $data) = ($data, undef) if $type eq 'type';
          if (my ($ptype) = $type =~ m{\A path_ (.+) \z}mxs) {
             $type = 'path';
@@ -84,14 +84,14 @@ sub _command ($self, $args) {
          elsif ($type eq 'process_id') { $args->{process}->id }
          elsif ($type eq 'process_name') { $args->{process}->name }
          else {
-            ouch 400, "unrecognized arg for action (type: $type)";
+            ouch 400, "unrecognized arg for stroke (type: $type)";
          }
       } ## end if ($ref eq 'HASH')
       elsif (!$ref) {
          $_;
       }
       else {
-         ouch 400, "invalid arg for action (ref: $ref)";
+         ouch 400, "invalid arg for stroke (ref: $ref)";
       }
    } $self->args->@*;
    return [$self->container_path, @args];

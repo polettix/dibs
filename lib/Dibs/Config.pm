@@ -16,8 +16,6 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 our $VERSION = '0.001';
 
-use constant ACTION            => 'action';
-use constant ACTIONS           => 'actions';
 use constant BIN               => 'bin';
 use constant CACHE             => 'cache';
 use constant DEFAULTS_FIELD    => 'defaults';
@@ -26,7 +24,7 @@ use constant DIBSPACK          => 'dibspack';
 use constant DIBSPACKS         => 'dibspacks';
 use constant HOST_DIBSPACKS    => 'host-dibspacks';
 use constant STEPS             => 'steps';
-use constant DPFILE            => '.dibsactions';
+use constant DPFILE            => '.dibsstrokes';
 use constant HTTP              => 'http';
 use constant WORKFLOW          => 'workflow';
 use constant EMPTY             => 'empty';
@@ -169,7 +167,7 @@ our %EXPORT_TAGS = (
    constants => [
       qw<
         BIN CACHE DIBSPACKS DIBSPACK DPFILE EMPTY ENVIRON GIT IMMEDIATE
-        ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD ACTION ACTIONS
+        ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
         HOST_DIBSPACKS INDENT DEFAULTS
         >

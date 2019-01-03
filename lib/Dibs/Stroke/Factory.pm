@@ -1,7 +1,7 @@
-package Dibs::Action::Factory;
+package Dibs::Stroke::Factory;
 use 5.024;
 use Ouch ':trytiny_var';
-use Dibs::Action::Instance;
+use Dibs::Stroke::Instance;
 use Dibs::Inflater; # work around a bug in order of inclusions...
 use Moo;
 use experimental qw< postderef signatures >;
@@ -14,7 +14,7 @@ with 'Dibs::Role::Factory';
 sub instance ($self, $x, %args) {
    my $dibspack_factory = $self->dibspack_factory;
    my $spec = $self->inflate($x, %args);
-   return Dibs::Action::Instance->new(
+   return Dibs::Stroke::Instance->new(
       $spec->%*,
       dibspack => $dibspack_factory->item($spec->{dibspack}, %args),
       zone_factory => $dibspack_factory->zone_factory,
@@ -22,7 +22,7 @@ sub instance ($self, $x, %args) {
 }
 
 sub parse ($self, $x) {
-   ouch 400, "cannot parse action '$x'";
+   ouch 400, "cannot parse stroke '$x'";
 }
 
 1;

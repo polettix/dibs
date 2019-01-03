@@ -20,12 +20,12 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Output;
 use Dibs::Config ':all';
-use Dibs::Action::Factory;
+use Dibs::Stroke::Factory;
 use Dibs::Pack::Factory;
-use Dibs::Process::Factory;
+use Dibs::Sketch::Factory;
 use Dibs::Zone::Factory;
 
-has action_factory => (is => 'ro', required => 1);
+has stroke_factory => (is => 'ro', required => 1);
 
 has allow_dirty => (
    is       => 'ro',
@@ -36,7 +36,7 @@ has allow_dirty => (
 
 has dibspack_factory => (is => 'ro', required => 1);
 
-has process_factory => (is => 'ro', required => 1);
+has sketch_factory => (is => 'ro', required => 1);
 
 has project_dir => (
    is       => 'ro',
@@ -84,15 +84,15 @@ sub BUILDARGS ($class, @args) {
    );
 
    # Action factory
-   my $af = $retval{action_factory} = Dibs::Action::Factory->new(
-      config => ($args{actions} // {}),
+   my $af = $retval{stroke_factory} = Dibs::Action::Factory->new(
+      config => ($args{strokes} // {}),
       dibspack_factory => $df,
    );
 
    # Process factory
-   my $pf = $retval{process_factory} = Dibs::Process::Factory->new(
-      action_factory => $af,
-      config => ($args{processes} // {}),
+   my $pf = $retval{sketch_factory} = Dibs::Process::Factory->new(
+      stroke_factory => $af,
+      config => ($args{sketches} // {}),
       dibspack_factory => $df,
    );
 
@@ -113,8 +113,8 @@ __END__
        # - dibspack_config (member)
        # - dibspack        (method)
        #
-       # - processes       (member)
-       # - process_config  (member)
+       # - sketches       (member)
+       # - sketch_config  (member)
        # - process         (method)
 
    for my $t (qw< action dibspack >, [qw< process processes >]) {

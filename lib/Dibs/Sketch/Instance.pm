@@ -1,4 +1,4 @@
-package Dibs::Process::Instance;
+package Dibs::Sketch::Instance;
 use 5.024;
 use Ouch qw< :trytiny_var >;
 use Log::Any '$log';
@@ -14,21 +14,21 @@ no warnings qw< experimental::postderef experimental::signatures >;
 with 'Dibs::Role::EnvCarrier';
 with 'Dibs::Role::Identifier';
 
-has action_factory => (is => 'ro', required => 1);
+has stroke_factory => (is => 'ro', required => 1);
 has dibspack_factory => (
    is      => 'ro',
    lazy    => 1,
-   default => sub ($self) { $self->action_factory->dibspack_factory },
+   default => sub ($self) { $self->stroke_factory->dibspack_factory },
 );
 
-has all_actions => (is => 'lazy');
-has actions => (is => 'ro', default  => sub { return [] });
+has all_strokes => (is => 'lazy');
+has strokes => (is => 'ro', default  => sub { return [] });
 has commit  => (is => 'ro', default  => undef, coerce => \&_coerce_commit);
 has from    => (is => 'ro', required => 1);
 
-sub _build_all_actions ($self) {
-   my $af = $self->action_factory;
-   return [ map { $af->item($_) } flatten_array($self->actions) ];
+sub _build_all_strokes ($self) {
+   my $af = $self->stroke_factory;
+   return [ map { $af->item($_) } flatten_array($self->strokes) ];
 }
 
 sub changes_for_commit ($self) {
@@ -117,7 +117,7 @@ sub remove_working ($self, $image) {
    return;
 }
 
-sub run ($self, %args) {
+sub draw ($self, %args) {
    ARROW_OUTPUT('=', 'process ' . $self->name);
    $args{process} = $self;    # self-explanatory...
    $args{env_carriers} = [ $self, ($args{env_carriers} // [])->@* ];
@@ -127,7 +127,7 @@ sub run ($self, %args) {
 
    my %retval;
    try {
-      $retval{outputs} = $self->run_actions(%args, image => $image);
+      $retval{outputs} = $self->draw_strokes(%args, image => $image);
    }
    catch {
       docker_rmi($image);     # roll back $image
@@ -142,20 +142,20 @@ sub run ($self, %args) {
    return \%retval;
 } ## end sub run
 
-sub run_actions ($self, %args) {
+sub draw_strokes ($self, %args) {
    my $cid;    # records the container id, useful for catch-cleanup
    my @outputs;
    try {
-      my @actions = $self->all_actions->@*;
+      my @strokes = $self->all_strokes->@*;
       my $index = 0;
       my $changes = undef;
       @outputs = map {
          my ($ecode, $out);
-         ($ecode, $cid, $out) = $_->run(%args);
-         ouch 500, "action failed (exit code $ecode)" if $ecode;
+         ($ecode, $cid, $out) = $_->draw(%args);
+         ouch 500, "stroke failed (exit code $ecode)" if $ecode;
 
          $changes = $self->changes_for_commit
-            if $index++ == $#actions; # last action gets changes too
+            if $index++ == $#strokes; # last stroke gets changes too
          docker_commit($cid, $args{image}, $changes);
 
          # avoid calling docker_rm twice in case of errors
@@ -164,13 +164,13 @@ sub run_actions ($self, %args) {
 
          # this is the "output" of this map pass
          $out;
-      } @actions;
+      } @strokes;
    } ## end try
    catch {
       docker_rm($cid) if defined $cid;
       die $_;    # rethrow
    };
    return \@outputs;
-} ## end sub run_actions
+} ## end sub run_strokes
 
 1;

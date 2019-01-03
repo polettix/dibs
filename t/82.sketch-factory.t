@@ -4,8 +4,8 @@ use Test::More;
 use Test::Exception;
 use Dibs::Zone::Factory;
 use Dibs::Pack::Factory;
-use Dibs::Action::Factory;
-use Dibs::Process::Factory;
+use Dibs::Stroke::Factory;
+use Dibs::Sketch::Factory;
 use Path::Tiny 'path';
 use lib path(__FILE__)->parent->stringify;
 use DibsTest;
@@ -25,11 +25,11 @@ my $spice      = $some_spice[rand @some_spice];
 
 my $a_factory;
 lives_ok {
-   $a_factory = Dibs::Action::Factory->new(
+   $a_factory = Dibs::Stroke::Factory->new(
       dibspack_factory => $dp_factory,
       config            => {
          my_target => {
-            id           => 'action whatever',
+            id           => 'stroke whatever',
             dibspack     => 'inside:mnt',
             zone_factory => $zone_factory,
             path         => 'simple-command.sh',
@@ -41,22 +41,22 @@ lives_ok {
 } ## end lives_ok
 'constructor with all args';
 
-throws_ok { my $x = Dibs::Process::Factory->new } qr{missing required...}i,
-  'process constructor needs arguments';
+throws_ok { my $x = Dibs::Sketch::Factory->new } qr{missing required...}i,
+  'sketch constructor needs arguments';
 
 my %args = (
 );
 
-my $process_factory;
+my $sketch_factory;
 lives_ok {
-   $process_factory = Dibs::Process::Factory->new(
-      action_factory => $a_factory,
+   $sketch_factory = Dibs::Sketch::Factory->new(
+      stroke_factory => $a_factory,
       config => {
          'work-please' => {
-            actions_factory => $a_factory,
+            stroke_factory => $a_factory,
             id => 'whatever',
             from => 'alpine:latest',
-            actions => [
+            strokes => [
                'my_target', # by name, known by the factory
                {            # direct specification
                   id => 'other whatever',
@@ -71,25 +71,25 @@ lives_ok {
       },
    );
 }
-'process instance constructor OK with all arguments';
+'sketch instance constructor OK with all arguments';
 
-my $process;
+my $sketch;
 lives_ok {
-   $process = $process_factory->item('work-please');
+   $sketch = $sketch_factory->item('work-please');
 }
-'process proxy fetching from factory';
+'sketch proxy fetching from factory';
 
 my ($id, $name);
 lives_ok {
-   $id = $process->id;
-   $name = $process->name;
-} 'methods id, name from proxy object (process)';
+   $id = $sketch->id;
+   $name = $sketch->name;
+} 'methods id, name from proxy object (sketch)';
 is $name, $id, 'name defaults to id';
 
 my $outcome;
 lives_ok {
    my $ez = $zone_factory->item('envile');
-   $outcome = $process->run(
+   $outcome = $sketch->draw(
       working_image_name => path(__FILE__)->basename,
       project_dir => $project_dir,
       volumes     => [
@@ -100,7 +100,7 @@ lives_ok {
 } ## end lives_ok
 'proxied method run lives';
 
-is scalar(@{$outcome->{outputs}}), 2, 'output from 2 actions';
+is scalar(@{$outcome->{outputs}}), 2, 'output from 2 strokes';
 my ($out1, $out2) = @{$outcome->{outputs}};
 like $out1, qr{
    \A
@@ -117,7 +117,7 @@ like $out1, qr{
      .*
      ^end\ of\ file\ list$
    \z
-}mxs, 'output from running first action';
+}mxs, 'output from running first stroke';
 
 unlike $out1, qr{^THAT=}mxs, 'no cross-pollination of envile';
 
@@ -136,11 +136,11 @@ like $out2, qr{
      .*
      ^end\ of\ file\ list$
    \z
-}mxs, 'output from running first action';
+}mxs, 'output from running first stroke';
 
 unlike $out2, qr{^THIS=}mxs, 'no cross-pollination of envile';
 
-like $_, qr{^WHAT=ever$}mxs, 'process-level environment variable',
+like $_, qr{^WHAT=ever$}mxs, 'sketch-level environment variable',
    for ($out1, $out2);
 
 done_testing();
