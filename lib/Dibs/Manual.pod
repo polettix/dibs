@@ -394,6 +394,20 @@ option takes precedence.
 The values cannot in general be overridden from configurations coming from
 the configuration file; any exception is explicitly acknowledged.
 
+I<Straight> command line arguments represent actions to be executed in
+the specific run (by default, an action named C<default> is executed):
+
+   $ dibs first second third fourth last
+
+It defaults to whatever is found inside the C<dibs.yml> configuration
+file. The example above leads to the following list of steps:
+
+   - first
+   - second
+   - third
+   - fourth
+   - last
+
 =over
 
 =item --alien
@@ -511,20 +525,6 @@ be overridden even when missing from environment and/or command line.
 Enable additional information during execution.
 
 =back
-
-I<Straight> command line arguments represent actions to be executed in
-the specific run (by default, an action named C<default> is executed):
-
-   $ dibs first second third fourth last
-
-It defaults to whatever is found inside the C<dibs.yml> configuration
-file. The example above leads to the following list of steps:
-
-   - first
-   - second
-   - third
-   - fourth
-   - last
 
 
 =head1 CONFIGURATION
