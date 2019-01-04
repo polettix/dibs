@@ -187,6 +187,7 @@ our @EXPORT = ();
 sub _pod2usage {
    pod2usage(
       -exitval  => 0,
+      -input    => pod_where({-inc => 1}, 'Dibs::Manual'),
       -sections => 'USAGE',
       -verbose  => 99,
       @_
