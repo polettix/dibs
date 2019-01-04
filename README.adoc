@@ -35,22 +35,19 @@ process
 * … it will probably need the container to be set so that the invocation
 of the program is eased.
 
-The build process usually requires tools (like a compiler, C,
-development versions of libraries, etc.) that are rarely needed during
-the runtime phase. With a single
-https://docs.docker.com/engine/reference/builder/[Dockerfile], there are
-two choices:
+The build process usually requires tools (like a compiler, C, development
+versions of libraries, etc.) that are rarely needed during the runtime phase.
+To cope with this, release 17.05 of Docker introduced a new feature where a
+https://docs.docker.com/engine/reference/builder/[Dockerfile] can include
+multiple
+stages{blank}footnote:[https://docs.docker.com/develop/develop-images/multistage-build/]
+(each marked with an initial `FROM` section), where it's possible to perform
+e.g. compilation within a specific track and later use those artifacts inside
+another container started from a leaner image.
 
-* keep the tools around, or get rid of them while still having a _fat_
-image.footnote:[ Due to how filesystem overlays work, what is _deleted_ in a layer
-only hides it from lower layers, but the space is still needed];
-* install the tools and remove them in the same phase of the
-https://docs.docker.com/engine/reference/builder/[Dockerfile], thus
-making it difficult to cache or pinpoint the tools themselves.
-
-The idea behind `dibs` is that the path from the code to the Docker
-image is not necessarily _linear_ and might be walked through different lanes,
-or _phases_
+`dibs` addresses this issue with the idea that the path from the code to the
+Docker image is not necessarily _linear_ and might be walked through different
+lanes, or _phases_:
 
 - each phase runs a sequence of operations that stack upon a container image
   much like a https://docs.docker.com/engine/reference/builder/[Dockerfile]
@@ -83,6 +80,12 @@ In this way, _build_ operations can be performed from a _heavier_ container
 image (the one with the build tools), while the _bundle_ operation relies on a
 _leaner_ starting container image (the one with just the runtime), providing a
 _leaner_ result.
+
+The difference with respect to plain Dockerfiles is in how the whole process
+is configured: in `dibs` it is much easier to reuse both operations performed
+inside a container (the next section is about this), as well as fragments of
+the configuration itself to avoid repetitions (which, much like code, can lead
+to bugs).
 
 === Reuse of operations
 
@@ -167,7 +170,7 @@ executions are related to the _project directory_, and are:
 It's better to start looking at a couple of examples to better understand how
 `dibs` works.
 
-=== Development Mode, Initial Example
+=== Getting Started
 
 The basic mode of operations of `dibs` is _development mode_. As the name
 implies, it is best used when developing the software and generating the
@@ -322,13 +325,22 @@ Sketch `bundle` is similar to `build`, but also different:
 - the last action of the sketch is a _frame_ that saves the final container as
   an image with two tags: `exadev:latest` and `exadev:0.3`.
 
-=== Development Mode, Explicit Pinpointing
+=== Explicit Pinpointing
 
 The previous example showed an example where _build_ and _bundle_ are
 separated, but as a matter of fact it does not provide a real advantage in
 terms of execution time, because the installation of prerequisites on top of a
-basic image is always performed (`dibs` does not include implicit
-caching/pinpointing of intermediate containers like Dockerfiles).
+basic image is always performed.
+
+From this point of view, `dibs` performs worse than plain
+Dockerfiles{blank}footnote:[The example is still relevant though, because it
+shows the use of a remote dibspack, i.e. a git repository] because it does not
+come with _implicit_ caching/pinpointing of intermediate containers. This is
+meant as a feature though, because the implicit pinpointing and reuse of
+previously built layers can bite when things change around and `docker` is not
+aware of it{blank}footnote:[This possibility led to option `--no-cache`, for
+example.]; this is a likely scenario in `dibs` because there is much more
+space for using remote stuff.
 
 It's possible to expand the example to limit the amount of repeated work, like
 shown in the following example.
@@ -427,6 +439,11 @@ $ dibs build bundle
 ----
 
 the prerequisites installation is not performed any more, saving time.
+
+This trick allows pinpointing specific steps of interest for explicit reuse.
+Making it explicit also opens the door to easily distribute responsibilities
+to other teams for the different stages.footnote:[This is of course available
+through Dockerfiles too.]
 
 === Robust Pinpointing
 
