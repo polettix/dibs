@@ -436,34 +436,31 @@ setting inside the configuration file is ignored.
 
 set name of the configuration file. Defaults to C<dibs.yml>.
 
-In L</Alien mode>, the configuration file must be in the project
-directory.
-
-In L<Local mode>, it must be either in the C<src> directory or, as
-a fallback, in the project directory (C<src> is searched first).
+In L</Alien mode>, a relative path is referred to the project directory.
+In L</Developer mode>, though, a relative path is first looked for
+starting from the current directory, then from the project directory.
+This allows keeping the C<dibs.yml> file in the code's root directory.
 
 This is considered only before loading a configuration file, so any
 setting inside the configuration file is ignored.
 
-=item --local
+=item --dirty
 
-=item -l
+=item -D
 
-=item --no-local
+=item DIBS_DIRTY
 
-=item DIBS_LOCAL
+   $ dibs --dirty
 
-   $ dibs -l
+allow for a dirty origin repository. When an origin repository is set
+for cloning/checking out L</src>, C<dibs> checks its state (if local)
+and refuses to proceed if it is dirty (i.e. with uncommitted changes
+and/or untracked files); this is useful in L</Developer mode> to prevent
+running C<dibs> without recent changes.
 
-Boolean option to select between L</Alien mode> and L</Local mode> (latter
-when the value is true).
-
-The C<DIBS_LOCAL> environment variable is tested as any Perl boolean, so
-only the following values are I<false>: C<undef> (environment variable is
-missing), empty string, number C<0>. Any other value is considered true.
-
-This option is computed before loading the configuration file and cannot
-be overridden even when missing from environment and/or command line.
+It is generally advised to avoid this option. A notable exception is
+when changing the C<dibs.yml> file itself in L</Developer mode>, because
+the one in the main directory is taken directly.
 
 =item --origin
 
@@ -481,6 +478,8 @@ even in steps that technically do not rely on it (C<dibs> has no way to
 tell).
 
 The origin can be set inside the C<dibs.yml> file.
+
+In L</Developer mode>, this option is set automatically to C<.>.
 
 =item --project-dir
 
@@ -500,6 +499,16 @@ L</--change-dir>).
 
 This option is computed before loading the configuration file and cannot
 be overridden even when missing from environment and/or command line.
+
+=item --verbose
+
+=item -v
+
+=item DIBS_VERBOSE
+
+   $ dibs --verbose
+
+Enable additional information during execution.
 
 =back
 
