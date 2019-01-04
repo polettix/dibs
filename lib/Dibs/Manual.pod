@@ -67,34 +67,7 @@ located in the project directory's root.
 
 C<dibs> mounts several directories in a container when it runs programs
 inside of them. This allows pass information to and from containers in a
-systematic way; all these directories are part of the project directory:
-
-=over
-
-=item C<< env >> and C<< envile >>
-
-mounted read-only, these contain data that can be of help to the
-container. The former is totally under the control of the user, while
-the latter is populated automatically by C<dibs> with files that
-represent environment variables (the filename is the name of the
-variable, while the contents of the file are the data).
-
-=item C<< cache >>
-
-mounted read-write, is at the user's disposal, usually to save artifacts
-from I<build>-like phases so that I<bundle>-like phases can take and
-install them into target container images.
-
-=item C<< src >>
-
-where the I<source code> of the project is placed. It might be developed
-inside or retrieved in some way.
-
-=back
-
-There are a couple of other directories that will be explained later,
-but this gives the gist of how a container has access to multiple data
-sources for running at its best and produce the needed results.
+systematic way; more info on L</Directories> is available below.
 
 The I<actions> defined in the configuration file can be of different
 types:
@@ -134,7 +107,7 @@ In this section, the following layout is assumed:
          cpanfile
 
 The current working directory is assumed to be C<project>. This is the
-typical layout for I<alien mode>, where the project directory tracks a
+typical layout for L</Alien mode>, where the project directory tracks a
 (potentially) remote project that is unaware of C<dibs> (or not directly
 involved).
 
@@ -193,8 +166,6 @@ concept of I<pack> (also called C<dibspack>). In some contexts, packs
 Within a container, many data are available in the form of so-called
 I<enviles>. An envile is just a variable passed through a file in the
 L</envile> directory, much like an environment variable.
-
-
 
 =head2 Directories
 
@@ -300,6 +271,85 @@ the code's local git setup (i.e. the code MUST be tracked via `git`); in
 C<alien mode> it might be assumed to be populated externally, or
 populated automatically using the L</origin> directive.
 
+=head2 Modes Of Operation
+
+There are two main modes of operations, explained in the following
+sections.
+
+=head3 Alien mode
+
+This mode is useful when a remote source project is tracked. The source
+project might even be unaware of C<dibs> completely.
+
+The typical layout is the following:
+
+    project-directory/
+      auto/
+         host-only/
+         open/
+      cache/
+      dibs.yml
+      env/
+      envile/
+      pack/
+      src/
+
+In alien mode, the working directory (the current one, or the one after
+changing it via L</--change-dir>) is coincident with the project
+directory; additionally, no automatic origin is set, so the C<src>
+sub-directory is either otherwise-populated (e.g. directly edited,
+independently expanded from a tar file, etc.) or the real origin has to
+be set explicitly.
+
+=head3 Developer mode
+
+This mode is useful for developers that want to leverage C<dibs>
+directly in their code layout. This is also the default mode of
+operation (in lack of C<--alien> or equivalent options).
+
+In developer mode, the typical layout is as follows:
+
+    code-source-root/
+      .git
+      ah-some-code.pl
+      ah-other-code.c
+      dibs.yml
+      dibs/
+         auto/
+            host-only/
+            open/
+         cache/
+         env/
+         envile/
+         pack/
+         src/
+
+In this case, the source is edited in the top tree (C<code-source-root>
+in the example) and then transferred inside C<src> at the beginning. As
+a matter of fact, the code is I<checked out>, which implies that:
+
+=over
+
+=item *
+
+the base source directory MUST be tracked with `git`, and
+
+=item *
+
+the changed code MUST be committed to be used.
+
+=back
+
+The above behaviour is obtained by automatically setting the I<origin>
+(L</--origin>) to C<.>, assuming that the C<dibs> command is run from
+the code's root directory.
+
+In case the `git` repository is not in a clean state, the C<dibs>
+command will complain. This will prevent running it e.g. in case the
+user forgets to commit the work before running C<dibs>. It is possible
+to override this safecheck using option L</--dirty>, although this is
+probably only useful only when modifying the C<dibs.yml> file itself (it
+is always taken from the original directory if present).
 
 =head1 OPTIONS
 
@@ -453,11 +503,10 @@ be overridden even when missing from environment and/or command line.
 
 =back
 
-I<Straight> command line arguments represent steps to be executed in the
-specific run; they can also be set (comma or space-separated) via
-environment variable C<DIBS_STEPS>. Example:
+I<Straight> command line arguments represent actions to be executed in
+the specific run (by default, an action named C<default> is executed):
 
-   $ dibs first,second third fourth,last
+   $ dibs first second third fourth last
 
 It defaults to whatever is found inside the C<dibs.yml> configuration
 file. The example above leads to the following list of steps:
@@ -467,6 +516,7 @@ file. The example above leads to the following list of steps:
    - third
    - fourth
    - last
+
 
 =head1 CONFIGURATION
 
