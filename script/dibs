@@ -36,7 +36,7 @@ dibs - Docker Image Build System
 
 =head1 VERSION
 
-Ask the version number to the script itself, calling:
+C<dibs>'s version can be retrieved with option L</--version>:
 
    shell$ dibs --version
 
@@ -44,38 +44,294 @@ Ask the version number to the script itself, calling:
 
    dibs [--usage] [--help] [--man] [--version]
 
-   dibs [--change-dir|-C directory]
+   dibs [--alien|-A]
+        [--change-dir|-C directory]
         [--config-file|--config|-c filename]
-        [--local|-l|--no-local]
+        [--dirty|--dirty-origin-is-ok|-D]
+        [--loglevel|-l levelname]
+        [--origin|-O URI]
         [--project-dir|-p directory]
-        step [step [step...]]
+        [--verbose|-v]
+        action [action [action...]]
 
 =head1 EXAMPLES
 
    # A repo like `dibs` itself, there's a dibs.yml file at the root and
-   # this is all that's needed for a "local" run if you are in the root dir
-   $ dibs -l
+   # this is all that's needed for a "development" run from the root dir
+   $ dibs
 
-   # Ditto, but change directory first
-   $ dibs -lC /path/to/simple/repo
+   # Ditto, but changing directory first
+   $ dibs -C /path/to/simple/repo
 
    # The repo itself might not be aware of the whole dibs part, or take
    # care of a few aspects only to minimise burden on developers. In this
    # case the starting point is a project directory
-   $ dibs -C /path/to/project/dir
+   $ dibs --alien -C /path/to/project/dir
 
    # Configuration file is named "dibs.yml" by default, but it's possible
    # to keem more of them around
    $ dibs -c alt-dibs.yml
 
-
 =head1 DESCRIPTION
 
 C<dibs> allows handling the different steps of building software and
-packing it as a I<trimmed> Docker image. The full details can be found in
-the documentation, e.g. at L<https://github.com/polettix/dibs>; this
-manual page will only provide lower-level details about using the program
-itself.
+packing it as a I<trimmed> Docker image. A gentle introduction to its
+goals and to some examples is provided at
+L<https://github.com/polettix/dibs>; this manual page will only provide
+lower-level details about using the program itself.
+
+C<dibs> uses a I<project directory> as a basecamp for all operations.
+C<dibs> can be run in two modes: I<development> (the default one) and
+C<alien>. The only difference between the two is the directory layout:
+in C<development mode> a subdirectory C<dibs> is created and used as
+C<project directory>, while in C<alien mode> the current directory is
+used.
+
+C<dibs> allows executing programs inside containers and optionally save
+the results as container images. It manages multiple different I<phases>
+of execution, allowing e.g. to distinguish a I<build> phase leveraging a
+fat image with many tools installed (e.g. a compiler) and a I<bundle>
+phase to generate a lean image. The definition of all possible
+I<actions> is done through a configuration file called C<dibs.yml>,
+located in the project directory's root.
+
+C<dibs> mounts several directories in a container when it runs programs
+inside of them. This allows pass information to and from containers in a
+systematic way; all these directories are part of the project directory:
+
+=over
+
+=item C<< env >> and C<< envile >>
+
+mounted read-only, these contain data that can be of help to the
+container. The former is totally under the control of the user, while
+the latter is populated automatically by C<dibs> with files that
+represent environment variables (the filename is the name of the
+variable, while the contents of the file are the data).
+
+=item C<< cache >>
+
+mounted read-write, is at the user's disposal, usually to save artifacts
+from I<build>-like phases so that I<bundle>-like phases can take and
+install them into target container images.
+
+=item C<< src >>
+
+where the I<source code> of the project is placed. It might be developed
+inside or retrieved in some way.
+
+=back
+
+There are a couple of other directories that will be explained later,
+but this gives the gist of how a container has access to multiple data
+sources for running at its best and produce the needed results.
+
+The I<actions> defined in the configuration file can be of different
+types:
+
+=over
+
+=item I<prepare>
+
+this action sets up the stage for running a container, it's the
+equivalent of the C<FROM> directive in the Dockerfile
+
+=item I<stroke>
+
+this action executes a program inside a container
+
+=item I<frame>
+
+this action saves a container as an image
+
+=item I<sketch>
+
+groups multiple actions in a sequence
+
+=back
+
+=head2 Anatomy of a Run
+
+In this section, the following layout is assumed:
+
+    project/
+      cache/
+      dibs.yml
+      env/
+         sample-file.json
+      src/
+         app.pl
+         cpanfile
+
+The current working directory is assumed to be C<project>. This is the
+typical layout for I<alien mode>, where the project directory tracks a
+(potentially) remote project that is unaware of C<dibs> (or not directly
+involved).
+
+When C<dibs> is run:
+
+    $ dibs --alien
+
+the following happens:
+
+=over
+
+=item *
+
+command-line options are parsed. In this case, the C<--alien> option
+sets C<dibs> up to expect the directory layout above
+
+=item *
+
+the configuration file C<dibs.yml> is loaded and parsed lazily (i.e. its
+parts are expanded only when strictly needed).
+
+=item *
+
+the actions to be executed are collected. In this case there is no
+explicit indication in the command line, so an action named C<default>
+is looked for in the loaded configuration
+
+=item *
+
+each action is executed in the order specified.  Top level actions are
+I<sketches> that start from a I<prepare> action, usually followed by
+some I<strokes> and optionally terminated with a I<frame> that saves the
+image. In particular, for I<stroke> actions:
+
+=over
+
+=item *
+
+a directory C<envile> is created and several files are saved inside,
+representing key-value pairs
+
+=item *
+
+a container is run, with most of the directories in the project mounted
+inside (read-only or read-write, depending on the directory).
+
+=back
+
+=back
+
+Programs executed in a stroke can be local or remote (e.g. in a `git`
+repository); to help locate the right artifacts, C<dibs> introduces the
+concept of I<pack> (also called C<dibspack>). In some contexts, packs
+(especially remote ones) can also hold additional configurations.
+
+Within a container, many data are available in the form of so-called
+I<enviles>. An envile is just a variable passed through a file in the
+L</envile> directory, much like an environment variable.
+
+
+
+=head2 Directories
+
+There are several directories of interest in C<dibs>, explained in the
+following sections; unless otherwise noted, they are all sub-directories
+of the I<project directory>. The generic complete layout is as follows
+(directories that are also mounted in the container and the envile that
+holds their position is also indicated)
+
+    directory in host | envile in container | notes
+    ------------------+---------------------+----------------------
+    project/          |                     |
+      auto/           |                     |
+         host-only/   |                     |
+         open/        | DIBS_DIR_AUTOPACK   |
+      cache/          | DIBS_DIR_CACHE      |
+      env/            | DIBS_DIR_ENV        |
+      envile/         | DIBS_DIR_ENVILE     | container working dir
+      pack/           | DIBS_DIR_PACK       |
+      src/            | DIBS_DIR_SRC        |
+
+
+=head3 C<auto>
+
+This directory is used for retrieving and locally store remote or
+dynamic packs. It has two sub-directories:
+
+=over
+
+=item C<host-only>
+
+this directory contains packs whose goal is only to carry additional
+configurations, which are of interest only in the host and not inside
+the containers. This directory is not mounted in the container.
+
+=item C<open>
+
+this directory contains packs that are of interest inside the container.
+It is mounted read-only and its location is stored in envile
+C<DIBS_DIR_AUTOPACK>.
+
+=back
+
+This directory is managed by C<dibs> automatically and should not be
+used otherwise.
+
+=head3 C<cache>
+
+This directory is meant as a repository for easing communication across
+different phases of execution (i.e. potentially across independent
+containers).
+
+It is mounted read-write and its management is completely under user's
+control; its position is saved in envile C<DIBS_DIR_CACHE>.
+
+=head3 C<env>
+
+This directory is meant to hold whatever the user sees fit. It is
+mounted read-only inside the container, its position stored in envile
+C<DIBS_DIR_ENV>.
+
+=head3 C<envile>
+
+This directory holds files representing environment variables: filenames
+are the variable's names, file contents are the associated values. In
+addition, a file C<export-enviles.sh> is also saved, to help loading the
+variables in a shell script.
+
+The choice to save variables as files stems from the fact that
+environment variables are saved in a container's layer permanently,
+which can be undesired for some values (e.g. passwords, or transient
+values).
+
+This directory is generated and managed by C<dibs> and should not be
+used otherwise (it is wiped out when needed). To save specific data, the
+C<env> directory should be used instead.
+
+This directory is mounted read-only and is also set as the initial
+working directory in each container that is started, so that e.g. the
+location of all other directories can be found easily; in any case, its
+position is also stored in envile C<DIBS_DIR_ENVILE>.
+
+=head3 C<pack>
+
+This directory aims at containing programs to be executed inside the
+containers, or their associated artifacts (e.g. other programs).
+
+Remote programs that are fetched e.g. via `git` are not placed here, but
+inside L</auto> instead; this directory is meant for storing programs
+that are specific to the project.
+
+The directory is mounted read-only, its position available in envile
+C<DIBS_DIR_PACK>.
+
+=head3 C<src>
+
+This directory is assumed to carry the project's source code. It can be
+populated externally or automatically by C<dibs>. It is mounted
+read-write and its position is available in envile C<DIBS_DIR_SRC>.
+
+In C<development mode> the directory is populated automatically based on
+the code's local git setup (i.e. the code MUST be tracked via `git`); in
+C<alien mode> it might be assumed to be populated externally, or
+populated automatically using the L</origin> directive.
+
+
+
 
 =head2 Basic Concepts
 

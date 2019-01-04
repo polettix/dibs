@@ -10,8 +10,6 @@ using a https://docs.docker.com/engine/reference/builder/[Dockerfile],
 with the difference that `dibs` provides finer control over the
 different phases and makes it easier to land on a trimmed image.
 
-*THIS DOCUMENT IS CURRENTLY OBSOLETE AND NEEDS REWORKING AFTER REFACTORING*
-
 toc::[]
 
 == But... _why_?
