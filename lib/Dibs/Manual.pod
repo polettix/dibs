@@ -652,6 +652,22 @@ name itself, so the following:
 sets C<TYPE> to C<My::Class> and C<PARAMETER> to
 C<some,additional,data>.
 
+It is also possible to specify an action as a reference to another
+action. For example:
+
+    actions:
+      foo: ...
+      bar: foo
+
+makes C<bar> resolve to whatever action C<foo> is. This is in particular
+useful to refer to definitions in external configurations files, using
+the C<< <NAME>@<PACK> >> syntax:
+
+    packs:
+      baz: ...
+    actions:
+      bar: foo@baz
+
 In the following sub-sections, only key-value pairs specific to the
 respective types will be explained.
 
@@ -795,11 +811,48 @@ is normalized as this:
       from: alpine:3.6
 
 In the string form, the C<PARAMETER> is interpreted as the value for
-C<from>, so this works:
+C<from>, so this works as a simplification of the above example:
 
     some-action: 'from:alpine:3.6'
 
 =head3 Action C<sketch>
+
+This is a I<meta>-actions actually, acting as a container for other
+actions. It can be useful e.g. to group sequences of actions that might
+be repeated through several different targets, or to define whole
+targets themselves.
+
+The type is C<sketch>. Specific keys are the following:
+
+=over
+
+
+
+=back
+
+Appearance of the C<actions> key triggers automatic recognition as a
+C<sketch>, so for example:
+
+    my-action:
+      actions: ['this', 'that']
+
+is normalized as:
+
+    my-action:
+      type: sketch
+      actions: ['this', 'that']
+
+A sketch might also appear as an Array (instead of an Associative
+array). In this case, the contents of the Array are moved into the
+C<actions> key explained above, and all other values take their
+defaults. This means that the following:
+
+    my-action: ['this', 'that']
+
+is normalized as in the example above.
+
+This type does not allow a simplified string form.
+
 
 =head3 Action C<stroke>
 
