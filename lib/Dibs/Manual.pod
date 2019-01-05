@@ -924,7 +924,7 @@ L</Configuration actions>. Example:
 
 =item C<envile>
 
-action C<stroke> is an L<environment carrier/Environment Carriers>, thus
+action C<stroke> is an L<environment carrier|/Environment Carriers>, thus
 exposes these two keys with the behaviour explained above.
 
 =back
