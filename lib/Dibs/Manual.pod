@@ -682,6 +682,11 @@ following keys:
 
 =over
 
+=item C<extends>
+
+a reference to another action, or an Array of such references, from
+which to inherit traits. More details in L</Inheritance>.
+
 =item C<name>
 
 the name of the action, used in the output log;
@@ -711,7 +716,6 @@ explained below.
 
 In the following sub-sections dedicated to specific action types, only
 key-value pairs specific to the respective types will be explained.
-
 
 =head3 Textual representations
 
@@ -746,6 +750,100 @@ the C<< <NAME>@<PACK> >> syntax:
       baz: ...
     actions:
       bar: foo@baz
+
+=head3 Inheritance
+
+To improve space for factoring configurations and avoid repetitions,
+actions support a basic form of inheritance, triggered by key
+C<extends>.
+
+An action that I<extends> another one inherits all the parent's
+configurations, with the possibility of overriding them (all or in
+part). The overriding is always total, i.e. the substitution is
+complete.
+
+The following example helps clarifying the mechanism:
+
+    actions:
+      foo:
+         pack:
+            run: |
+               #!/bin/sh
+               exec >&2
+               whoami
+               printf 'Howdy, all!\n'
+               while [ "$#" -gt 0 ] ; do
+                  printf 'argument: <%s>\n' "$1"
+                  shift
+               done
+         user: ubuntu
+         commit:
+            entrypoint: []
+            cmd: ['/bin/sh', '-l']
+         args: ['Hello', 'World!']
+      bar:
+         extends: foo
+         args: [1, 2, 3]
+      baz:
+         extends: foo
+         args: ['A', 'B', 'C']
+
+Key C<foo> defines a stroke, whose definition is inherited by both
+C<bar> and C<baz>. These two strokes, though, set a different C<args>
+value, which means that the above definition is equivalent to the
+following one:
+
+    actions:
+      foo:
+         pack:
+            run: |
+               #!/bin/sh
+               exec >&2
+               whoami
+               printf 'Howdy, all!\n'
+               while [ "$#" -gt 0 ] ; do
+                  printf 'argument: <%s>\n' "$1"
+                  shift
+               done
+         user: ubuntu
+         commit:
+            entrypoint: []
+            cmd: ['/bin/sh', '-l']
+         args: ['Hello', 'World!']
+      bar:
+         pack:
+            run: |
+               #!/bin/sh
+               exec >&2
+               whoami
+               printf 'Howdy, all!\n'
+               while [ "$#" -gt 0 ] ; do
+                  printf 'argument: <%s>\n' "$1"
+                  shift
+               done
+         user: ubuntu
+         commit:
+            entrypoint: []
+            cmd: ['/bin/sh', '-l']
+         args: [1, 2, 3]
+      baz:
+         pack:
+            run: |
+               #!/bin/sh
+               exec >&2
+               whoami
+               printf 'Howdy, all!\n'
+               while [ "$#" -gt 0 ] ; do
+                  printf 'argument: <%s>\n' "$1"
+                  shift
+               done
+         user: ubuntu
+         commit:
+            entrypoint: []
+            cmd: ['/bin/sh', '-l']
+         args: ['A', 'B', 'C']
+
+but the first one is much more concise and easier to maintain.
 
 =head3 Action C<frame>
 
@@ -922,10 +1020,11 @@ L</Configuration actions>. Example:
 
 =item C<env>
 
+this key is supported as explained in L</Environment Carriers>.
+
 =item C<envile>
 
-action C<stroke> is an L<environment carrier|/Environment Carriers>, thus
-exposes these two keys with the behaviour explained above.
+this key is supported as explained in L</Environment Carriers>.
 
 =back
 
@@ -954,6 +1053,139 @@ This type does not allow a simplified string form.
 
 
 =head3 Action C<stroke>
+
+This action allows executing an operation inside the container, adding a
+layer on top of the previous action (either
+another L<stroke|/Action stroke>, or an L<action from|/Action from>). It
+can be seens as an evolved C<RUN> directive in a Dockerfile.
+
+The type is C<stroke>. Specific keys are the following:
+
+=over
+
+=item C<args>
+
+a single value, or an array of values, that are passed to the program
+executed inside the container. Optional, by default nothing is passed.
+Useful to reuse the same operation in different contexts.
+
+=item C<commit>
+
+this optional key points to an Associative array that helps setting
+additional features in the layer produced by the stroke. It supports the
+following keys:
+
+=over
+
+=item C<author>
+
+the author of the layer
+
+=item C<cmd>
+
+a default command to execute (subject to the entrypoint though),
+equivalent to the C<CMD> directive in a Dockerfile;
+
+=item C<entrypoint>
+
+equivalent to the C<ENTRYPOINT> directive in a Dockerfile;
+
+=item C<message>
+
+sets a message in the metadata;
+
+=item C<user>
+
+sets the default user to be used when running a container based on this
+image;
+
+=item C<workdir>
+
+sets the working directory when launching the container from the image.
+
+=back
+
+All values that are present are associated to the layer and might be
+overwritten by other layers on top. In particular, Dibs itself makes use
+of C<cmd>, C<entrypoint> and C<workdir>, so to set those ones in an
+image they have to be set in the topmost layer (i.e. the last stroke
+that is executed).
+
+=item C<env>
+
+this key is supported as explained in L</Environment Carriers>.
+
+=item C<envile>
+
+this key is supported as explained in L</Environment Carriers>.
+
+=item C<pack>
+
+either a reference to a definition in the L</Configuration packs>, or an
+inline definition of a pack (according to the rules in L</Configuration
+packs>). The reference might be a remote one, in the form C<<
+<NAME>@<PACK> >>, where C<PACK> is a reference to a definition in
+L</Configuration packs>.
+
+=item C<path>
+
+Some packs (especially remote packs specified as `git` repositories) are
+actually collections of items that map onto directories instead of
+single files. In this case, the C<path> parameter allows selecting a
+file inside those directories, so it is always referred relative to the
+specifica pack's directory.
+
+=item C<user>
+
+the user with which the container should be run, defaults to C<root>.
+Most software is best compiled as a regular, restricted user because it
+might provide special features when compiled as C<root>, so setting this
+to the least privileged profile required can help improving the security
+of the final image.
+
+=back
+
+Examples:
+
+=over
+
+=item *
+
+the following example uses an inline pack definition of a shell script:
+
+    my-stroke:
+      pack:
+         run: |
+            #!/bin/sh
+            printf >&2 'Howdy, all!\n'
+
+=item *
+
+in the following example, a pack is defined and then used in two
+strokes:
+
+    packs:
+      sample-pack:
+         run: |
+            #!/bin/sh
+            exec >&2
+            whoami
+            printf 'Howdy, all!\n'
+            while [ "$#" -gt 0 ] ; do
+               printf 'argument: <%s>\n' "$1"
+               shift
+            done
+    actions:
+      first-stroke:
+         pack: sample-pack
+         args: [1, 2, 3]
+      second-stroke:
+         pack: sample-pack
+         args: ['A', 'B', 'C']
+         user: kermit
+
+=back
+
 
 =head3 Other actions
 
