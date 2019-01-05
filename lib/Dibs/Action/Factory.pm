@@ -57,6 +57,7 @@ sub _dwim_type ($self, $spec) {
    return STROKE if exists $spec->{pack};
    return FROM if exists $spec->{from};
    return FRAME if exists($spec->{image_name}) || exists($spec->{tags});
+   return LOG if exists($spec->{dump}) || exists($spec->{message});
 
    return;
 }
