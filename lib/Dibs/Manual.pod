@@ -811,36 +811,36 @@ following one:
             cmd: ['/bin/sh', '-l']
          args: ['Hello', 'World!']
       bar:
-         pack:
-            run: |
-               #!/bin/sh
-               exec >&2
-               whoami
-               printf 'Howdy, all!\n'
-               while [ "$#" -gt 0 ] ; do
-                  printf 'argument: <%s>\n' "$1"
-                  shift
-               done
-         user: ubuntu
-         commit:
-            entrypoint: []
-            cmd: ['/bin/sh', '-l']
+         pack:                                        # ---
+            run: |                                    #  ^
+               #!/bin/sh                              #  |
+               exec >&2                               #  |
+               whoami                                 #  |
+               printf 'Howdy, all!\n'                 #  |
+               while [ "$#" -gt 0 ] ; do              # same as foo
+                  printf 'argument: <%s>\n' "$1"      #  |
+                  shift                               #  |
+               done                                   #  |
+         user: ubuntu                                 #  |
+         commit:                                      #  |
+            entrypoint: []                            #  v
+            cmd: ['/bin/sh', '-l']                    # ---
          args: [1, 2, 3]
       baz:
-         pack:
-            run: |
-               #!/bin/sh
-               exec >&2
-               whoami
-               printf 'Howdy, all!\n'
-               while [ "$#" -gt 0 ] ; do
-                  printf 'argument: <%s>\n' "$1"
-                  shift
-               done
-         user: ubuntu
-         commit:
-            entrypoint: []
-            cmd: ['/bin/sh', '-l']
+         pack:                                        # ---
+            run: |                                    #  ^
+               #!/bin/sh                              #  |
+               exec >&2                               #  |
+               whoami                                 #  |
+               printf 'Howdy, all!\n'                 #  |
+               while [ "$#" -gt 0 ] ; do              # same as foo
+                  printf 'argument: <%s>\n' "$1"      #  |
+                  shift                               #  |
+               done                                   #  |
+         user: ubuntu                                 #  |
+         commit:                                      #  |
+            entrypoint: []                            #  v
+            cmd: ['/bin/sh', '-l']                    # ---
          args: ['A', 'B', 'C']
 
 but the first one is much more concise and easier to maintain.
