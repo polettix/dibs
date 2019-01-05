@@ -598,7 +598,7 @@ Higher level keys are C<actions>, C<logger>, C<name>, C<origin>,
 C<packs>, and C<variables>. They are explained in depth in the
 following sections.
 
-=head2 Configuration: C<actions>
+=head2 Configuration C<actions>
 
 Associative array, containing definitions of actions. There are several
 different types of actions, as explained in each following subsection.
@@ -728,7 +728,7 @@ is normalized as follows:
       tags:
          - whatever:latest
 
-=head3 Action: log
+=head3 Action C<log>
 
 This action prints out an optional log message and dumps the
 configuration (if so requested). It can be useful for debugging or
@@ -762,11 +762,11 @@ is normalized in:
       type: log
       message: 'whatever you can think of'
 
-=head3 Action: Prepare
+=head3 Action C<prepare>
 
-=head3 Action: Sketch
+=head3 Action C<sketch>
 
-=head3 Action: Stroke
+=head3 Action C<stroke>
 
 =head3 Other actions
 
@@ -787,7 +787,7 @@ them as follows:
 Details for implementing custom actions are provided in L</Custom
 Actions>.
 
-=head2 Configuration: C<logger>
+=head2 Configuration C<logger>
 
 Dibs relies upon L<Log::Any> for logging. The C<logger> section allows
 setting the parameters for L<Log::Any::Adapter>, e.g.:
@@ -798,7 +798,7 @@ is translated into the corresponding setting for L<Log::Any::Adapter>
 (in this case, setting the logger to print to standard error, with a
 severity of at least C<info>).
 
-=head2 Configuration: C<name>
+=head2 Configuration C<name>
 
 This C<name> is used as the name of the temporary image across actions.
 Every L</prepare> and L</stroke> action generates as output such an
@@ -812,7 +812,7 @@ name might be something like C<whatever:20190103-072001-3820>.
 It is possible to preserve this temporary name as a permanent image
 using tag C<:default:>, more information in L</Action frame>.
 
-=head2 Configuration: C<origin>
+=head2 Configuration C<origin>
 
 In most cases, a Dibs project is about packing some code into a
 container image. This option allows setting a `git` origin for
@@ -844,9 +844,9 @@ checking out).
 
 =back
 
-=head2 Configuration: C<packs>
+=head2 Configuration C<packs>
 
-=head2 Configuration: C<variables>
+=head2 Configuration C<variables>
 
 Array containing variables (or constants) that can be reused across the
 file.
