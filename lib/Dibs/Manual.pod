@@ -810,7 +810,7 @@ C<20190103-072001-3820>), so if C<name> is set to C<whatever>, the image
 name might be something like C<whatever:20190103-072001-3820>.
 
 It is possible to preserve this temporary name as a permanent image
-using tag C<:default:>, more information in L</Action: frame>.
+using tag C<:default:>, more information in L</"Action: frame">.
 
 =head2 Configuration: C<origin>
 
