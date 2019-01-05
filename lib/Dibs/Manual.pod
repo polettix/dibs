@@ -595,8 +595,79 @@ by default, as hinted by its name).
          - tags: ...
 
 Higher level keys are C<actions>, C<logger>, C<name>, C<origin>,
-C<packs>, and C<variables>. They are explained in depth in the
-following sections.
+C<packs>, and C<variables>, in addition to C<env> and C<envile> because
+the top-level object is one of the L</Environment Carriers>. They are
+explained in depth in the following sections.
+
+=head2 Environment Carriers
+
+Some elements in the configuration (notably the top-level object, as
+well as L</Action sketch> and L</Action stroke>) are so-called
+I<environment carriers>, i.e. support the following two keys:
+
+=over
+
+=item key C<env>
+
+either an Associative array with key-value pairs, or an Array of such
+Associative arrays (to be merged in order). The keys are used as
+environment variables, set to the associated values (undefined variables
+are ignored).
+
+Care must be taken when setting environment variables: Docker makes
+those variables persist in the container images, so any value set here
+will stick to the final image. If this is not desirable, it's better to
+set a corresponding C<envile>.
+
+=item key C<envile>
+
+either an Associative array with key-value pairs, or an Array of such
+Associative arrays (to be merged in order). The keys are used as file
+names in the L</envile> directory, with contents set to the associated
+values (undefined variables are ignored).
+
+=back
+
+Application of those keys is from the outside to the inside. So, for
+example, if the top-level configuration object defines an environment
+variable C<WHATEVER>, its value will be used in all sketches and
+strokes, unless it is overridden by a sketch (which will apply to all
+its actions) or by a stroke (which will apply to its execution).
+
+Example:
+
+    env:
+      FOO: BAR
+    actions:
+      some-stroke:
+         env:
+            FOO: BAZ
+         type: stroke
+         ...
+      another-stroke:
+         type: stroke
+         ...
+      some-sketch:
+         env:
+            FOO: WHATEVER
+         actions:
+            - some-stroke
+            - another-stroke
+      another-sketch
+         actions:
+            - some-stroke
+            - another-stroke
+
+When C<some-sketch> is executed, action C<some-stroke> gets C<FOO> set
+to C<BAZ> (because it's set directly in the stroke itself), while action
+C<another-stroke> gets value C<WHATEVER> (because it does not set it by
+itself, and inherits it from the sketch).
+
+When C<another-sketch> is executed, C<some-stroke> still gets C<FOO> set
+to C<BAZ> (same reason as above), but C<another-stroke> gets the
+top-level value C<BAR>.
+
+The same applies to enviles of course.
 
 =head2 Configuration C<actions>
 
@@ -749,40 +820,6 @@ is normalized as follows:
       tags:
          - whatever:latest
 
-=head3 Action C<log>
-
-This action prints out an optional log message and dumps the
-configuration (if so requested). It can be useful for debugging or
-otherwise messaging purposes (e.g. provide instructions).
-
-The type is C<log>. Specific keys are the following:
-
-=over
-
-=item C<dump>
-
-boolean, sets whether to dump the configuration or not. Defaults to a
-false value.
-
-=item C<message>
-
-optional message to be printed out.
-
-=back
-
-Presence of either key automatically sets the type to C<log>.
-
-In the string form specification, the C<PARAMETER> is used to set the
-C<message> to be printed, so this:
-
-    a-log: 'log:whatever you can think of'
-
-is normalized in:
-
-    a-log:
-      type: log
-      message: 'whatever you can think of'
-
 =head3 Action C<from>
 
 This action sets the starting image for a sequence of additional
@@ -820,6 +857,40 @@ C<from>, so this works as a simplification of the above example:
 
     some-action: 'from:alpine:3.6'
 
+=head3 Action C<log>
+
+This action prints out an optional log message and dumps the
+configuration (if so requested). It can be useful for debugging or
+otherwise messaging purposes (e.g. provide instructions).
+
+The type is C<log>. Specific keys are the following:
+
+=over
+
+=item C<dump>
+
+boolean, sets whether to dump the configuration or not. Defaults to a
+false value.
+
+=item C<message>
+
+optional message to be printed out.
+
+=back
+
+Presence of either key automatically sets the type to C<log>.
+
+In the string form specification, the C<PARAMETER> is used to set the
+C<message> to be printed, so this:
+
+    a-log: 'log:whatever you can think of'
+
+is normalized in:
+
+    a-log:
+      type: log
+      message: 'whatever you can think of'
+
 =head3 Action C<sketch>
 
 This is a I<meta>-actions actually, acting as a container for other
@@ -831,7 +902,30 @@ The type is C<sketch>. Specific keys are the following:
 
 =over
 
+=item C<actions>
 
+an Array of actions to be executed, in the specific order. Actions can
+be specified as reference to other actions in L</Configuration actions>,
+or to other external actions (according to L</External references>) or
+as I<inline> actions, following the same rules explained in
+L</Configuration actions>. Example:
+
+    actions:
+      foo: ...
+      bar: ...
+      my-sketch:
+         actions:
+            - from: 'alpine:3.6'     # "inline" action, from
+            - foo                    # reference to "foo" above
+            - bar                    # reference to "bar" above
+            - 'frame:whatever:1.0'   # "inline" action, frame
+
+=item C<env>
+
+=item C<envile>
+
+action C<stroke> is an L<environment carrier/Environment Carriers>, thus
+exposes these two keys with the behaviour explained above.
 
 =back
 
