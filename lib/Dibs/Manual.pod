@@ -811,7 +811,7 @@ following one:
             cmd: ['/bin/sh', '-l']
          args: ['Hello', 'World!']
       bar:
-         pack:                                        # ---
+         pack: # ------------------------------------------
             run: |                                    #  ^
                #!/bin/sh                              #  |
                exec >&2                               #  |
@@ -824,10 +824,10 @@ following one:
          user: ubuntu                                 #  |
          commit:                                      #  |
             entrypoint: []                            #  v
-            cmd: ['/bin/sh', '-l']                    # ---
+            cmd: ['/bin/sh', '-l'] # ----------------------
          args: [1, 2, 3]
       baz:
-         pack:                                        # ---
+         pack: # ------------------------------------------
             run: |                                    #  ^
                #!/bin/sh                              #  |
                exec >&2                               #  |
@@ -840,7 +840,7 @@ following one:
          user: ubuntu                                 #  |
          commit:                                      #  |
             entrypoint: []                            #  v
-            cmd: ['/bin/sh', '-l']                    # ---
+            cmd: ['/bin/sh', '-l'] # ----------------------
          args: ['A', 'B', 'C']
 
 but the first one is much more concise and easier to maintain.
