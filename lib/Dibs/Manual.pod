@@ -638,8 +638,14 @@ explained below.
 
 =back
 
-Most actions (with the notable exception of C<sketch>) also allow a
-simpler, string-based form with the following format:
+In the following sub-sections dedicated to specific action types, only
+key-value pairs specific to the respective types will be explained.
+
+
+=head3 Textual representations
+
+Most actions (with the notable exception of C<sketch>) allow a simpler,
+string-based form with the following format:
 
     TYPE:PARAMETER
 
@@ -652,8 +658,10 @@ name itself, so the following:
 sets C<TYPE> to C<My::Class> and C<PARAMETER> to
 C<some,additional,data>.
 
-It is also possible to specify an action as a reference to another
-action. For example:
+=head3 External references
+
+It is possible to specify an action as a reference to another action.
+For example:
 
     actions:
       foo: ...
@@ -667,9 +675,6 @@ the C<< <NAME>@<PACK> >> syntax:
       baz: ...
     actions:
       bar: foo@baz
-
-In the following sub-sections, only key-value pairs specific to the
-respective types will be explained.
 
 =head3 Action C<frame>
 
