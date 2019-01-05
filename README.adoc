@@ -641,7 +641,7 @@ actions:
             - from: *base_image                  # # <2>
             - prereqs
             - name: save builder base image
-              image_name: *base_builder          # # <2>
+              tags: *base_builder          # # <2>
     build_basics:
         - name: compile
           pack: basic
@@ -675,7 +675,7 @@ actions:
             - from: *base_image                  # # <2>
             - prereqs
             - name: save bundler base image
-              image_name: *base_bundler          # # <2>
+              tags: *base_bundler          # # <2>
     bundle_basics:
         - name: put artifacts in place
           pack:
@@ -742,7 +742,7 @@ actions:
             - from: *base_image
             - prereqs
             - name: save builder base image
-              image_name: *base_builder
+              tags: *base_builder
     build_basics:
         - name: compile
           pack: basic
@@ -777,7 +777,7 @@ actions:
             - from: *base_image
             - prereqs
             - name: save bundler base image
-              image_name: *base_bundler
+              tags: *base_bundler
     bundle_basics:
         - name: put artifacts in place
           pack:
