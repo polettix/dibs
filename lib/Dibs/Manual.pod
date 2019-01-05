@@ -75,7 +75,7 @@ types:
 
 =over
 
-=item I<prepare>
+=item I<from>
 
 this action sets up the stage for running a container, it's the
 equivalent of the C<FROM> directive in the Dockerfile
@@ -139,7 +139,7 @@ is looked for in the loaded configuration
 =item *
 
 each action is executed in the order specified.  Top level actions are
-I<sketches> that start from a I<prepare> action, usually followed by
+I<sketches> that start from a I<from> action, usually followed by
 some I<strokes> and optionally terminated with a I<frame> that saves the
 image. In particular, for I<stroke> actions:
 
@@ -762,7 +762,42 @@ is normalized in:
       type: log
       message: 'whatever you can think of'
 
-=head3 Action C<prepare>
+=head3 Action C<from>
+
+This action sets the starting image for a sequence of additional
+actions. It's the equivalent of a C<FROM> directive in a Dockerfile. It
+is needed before any L</Action stroke> or L</Action frame> can be
+executed, because it prepares the starting image that will be used by
+those actions to perform operations and build additional layers on top
+of it.
+
+The type is C<from>. Specific keys are the following:
+
+=over
+
+=item C<from>
+
+sets the specification for a Docker image to start from. Anything good
+for Docker is also good here.
+
+=back
+
+The mere presence of C<from> triggers automatic recognition of type
+C<from>, so this:
+
+    some-action:
+      from: alpine:3.6
+
+is normalized as this:
+
+    some-action:
+      type: from
+      from: alpine:3.6
+
+In the string form, the C<PARAMETER> is interpreted as the value for
+C<from>, so this works:
+
+    some-action: 'from:alpine:3.6'
 
 =head3 Action C<sketch>
 
@@ -801,7 +836,7 @@ severity of at least C<info>).
 =head2 Configuration C<name>
 
 This C<name> is used as the name of the temporary image across actions.
-L</Action prepare> and L</Action stroke> generate as output such an
+L</Action from> and L</Action stroke> generate as output such an
 image, that is normally deleted at the end.
 
 At each run, C<dibs> also generates a uniquish tag to generate the full
