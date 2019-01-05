@@ -1370,11 +1370,11 @@ The following shell script can be used as a base:
 Packs can be collected into repositories (e.g.
 L<dibspack-basic|http://github.com/polettix/dibspack-basic>), so
 multiple programs can be packed together, also including possible
-additional ancillary files (e.g. in
-L<https://github.com/polettix/dibspack-basic/tree/master/perl/>, the
-C<build> program relies upon C<carton> and C<cpanm>, saved in the same
-directory, as well as the C<lib.sh> shell library stored one directory
-above).
+additional ancillary files (e.g. in the L<perl builder
+directory|https://github.com/polettix/dibspack-basic/tree/master/perl/>,
+the C<build> program relies upon C<carton> and C<cpanm>, saved in the
+same directory, as well as the C<lib.sh> shell library stored one
+directory above).
 
 =head2 Custom Actions
 
