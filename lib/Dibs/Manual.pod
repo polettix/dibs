@@ -1306,7 +1306,75 @@ as C<0.1.1> and the second one as C<0.1>.
 
 =head1 EXTENDING DIBS
 
+Dibs has several dimentions for being extended.
+
+The basic way to extend Dibs is by defining packs and sharing them (more
+or less publicly): one of the main design goals of Dibs is exactly to
+allow collecting common operations in the build/bundle process and reuse
+them over and over. Section L</Packs> below describes the API for such
+kind of extensions.
+
+In addition to the actions explained in L</Configuration actions>, it's
+also possible to define additional ones with some basic Perl code. This
+is explained in L</Custom Actions>.
+
+Last, packs themselves need not be confined in the types explained in
+L</Configuration packs>. If there is the need to retrieve packs from
+in other ways, they can be added to the default ones with the help of
+L</Custom Pack Implementation> below.
+
 =head2 Packs
+
+As explained in L</Configuration packs>, a pack is basically a
+definition that allows reaching some content. When this content is
+needed for strokes, it is mostly in the form of programs or artifacts
+needed by those programs.
+
+A program executed in a stroke can rely upon the following information:
+
+=over
+
+=item *
+
+the starting working directory is always the same as where L</envile>s
+are stored. This allows easy retrieval of all enviles. C<dibs> saves a
+shell script to help importing (or, actually, C<export>ing) all enviles,
+called C<export-enviles.sh>.
+
+=item *
+
+the environment is mostly under the control of whoever edits the
+configuration file (some environment variables might come from the
+operative system itself, or from the base images);
+
+=item *
+
+the arguments provided to the program are totally under the control of
+the editor of the configuration file (key L</args> in strokes)
+
+=back
+
+Programs can be binaries or coded in whatever language, provided that
+the container image supports the right interpreter. A POSIX shell is
+usually available, so it can be a good starting point.
+
+The following shell script can be used as a base:
+
+    #!/bin/sh
+    . export-enviles.sh
+    # from now on, all enviles are available as environment variables
+    # e.g. src code is located in          $DIBS_DIR_SRC
+    #      the cache is located in         $DIBS_DIR_CACHE
+    #      the id of "this" dibs run is in $DIBS_ID
+
+Packs can be collected into repositories (e.g.
+L<http://github.com/polettix/dibspack-basic>), so multiple programs can
+be packed together, also including possible additional ancillary files
+(e.g. in
+L<https://github.com/polettix/dibspack-basic/tree/master/perl/>, the
+C<build> program relies upon C<carton> and C<cpanm>, saved in the same
+directory, as well as the C<lib.sh> shell library stored one directory
+above).
 
 =head2 Custom Actions
 
@@ -1399,31 +1467,6 @@ This dibspack type allows calling a dibspack inside the C<src> directory.
 
 Accepts an additional key C<path> with a path that is always interpreted
 as relative to that directory.
-
-
-=head2 C<name>
-
-String, name of the project. This is also what saved Docker images are
-named by default, although this can be overridden inside each step.
-
-=head2 C<steps>
-
-This is just a list of strings. Each must be the identifier of a valid
-definition inside L<< /C<definitions> >>. Example:
-
-   definitions:
-      foo:
-         ...
-      bar:
-         ...
-      baz:
-         ...
-   steps:
-      - bar
-      - foo
-      - baz
-      - foo
-
 
 =head1 DIAGNOSTICS
 
