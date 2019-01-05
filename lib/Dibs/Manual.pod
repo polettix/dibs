@@ -19,6 +19,7 @@ C<dibs>'s version can be retrieved with option L</--version>:
         [--config-file|--config|-c filename]
         [--dirty|--dirty-origin-is-ok|-D]
         [--loglevel|-l levelname]
+        [--name|-n name]
         [--origin|-O URI]
         [--project-dir|-p directory]
         [--verbose|-v]
@@ -476,6 +477,30 @@ It is generally advised to avoid this option. A notable exception is
 when changing the C<dibs.yml> file itself in L</Developer mode>, because
 the one in the main directory is taken directly.
 
+=item --loglevel
+
+=item -l
+
+=item DIBS_LOGLEVEL
+
+   $ dibs --loglevel INFO
+
+set the log level, which can be any of C<emergency>, C<alert>, C<fatal>,
+C<error>, C<warn>, C<notice>, C<info>, C<debug>, C<trace> and a few
+variations (C<dibs> relies upon L<Log::Any>).
+
+=item --name
+
+=item -n
+
+=item DIBS_NAME
+
+   $ dibs --name whatever
+
+set the I<name> for temporary images that are saved along during
+execution (and later disposed of). This option can also be set inside
+the configuration file.
+
 =item --origin
 
 =item -O
@@ -494,6 +519,9 @@ tell).
 The origin can be set inside the C<dibs.yml> file.
 
 In L</Developer mode>, this option is set automatically to C<.>.
+
+In L</Alien mode>, this option can also be set inside the configuration
+file.
 
 =item --project-dir
 
@@ -522,7 +550,8 @@ be overridden even when missing from environment and/or command line.
 
    $ dibs --verbose
 
-Enable additional information during execution.
+Enable additional information during execution. This option can also be
+set in the configuration file.
 
 =back
 
@@ -538,56 +567,236 @@ a I<free-form>, in that only a few keys are meaningful to C<dibs> and the
 rest is up to the writer (e.g. to concentrate other configurations that
 can be of help for other tools).
 
-Higher level keys are:
+An example skeleton of a configuration is the following, defining a
+couple of packs (C<foo> and C<bar>), three stroke actions (C<brof>,
+C<galook>, and C<omg>) and a C<default> sketch (which is also executed
+by default, as hinted by its name).
+
+    ----
+    name: ...
+    packs:
+      foo: ...
+      bar: ...
+    actions:
+      brof:
+         pack: foo
+         ...
+      galook:
+         pack: bar
+         ...
+      omg:
+         pack: foo
+         ...
+      default:
+         - from: 'alpine:3.6'
+         - brof
+         - galook
+         - omg
+         - tags: ...
+
+Higher level keys are C<actions>, C<logger>, C<name>, C<origin>,
+C<packs>, and C<variables>. They are explained in depth in the
+following sections.
+
+=head2 C<actions>
+
+Associative array, containing definitions of actions. There are several
+different types of actions, as explained in each following subsection.
+
+All actions take the I<canonical form> of an associative array
+themselves. In some cases they may be specified in a simplified form,
+e.g. a string or an array. The I<canonical form> always has the same
+shape for all actions, i.e. an associative array that allows the
+following keys:
 
 =over
 
-=item C<defaults>
+=over C<name>
 
-set defaults that can be reused around.
+the name of the action, used in the output log;
 
-=item C<definitions>
+=over C<output_char>
 
-define what each I<step> is supposed to do
+the character used to mark the specific action in the output log. The
+default value depends on the type of action, but it's possible to
+override it. For example, an action of type C<frame> named C<whatever>
+would normally appear as follows:
 
-=item C<name>
+    +++++> frame whatever
 
-main name of the project (may be overridden in one or more steps)
+but with this char set to C<#> it would appear like so:
 
-=item C<steps>
+    #####> frame whatever
 
-list of steps to take. This can be overridden by command-line argument.
+=item C<type>
+
+sets the type of the action and the additional key-value pairs that are
+used from the definition. Explicit specification of the action type is
+seldom needed (always for custom ones, though), because the type is
+usually implied from the presence of other type-specific keys, as
+explained below.
 
 =back
 
-=head2 C<defaults>
+Most actions (with the notable exception of C<sketch>) also allow a
+simpler, string-based form with the following format:
 
-Associative array.
+    TYPE:PARAMETER
 
-It is a best practice to put a sub-key C<variables> with the definition of
-(YAML) variables that can be reused around as an array, like this:
+where C<TYPE> sets the type and C<PARAMETER> is used by the specific
+type to populate its specific parameters. The C<TYPE> might be a class
+name itself, so the following:
 
-   defaults:
-      variables:
-         - &base_image 'alpine:3.6'
-         - &version 'DIBSPACK_SET_VERSION="0.001972"'
-   ...
-   definitions
-      foo:
-         from: *base_image
+    My::Class:some,additional,data
+
+sets C<TYPE> to C<My::Class> and C<PARAMETER> to
+C<some,additional,data>.
+
+In the following sub-sections, only key-value pairs specific to the
+respective types will be explained.
+
+=head3 C<frame>
+
+This action allows saving a container as an image, so that it can be
+later used and/or distributed.
+
+The type is C<frame>. Specific keys are the following:
+
+=over
+
+=item C<image_name>
+
+optional, sets the name of the image, to which all tags will be
+associated (if possible).
+
+=item C<tags>
+
+a string with a single tag, or an array of strings.
+
+Each string can be a complete image name by itself (if it contains the
+C<:> character, like C<whatever:1.0>) or a tag to be applied to
+C<image_name>.
+
+=back
+
+The short form allows leaving out C<type> if either of C<image_name> or
+C<tags> is present.
+
+Example:
+
+    some-action:
+      image_name: whatever
+      tags:
+        - 1.0
+        - latest
+        - foobar:5.4
+
+is parsed as type C<frame> (contains both fields), generating image tags
+C<whatever:1.0>, C<whatever:latest> and C<foobar:5.4>.
+
+In the simplified, string form, the C<PARAMETER> is interpreted as a
+single tag, e.g.:
+
+    simple-frame: frame:whatever:latest
+
+is normalized as follows:
+
+    simple-frame:
+      type: frame
+      tags:
+         - whatever:latest
+
+=head3 Action: C<log>
+
+This action prints out an optional log message and dumps the
+configuration (if so requested). It can be useful for debugging or
+otherwise messaging purposes (e.g. provide instructions).
+
+The type is C<log>. Specific keys are the following:
+
+=over
+
+=item C<dump>
+
+boolean, sets whether to dump the configuration or not. Defaults to a
+false value.
+
+=item C<message>
+
+optional message to be printed out.
+
+=back
+
+Presence of either key automatically sets the type to C<log>.
+
+In the string form specification, the C<PARAMETER> is used to set the
+C<message> to be printed, so this:
+
+    a-log: 'log:whatever you can think of'
+
+is normalized in:
+
+    a-log:
+      type: log
+      message: 'whatever you can think of'
+
+=head3 Action: Prepare
+
+=head3 Action: Sketch
+
+=head3 Action: Stroke
+
+=head3 Other actions
+
+The actions described above are those shipped with C<dibs> by default.
+It's possible to extend C<dibs> with additional actions though, by
+implementing them as Perl classes (e.g. C<My::Class>) and then using
+them as follows:
+
+    actions:
+      my-action: # any name will do
+         type: My::Class
+         ... # additional parameters for the custom type
+      # ...
+      some-sketch:
+         - from: 'alpine:3.6'
+         - my-action
+
+Details for implementing custom actions are provided in L</CUSTOM
+ACTIONS>.
+
+=head2 C<logger>
+
+=head2 C<name>
+
+=head2 C<origin>
+
+=head2 C<packs>
+
+=head2 C<variables>
+
+Array containing variables (or constants) that can be reused across the
+file.
+
+It is a good place to put YAML anchors to be referenced with YAML
+aliases in other parts of the configuration, in order to avoid
+repetitions. For example:
+
+    variables:
+      - &base_image  'alpine:3.6'
+      - &build_image 'builder:1.0'
 
 There is more to it anyway: if the item is a hash reference with a single
 key C<function> whose associated value is an array, like in this example:
 
-   defaults:
-      variables:
-         - &version_major           '0'
-         - &version_minor           '1'
-         - &version_patch           '1'
-         - function: &version
-            ['join', '.', *version_major, *version_minor, *version_patch]
-         - function: &version_maj_min
-            ['join', '.', *version_major, *version_minor]
+    variables:
+      - &version_major           '0'
+      - &version_minor           '1'
+      - &version_patch           '1'
+      - function: &version
+         ['join', '.', *version_major, *version_minor, *version_patch]
+      - function: &version_maj_min
+         ['join', '.', *version_major, *version_minor]
 
 then the first item in the array is taken as a I<function> name and the
 rest as its arguments. Currently the following functions are supported:
@@ -603,141 +812,20 @@ as C<0.1.1> and the second one as C<0.1>.
 =back
 
 
-C<dibs> also recognizes sub-key C<dibspack>, allowing the definition of
-several set of defaults for dibspacks. They can be used both I<the YAML
-way> (note the anchor in the C<user> default dibspack):
-
-    defaults:
-       dibspack:
-          user: &user
-             type: src
-             name: add user and enable for docker
-             user: root
-             path: dibspacks/user-docker.sh
-    definitions:
-       foo:
-          dibspacks:
-             - *user
-
-or the C<dibs> way, that allows overriding parameters too:
-
-    defaults:
-       dibspack:
-          basic:
-             type:   git
-             origin: https://github.com/polettix/dibspack-basic.git
-             user:   user
-    definitions:
-       foo:
-         ...
-          dibspacks:
-             - default: basic
-               path: perl/build
-               args: ['/app', 'ANOTHER=ENVIRONMENT_VARIABLE']
-
-In this case, the key C<default> allows importing the whole block of the
-associated entry in C<defaults> and then override values as needed.
-
-=head2 C<definitions>
-
-Associative array where the operations of each step can be defined. Keys
-are names that can be used when defining the list of steps (see below),
-values are associative arrayes themselves, where the following keys are
-recognized:
-
-=over
-
-=item C<commit>
-
-Boolean or associative array for committing a container as an image. Inthe
-latter case, it supports the following keys:
-
-=over
-
-=item C<cmd>
-
-String or list, has the same meaning as in the Dockerfile. Defaults to an
-empty list.
-
-=item C<entrypoint>
-
-String or list, has the same meaning as in the Dockerfile. Defaults to
-a list with strings C</bin/sh> and C<-l>, in order.
-
-=item C<keep>
-
-Boolean (either YAML or Perl), sets whether the resulting container of the
-step should be kept as a Docker image or ditched away. Defaults to a true
-value when absent; it is mostly useful to temporarily avoid generating an
-image (e.g. to just check that the steps run fine), otherwise the whole
-C<commit> section make little sense.
-
-=item C<name>
-
-String, overrides the global C<name> within the step and is used for
-setting the name of the image. When absent, the C<name> at the YAML
-highest level is taken.
-
-=item C<tags>
-
-List of strings, provides either tags or fully qualified names for images.
-
-Any container is initially started from an image name that is generated
-automatically, based on C<name> and a timestamp. This tag is eventually
-dropped, unless the special tag C<*> (or its alias C<:default:>) are put
-in the list. The automatically generated tag is also kept if there are no
-tags in the list (or there is not C<tag> key at all).
-
-=item C<user>
-
-String, has the same meaning as in the Dockerfile.
-
-=item C<workdir>
-
-String, has the same meaning as in the Dockerfile.
-
-=back
 
 
-=item C<dibspacks>
 
-Array of associative arrays, each specifying a dibspack to execute (in the
-same order as they appear in the array. See below for details.
 
-=item C<from>
 
-String, has the same meaning as in the Dockerfile, i.e. specify a base
-image where to start from.
 
-=back
 
-The C<dibspacks> array provides a list of dibspacks to execute, in the
-same order as they appear. Each is an associative array itself, where the
-following keys are recognized:
 
-=over
 
-=item C<args>
 
-list of additional arguments passed to the program run in the dibspack
-(the first three arguments are fixed and are always the C<src>, C<cache>
-and C<env> directory paths inside the container).
 
-=item C<default>
 
-import key-value pairs from the relative entry in associative array inside
-C<defaults.dibspacks>.
 
-=item C<type>
 
-The dibspack type, might be one of C<git>, C<immediate>, C<inside>,
-C<project>, or C<src>. See relevant sections below for more details.
-
-=item C<user>
-
-the user for running the container, defaults to C<root>.
-
-=back
 
 =head3 Dibspack type C<git>
 
