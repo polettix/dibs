@@ -1290,7 +1290,7 @@ Dynamic packs are always saved inside the C<auto> sub-tree. In case of
 packs that can be accessed from the container, they are saved inside
 C<auto/open>, otherwise in C<auto/host-only>.
 
-Much like L<actions|\Configuration actions>, packs have a canonical form
+Much like L<actions|/Configuration actions>, packs have a canonical form
 of an Associative array with a basic key C<type>, that can be one of the
 basic types or a custom factory class (details in L</Custom Pack
 Implementation>. Additionally, types generally also support a
@@ -1577,7 +1577,7 @@ using an example.
 
 The action is defined in terms of a Perl class, C<My::Example::Action>
 in this case. This class name is also what has to be used as C<type>
-when using the action (as specified in L</Configuratio actions>), like
+when using the action (as specified in L</Configuration actions>), like
 this:
 
     actions:
@@ -1615,7 +1615,7 @@ the following keys:
 
 =item C<env_carriers>
 
-a reference to an array of L</Environment carriers>, should this be
+a reference to an array of L</Environment Carriers>, should this be
 needed. For example, L<Dibs::Action::Stroke> uses this to merge all
 environment variables and definitions for environment files before
 saving the latter and setting the former for the run of C<docker>.
