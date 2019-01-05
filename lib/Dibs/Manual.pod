@@ -655,7 +655,7 @@ C<some,additional,data>.
 In the following sub-sections, only key-value pairs specific to the
 respective types will be explained.
 
-=head3 Action frame
+=head3 Action C<frame>
 
 This action allows saving a container as an image, so that it can be
 later used and/or distributed.
