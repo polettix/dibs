@@ -1274,30 +1274,150 @@ types are explained in the subsections to follow.
 
 At the highest level, packs are distinguished between I<static> and
 I<dynamic>. Static ones are those that are somehow already available to
-C<dibs>, because they are located in some specific place:
+C<dibs>, because they are located in some specific place (e.g. within
+the C<src> subtree, or directly inside the container).  Dynamic packs,
+on the other hand, need to be gathered before being used.  In this case,
+C<dibs> first gets the pack contents and stores it in one of two
+possible positions, then treats them like static ones (after they are
+available, that is).
+
+Packs mainly serve two purposes: providing programs/artifacts for
+execution inside the container, and providing additional configuration
+sources. In the latter case, the material must be accessible (only) from
+the host, so container-only items are excluded.
+
+Dynamic packs are always saved inside the C<auto> sub-tree. In case of
+packs that can be accessed from the container, they are saved inside
+C<auto/open>, otherwise in C<auto/host-only>.
+
+Much like L<actions|\Configuration actions>, packs have a canonical form
+of an Associative array with a basic key C<type>, that can be one of the
+basic types or a custom factory class (details in L</Custom Pack
+Implementation>. Additionally, types generally also support a
+simplified, string-based configuration that is parsed and normalized
+into the canonical form.
+
+=head3 Pack C<git>
+
+This pack type specifies a C<git> repository, which can be accessed
+through any URI that can be used by C<git>.
+
+The type is C<git>. The following additional keys are supported:
+
+=over
+
+=item C<origin>
+
+a URI suitable for C<git> cloning. If a I<fragment> is present (i.e. a
+part after a dash character C<#>), it is used as a ref-ish for checking
+out a specific commit; this is optional and alternative to using C<ref>
+below.
+
+=item C<ref>
+
+a ref-ish string, which can be a branch name, a tag or a digest, i.e.
+whatever C<git> deems sufficient for checking out. This parameter is
+optional and cannot appear if C<origin> also has a I<fragment>.
+
+=back
+
+Just specifying a git remote in a string form is sufficient for
+auto-detection of this pack type.
+
+Example:
+
+    packs:
+      basic:
+         type: git
+         origin: https://github.com/polettix/dibspack-basic.git
+
+Packs of type `git` are always directories, so their usage (e.g. in a
+stroke) needs the specification of a C<path> referred to the base
+checkout directory of the remote repository.
+
+=head3 Pack C<immediate>
+
+This pack allows specifying an artifact/program directly in the
+configuration file, most probably in the form of a shell script.
+
+The type is C<immediate>. There is support for two additional keys
+C<run> and C<program>, which are aliases and represent the program to be
+executed. Presence of either key auto-detects this type.
+
+Example:
+
+    packs:
+      some-operation:
+         run: |
+            #!/bin/sh
+            printf >&2 'Hello, world!\n'
+
+is normalized into:
+
+    packs:
+      some-operation:
+         run: |
+            #!/bin/sh
+            printf >&2 'Hello, world!\n'
+         type: immediate
+
+
+=head3 Pack C<inside>
+
+This pack type allows specifing a path inside the container, e.g.
+because it is known that the specific program is already available from
+the base image.
+
+The type is C<inside>. The following additional keys are supported:
+
+=over
+
+=item C<base>
+
+a base path, which might be the full path or a path to the directory.
+
+=item C<path>
+
+a path that is referred to C<base> or by itself (if C<base> is missing).
+
+=back
+
+At least one of C<base> or C<path> must be specified. The global path is
+computed as follows:
 
 =over
 
 =item *
 
-the C<packs> sub-directory of the project directory
-
-
-=item *
-
-somewhere inside the C<src> sub-directory
+if both C<base> and C<path> are present, C<path> is considered relative
+to C<base>;
 
 =item *
 
-somewhere inside the container image.
+otherwise the one between C<base> and C<path> that is defined is
+considered.
 
 =back
 
-Dynamic packs, on the other hand, need to be gathered before being used.
-In this case, C<dibs> first gets the pack contents and stores it in one
-of two possible positions, then treats them like static ones (after they
-are available, that is).
+The textual shortcut as format C<< inside:<PATH> >>, where C<PATH> sets
+C<base>. This allows specifying a directory in the container as a pack,
+and then use C<path> from a stroke.
 
+=head3 Pack C<project>
+
+This type specifies a path relative to the C<pack> directory in the
+project directory.
+
+The type is C<project>. For every other aspect it is equal to L</Pack
+inside> described above.
+
+=head3 Pack C<src>
+
+This type specifies a path relative to the C<src> directory in the
+project directory.
+
+The type is C<src>. For every other aspect it is equal to L</Pack
+inside> described above.
 
 
 =head2 Configuration C<variables>
@@ -1564,86 +1684,6 @@ constructor.
 
 To be... written.
 
-
-
-
-
-
-
-
-
-
-=head3 Dibspack type C<git>
-
-The dibspack can be retrieved from a git repository. The following
-additional sub-keys are available:
-
-=over
-
-=item C<origin>
-
-the URI of the git repository. It can also have a fragment part (after
-a C<#> sign>) specyfing a ref to checkout.
-
-=item C<path>
-
-path to the dibspack program inside the repository. This allows having
-multiple dibspack programs inside the same repository, like
-L<https://github.com/polettix/dibspack-basic>.
-
-=item C<ref>
-
-the specific reference to checkout from the repository.
-
-Note that the C<origin> might have a I<fragment> part (i.e. a dash C<#>
-sign followed by the I<fragment string>) that is interepreted as a C<ref>
-as well. In this case C<ref> cannot be present too.
-
-=back
-
-Example:
-
-   ...
-   - type:   git
-     origin: https://github.com/polettix/dibspack-basic.git
-     ref:    master
-     path:   perl/build
-     args:   ['/app', 'HEY=JOE']
-     user:   user
-
-=head3 Dibspack type C<immediate>
-
-This dibspack is a program whose code is provided in the YAML definition
-itself, inside key C<program>. Example:
-
-   ...
-   - type: immediate
-     program: |
-         #!/bin/sh
-         printf '%s\n' 'Hello, world!'
-
-=head3 Dibspack type C<inside>
-
-This dibspack allows calling a program that is I<already> inside the
-container. This might probably not be a good idea, but who knows.
-
-Accepts an additional key C<path> with the absolute path to the program
-inside the container.
-
-=head3 Dibspack type C<project>
-
-This dibspack type allows calling a dibspack inside the C<dibspacks>
-directory inside the project directory.
-
-Accepts an additional key C<path> with a path that is always interpreted
-as relative to that directory.
-
-=head3 Dibspack type C<src>
-
-This dibspack type allows calling a dibspack inside the C<src> directory.
-
-Accepts an additional key C<path> with a path that is always interpreted
-as relative to that directory.
 
 =head1 DIAGNOSTICS
 
