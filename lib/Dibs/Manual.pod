@@ -801,7 +801,7 @@ severity of at least C<info>).
 =head2 Configuration C<name>
 
 This C<name> is used as the name of the temporary image across actions.
-Every L</prepare> and L</stroke> action generates as output such an
+L</Action prepare> and L</Action stroke> generate as output such an
 image, that is normally deleted at the end.
 
 At each run, C<dibs> also generates a uniquish tag to generate the full
