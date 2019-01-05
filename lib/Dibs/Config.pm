@@ -145,6 +145,11 @@ use constant OPTIONS => [
       help => 'level of verbosity in logging',
    ],
    [
+      'name|n=s',
+      default => undef,
+      help => 'name of the temporary image names',
+   ],
+   [
       'origin|O=s',
       default => undef,
       help    => 'get src from specific "location"',
