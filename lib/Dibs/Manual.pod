@@ -611,11 +611,11 @@ following keys:
 
 =over
 
-=over C<name>
+=item C<name>
 
 the name of the action, used in the output log;
 
-=over C<output_char>
+=item C<output_char>
 
 the character used to mark the specific action in the output log. The
 default value depends on the type of action, but it's possible to
@@ -676,6 +676,28 @@ a string with a single tag, or an array of strings.
 Each string can be a complete image name by itself (if it contains the
 C<:> character, like C<whatever:1.0>) or a tag to be applied to
 C<image_name>.
+
+There are two special values that trigger a different behaviour:
+
+=over
+
+=item C<< * >>
+
+uses the temporary tag used for operations (generated dynamically at
+each run). For example, if the temporary image name is:
+
+    my-project:20190103-072001-3820
+
+and the C<image_name> is set to C<whatever>, this would generate image:
+
+    whatever:20190103-072001-3820
+
+=item C<< :default: >>
+
+preserves the temporary image name and tag used for operations
+(generated according to L</name>).
+
+=back
 
 =back
 
@@ -762,14 +784,65 @@ them as follows:
          - from: 'alpine:3.6'
          - my-action
 
-Details for implementing custom actions are provided in L</CUSTOM
-ACTIONS>.
+Details for implementing custom actions are provided in L</Custom
+Actions>.
 
 =head2 C<logger>
 
+Dibs relies upon L<Log::Any> for logging. The C<logger> section allows
+setting the parameters for L<Log::Any::Adapter>, e.g.:
+
+    logger: ['Stderr', 'log_level', 'info']
+
+is translated into the corresponding setting for L<Log::Any::Adapter>
+(in this case, setting the logger to print to standard error, with a
+severity of at least C<info>).
+
 =head2 C<name>
 
+This C<name> is used as the name of the temporary image across actions.
+Every L</prepare> and L</stroke> action generates as output such an
+image, that is normally deleted at the end.
+
+At each run, C<dibs> also generates a uniquish tag to generate the full
+image name, in the form of C<< <DATE>-<TIME>-<PID> >> (e.g.
+C<20190103-072001-3820>), so if C<name> is set to C<whatever>, the image
+name might be something like C<whatever:20190103-072001-3820>.
+
+It is possible to preserve this temporary name as a permanent image
+using tag C<:default:>, more information in L</frame>.
+
 =head2 C<origin>
+
+In most cases, a Dibs project is about packing some code into a
+container image. This option allows setting a `git` origin for
+retrieving the code for packing.
+
+The format is a string that is suitable for retrieval via `git`, so most
+URI types should work. Additionally, when a I<fragment> is specified
+after a hash character C<#>, what follows is intepreted as a reference
+to be checked out.
+
+Examples:
+
+=over
+
+=item *
+
+    origin: http://example.com/a/project.git
+
+retrieves C<http://example.com/a/project.git> in L</src>, using the
+default branch set (usually C<master>)
+
+=item *
+
+    origin: http://example.com/a/project.git#v72
+
+retrieves the same remote `git` repository, but checks out C<v72> (which
+might be a branch or a tag, i.e. whatever `git` is happy to use for
+checking out).
+
+=back
 
 =head2 C<packs>
 
@@ -810,6 +883,15 @@ and joining the rest with it. In the example above, the first is expanded
 as C<0.1.1> and the second one as C<0.1>.
 
 =back
+
+
+=head1 EXTENDING DIBS
+
+=head2 Packs
+
+=head2 Custom Actions
+
+=head2 Custom Pack Implementations
 
 
 
