@@ -20,7 +20,7 @@ sub execute ($self, $args = undef) {
    return $args;
 }
 
-sub parse ($self, $type, $raw) { return {type => $type, name => $raw} }
+sub parse ($self, $type, $raw) { return {type => $type, message => $raw} }
 
 1,
 __END__
