@@ -1692,10 +1692,10 @@ Whatever fails will complain quite loudly.
 
 =head1 DEPENDENCIES
 
-See C<cpanfile>.
+See L<https://github.com/polettix/dibs/blob/master/cpanfile>.
 
-C<dibs> is also a C<dibs> project itself, compilable in L</Local mode>;
-chances are that the C<polettix/dibs> Docker image available at
+C<dibs> is also a C<dibs> project itself; chances are that the
+C<polettix/dibs> Docker image available at
 L<https://hub.docker.com/r/polettix/dibs/> suffices for just using it.
 
 =head1 BUGS AND LIMITATIONS
@@ -1716,7 +1716,7 @@ Flavio Poletti C<polettix@cpan.org>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2018, Flavio Poletti C<polettix@cpan.org>.
+Copyright (c) 2018, 2019 Flavio Poletti C<polettix@cpan.org>.
 
 This module is free software.  You can redistribute it and/or
 modify it under the terms of the Artistic License 2.0.
