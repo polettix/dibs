@@ -50,5 +50,5 @@ sub parse ($self, $type, $tag) { return {type => $type, tags => [$tag]} }
 
 sub _tags ($tag) { return ref($tag) eq 'ARRAY' ? $tag : [$tag] }
 
-1,
+1;
 __END__

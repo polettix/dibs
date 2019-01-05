@@ -22,5 +22,5 @@ sub execute ($self, $args = undef) {
 
 sub parse ($self, $type, $raw) { return {type => $type, message => $raw} }
 
-1,
+1;
 __END__

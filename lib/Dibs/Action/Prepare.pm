@@ -28,5 +28,5 @@ sub execute ($self, $args) {
 
 sub parse ($self, $type, $raw) { return { type => $type, from => $raw } }
 
-1,
+1;
 __END__

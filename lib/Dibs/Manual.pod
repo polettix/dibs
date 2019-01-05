@@ -1376,7 +1376,154 @@ the C<build> program relies upon C<carton> and C<cpanm>, saved in the
 same directory, as well as the C<lib.sh> shell library stored one
 directory above).
 
+The standard output from a program is collected internally in Dibs (it
+is currently unused); the standard error is printed out, usually
+indented. For this reason, if the only goal is to print out messages, a
+program might want to redirect everything to standard error at the very
+beginning, e.g.:
+
+    #!/bin/sh
+    exec >&2
+    . export-enviles.sh
+
 =head2 Custom Actions
+
+Implementing custom actions is reasonably simple and will be explained
+using an example.
+
+    package My::Example::Action;
+    use Moo;
+    
+    with 'Dibs::Role::Action';
+    
+    has foo => (is => 'ro', default => 'Hello, world');
+    has bar => (is => 'ro', default => 42);
+    has '+output_char' => (is => 'ro', default => '*');
+    
+    sub execute {
+       my ($self, $args) = @_;
+       $self->output('foo is <' . $self->foo . '>');
+       $self->output('bar is <' . $self->bar . '>');
+       $self->output_marked(prefix => 'end of ');
+       return $args;
+    }
+    
+    sub parse {
+       my ($self, $type, $raw) = @_;
+       my ($foo, $bar) = split m{:}mxs, $raw, 2;
+       return {
+          type => $type,
+          foo => $foo,
+          bar => $bar
+       };
+    }
+    
+    1;
+
+The action is defined in terms of a Perl class, C<My::Example::Action>
+in this case. This class name is also what has to be used as C<type>
+when using the action (as specified in L</Configuratio actions>), like
+this:
+
+    actions:
+      custom-foo:
+         type: My::Example::Action
+         foo: 'Hello, everybody!'
+         bar: 84
+
+The class inherits from L<Dibs::Role::Action> to get all the basic
+scafoolding (e.g. a name, etc.). It's of course possible to add
+action-specific parameters (like C<foo> and C<bar> in the example) as
+well as overwrite part of the inherited ones (e.g. the default value for
+C<output_char> is set to C<< * >> here).
+
+The only necessary method is C<execute>, that is called when it's time
+to execute the specific action. It receives a hash reference of
+arguments, with keys described in L</Execution arguments>. It is
+supposed to return a hash reference (usually the same a the input one);
+sketches remove the C<out> field to collect all outputs (this is
+currently unused).
+
+The C<parse> method is optional, although needed to support string-based
+definitions. In this case, it would be possible to compress the above
+usage example as follows:
+
+    actions:
+      custom-foo: 'My::Example::Action:Hello, everybody!:84'
+
+=head3 Execution arguments
+
+The C<$args> parameters passed to C<execute> is a hash reference with
+the following keys:
+
+=over
+
+=item C<env_carriers>
+
+a reference to an array of L</Environment carriers>, should this be
+needed. For example, L<Dibs::Action::Stroke> uses this to merge all
+environment variables and definitions for environment files before
+saving the latter and setting the former for the run of C<docker>.
+
+=item C<image>
+
+is the name of the image used as a running base for adding another layer
+on top. This is initially missing. A stroke will refuse to run unless
+this is defined, of course, as well as a frame.
+
+=item C<sketch>
+
+is a reference to the innermost sketch that called the specific
+action, might be missing is not executing inside a sketch.
+
+=back
+
+Other custom actions might add further keys. All keys are collected and
+preserved across an execution of C<dibs>, which allows e.g. a C<from>
+action to initialize the C<image> key that is then used by C<stroke>s
+and C<frame> (if any).
+
+
+=head3 Output management
+
+Actions are strongly suggested to use the standard mechanism for
+printing out information used by the rest of Dibs (including other
+actions). When inheriting from L<Dibs::Role::Action>, the following
+methods are available:
+
+=over
+
+=item C<output>
+
+emit a string, indented.
+
+=item C<output_marked>
+
+emit a title-like string. Such string starts with the C<output_char>
+followed by a greater-than character, then an indication of the action
+type and its name, like the automatic printing of the start of an
+action:
+
+    ******> My::Example::Action custom-foo
+
+It can be used to print additional such messages, e.g. in our example at
+the end the following is printed:
+
+    ******> My::Example::Action end of custom-foo
+
+=back
+
+When the example class is used, the following is printed:
+
+    ******> My::Example::Action custom-foo
+            foo is <Hello, everybody!>
+            bar is <84>
+    ******> My::Example::Action end of custom-foo
+
+When an instance of the class is created, the C<create> method is
+called, which is inherited by default from L<Dibs::Role::Action> (it
+just calls C<new>). It's possible to override it to get a custom
+constructor.
 
 =head2 Custom Pack Implementations
 
