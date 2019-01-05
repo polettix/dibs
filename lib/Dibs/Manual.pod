@@ -1265,6 +1265,41 @@ checking out).
 
 =head2 Configuration C<packs>
 
+Associative array containing definitions for (dibs)packs. A pack is a
+fancy name to define a locator for some content.
+
+There are several pack types defined in Dibs, with the possibility to
+add more (according to L</Custom Pack Implementation>); the different
+types are explained in the subsections to follow.
+
+At the highest level, packs are distinguished between I<static> and
+I<dynamic>. Static ones are those that are somehow already available to
+C<dibs>, because they are located in some specific place:
+
+=over
+
+=item *
+
+the C<packs> sub-directory of the project directory
+
+
+=item *
+
+somewhere inside the C<src> sub-directory
+
+=item *
+
+somewhere inside the container image.
+
+=back
+
+Dynamic packs, on the other hand, need to be gathered before being used.
+In this case, C<dibs> first gets the pack contents and stores it in one
+of two possible positions, then treats them like static ones (after they
+are available, that is).
+
+
+
 =head2 Configuration C<variables>
 
 Array containing variables (or constants) that can be reused across the
@@ -1525,14 +1560,9 @@ called, which is inherited by default from L<Dibs::Role::Action> (it
 just calls C<new>). It's possible to override it to get a custom
 constructor.
 
-=head2 Custom Pack Implementations
+=head2 Custom Pack Implementation
 
-
-
-
-
-
-
+To be... written.
 
 
 
