@@ -655,7 +655,7 @@ C<some,additional,data>.
 In the following sub-sections, only key-value pairs specific to the
 respective types will be explained.
 
-=head3 Action: C<frame>
+=head3 Action: frame
 
 This action allows saving a container as an image, so that it can be
 later used and/or distributed.
@@ -728,7 +728,7 @@ is normalized as follows:
       tags:
          - whatever:latest
 
-=head3 Action: C<log>
+=head3 Action: log
 
 This action prints out an optional log message and dumps the
 configuration (if so requested). It can be useful for debugging or
