@@ -1,4 +1,5 @@
 #!/bin/sh
+exec >&2
 username="${1:-"user"}"
 groupname="${2:-"user"}"
 app_dir="${3:-"/app"}"
@@ -13,4 +14,5 @@ for f in "$HOME/.profile.d"/*.sh ; do
    . "$f"
 done
 END
-chown -R "$USERNAME:$USERNAME" "$app_dir"
+set -x
+chown -R "$username:$groupname" "$app_dir"
