@@ -7,6 +7,7 @@ variables:
    - &version_major           '0'
    - &version_minor           '4'
    - &version_patch           '1'
+   - &username user
    - &base_builder_image 'dibs-builder:0.4'
    - &base_runner_image  'dibs-runner:0.4'
    - function: &version
@@ -51,10 +52,10 @@ actions:
       user: root
       commit: *basic_commit
 
-   user:
+   create-user:
       pack: basic
       path: wrapexec/suexec
-      args: ['-u', 'user', '-h', '/app']
+      args: ['-u', *username, '-h', '/app']
       user: root
 
    prereqs:
@@ -72,7 +73,7 @@ actions:
 
    base:
       - from: *base_image
-      - user
+      - create-user
       - prereqs
 
 
@@ -82,13 +83,14 @@ actions:
 
    'copy into src':
       pack: 'src:dibspacks/src-in-app.sh'
+      args: [*username]
       user: root
 
    'build perl application':
       pack: basic
       path: perl/build
       args: ['-w', '/app', '-V', *version]
-      user: user
+      user: *username
 
    'copy with .dibsignore':
       pack: basic
