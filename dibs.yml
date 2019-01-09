@@ -30,7 +30,7 @@ variables:
 packs:
    basic:
       type:   git
-      origin: /home/poletti/sviluppo/perl/dibspack-basic#evo
+      origin: /home/poletti/sviluppo/perl/dibspack-basic
 
 actions:
    default: [message]
