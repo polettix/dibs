@@ -7,24 +7,22 @@ variables:
    - &version_major           '0'
    - &version_minor           '4'
    - &version_patch           '1'
-   - &username user
-   - &base_builder_image 'dibs-builder:0.4'
-   - &base_runner_image  'dibs-runner:0.4'
+   - &username             'user'
+   - &groupname            'user'
+   - &appdir               '/app'
+   - function: &dibspath
+      ['join', '/', *appdir, 'bin/dibs']
    - function: &version
       ['join', '.', *version_major, *version_minor, *version_patch]
    - function: &version_maj_min
       ['join', '.', *version_major, *version_minor]
-   - commit: &commit
-      name: dibsy
-      tags: [ 'latest', *version ]
-      entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-            "--", "/profilexec", "/app/bin/dibs" ]
-      cmd: [ '--help' ]
    - &basic_commit
       entrypoint: [ ]
       cmd: [ '/bin/sh', '-l' ]
       user: root
       workdir: /root
+   - &base_builder_image 'dibs-builder:0.4'
+   - &base_runner_image  'dibs-runner:0.4'
    - &base_tags ['*', 'latest', *version_maj_min]
    - &extended_tags ['*', 'latest', *version_maj_min, *version]
 
@@ -55,7 +53,7 @@ actions:
    create-user:
       pack: basic
       path: wrapexec/suexec
-      args: ['-u', *username, '-h', '/app']
+      args: ['-u', *username, '-h', *appdir]
       user: root
 
    prereqs:
@@ -83,19 +81,19 @@ actions:
 
    'copy into src':
       pack: 'src:dibspacks/src-in-app.sh'
-      args: [*username]
+      args: [*username, *groupname, *appdir]
       user: root
 
    'build perl application':
       pack: basic
       path: perl/build
-      args: ['-w', '/app', '-V', *version]
+      args: ['-w', *appdir, '-V', *version]
       user: *username
 
    'copy with .dibsignore':
       pack: basic
       path: install/with-dibsignore
-      args: ['--src', '/app', '--dst', {path_cache: 'perl-app'}]
+      args: ['--src', *appdir, '--dst', {path_cache: 'perl-app'}]
       user: root
 
    build_base:
@@ -130,13 +128,13 @@ actions:
    'copy built artifacts to destination':
       pack: basic
       path: install/plain-copy
-      args: [{path_cache: 'perl-app'}, '/app']
+      args: [{path_cache: 'perl-app'}, *appdir]
       user: root
       commit:
          entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
-            "--", "/profilexec", "/app/bin/dibs" ]
+            "--", "/profilexec", *dibspath ]
          cmd: [ "--help" ]
-         workdir: '/app'
+         workdir: *appdir
 
    'save bundled image':
       image_name: dibs
