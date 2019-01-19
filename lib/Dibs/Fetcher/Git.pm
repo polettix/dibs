@@ -9,7 +9,7 @@ use Dibs::Output;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Fetcher::Role';
+with 'Dibs::Role::Fetcher';
 
 has origin     => (is => 'ro', required => 1);
 

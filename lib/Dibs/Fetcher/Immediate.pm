@@ -8,7 +8,7 @@ use Digest::MD5 qw< md5_hex >;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
-with 'Dibs::Fetcher::Role';
+with 'Dibs::Role::Fetcher';
 
 has program => (is => 'ro', required => 1);
 
