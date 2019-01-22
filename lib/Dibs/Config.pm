@@ -115,7 +115,7 @@ use constant DEFAULTS => {
 };
 use constant OPTIONS => [
    [
-      'alien|A!',
+      'alien|A+',
       default => undef,
       help => 'package some external project, work in current directory',
    ],
@@ -315,31 +315,10 @@ sub get_config_cmdenv ($args, $defaults = undef) {
       development => (!$is_alien),
    );
 
-   my $project_dir = $sofar->{project_dir} // undef;
-   my @searchpaths;
-   if ($is_alien) {
-      $project_dir //= ALIEN_PROJECT_DIR;    # otherwise no point
-      @searchpaths = ($project_dir);
-   }
-   else {                                    # local mode, development mode
-      $project_dir //= LOCAL_PROJECT_DIR;    # otherwise no point
-      @searchpaths = (cwd(), $project_dir);
-   }
+   my $project_dir = $sofar->{project_dir} //
+      ($is_alien ? ALIEN_PROJECT_DIR : LOCAL_PROJECT_DIR);
    $frozen{project_dir} = path($project_dir);
-
-   my $cnfp = path($sofar->{config_file} // CONFIG_FILE);
-   if ($cnfp->is_relative) {
-      for my $searchpath (@searchpaths) {
-         my $candidate = path($searchpath)->child($cnfp)->absolute;
-         next unless $candidate->exists;
-         $sofar->{config_file} = $candidate;
-         last;
-      } ## end for my $searchpath (@searchpaths)
-   } ## end if ($cnfp->is_relative)
-
-   # now merge everything, including defaults. This will definitely set
-   # where the project dir is located and load the configuration file from
-   # there... maybe
+   
    return {
       _merge(\%frozen, $sofar, $defaults)->%*,
       _sources => {

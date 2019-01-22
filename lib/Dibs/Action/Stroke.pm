@@ -102,6 +102,9 @@ sub execute ($self, $args = undef) {
    my $enviles = $self->_write_enviles($run_args{envile});
    scope_guard { $enviles->remove_tree({safe => 0}) if $enviles };
 
+   # cloning is lazy... but we cannot defer any more if needed
+   $args->{cloner}->() if $args->{cloner};
+
    my $cid;
    try {
       my ($ecode, $out);

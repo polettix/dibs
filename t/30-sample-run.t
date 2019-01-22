@@ -29,7 +29,7 @@ my ($retval, $err, $out);
    open STDERR, '>', \$err;
    local *STDOUT;
    open STDOUT, '>', \$out;
-   $retval = Dibs::App::main(-C => $work_dir, qw< foo bar >);
+   $retval = Dibs::App::main(-AC => $work_dir, qw< foo bar >);
 }
 is $retval, 0, 'main() outcome';
 

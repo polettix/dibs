@@ -32,7 +32,7 @@ clean_environment();
 my $work_dir = path(__FILE__ . '.d')->absolute;
 my $guard = directory_guard($work_dir);
 
-my $config = get_config_cmdenv([ -C => $work_dir, qw< -D foo bar > ]);
+my $config = get_config_cmdenv([ -AC => $work_dir, -p => 'dibs', qw< -D foo bar > ]);
 $config = add_config_file($config, $work_dir->child('dibs.yml'));
 $config->{run_variables}{DIBS_ID} = 'testing';
 
@@ -75,5 +75,5 @@ sub check_collected_actions (@got) {
             }
          }
       }
-   };
+   } or diag Dumper \@got;
 }

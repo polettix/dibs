@@ -20,7 +20,7 @@ clean_environment();
 my $guard = directory_guard($work_dir);
 $work_dir->child('dibs')->remove_tree({safe => 0});
 
-my $config = get_config_cmdenv([-C => $work_dir, qw< foo bar >]);
+my $config = get_config_cmdenv(['-A', -p => 'dibs', -C => $work_dir, qw< foo bar >]);
 is cwd->stringify, $work_dir->stringify, 'changed directory';
 is_deeply $config->{do}, [qw< foo bar >], 'config positionals';
 

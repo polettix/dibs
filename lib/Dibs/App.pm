@@ -22,31 +22,56 @@ use Dibs::Zone::Factory ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+sub ensure_configuration_file ($config) {
+   my $cnfp = $config->{config_file};
+   my $cloned = 0;
+   if ($cnfp =~ m{\A https?://}imxs) {
+      # download and change $cnfp into absolute path
+      ...
+   }
+   elsif (path($cnfp)->is_relative) {
+      my $alien = $config->{alien};
+      if (! $alien) {       # "developer" mode
+         for my $base (cwd(), $config->{project_dir}) {
+            my $candidate = $base->child($cnfp)->absolute;
+            if ($candidate->exists) {
+               $cnfp = $candidate;
+               last;
+            }
+         }
+      }
+      elsif ($alien == 1) { # "alien" mode
+         $cnfp = $config->{project_dir}->child($cnfp)->absolute;
+      }
+      else {                # "alien-alien" mode
+         # check out src immediately... if so requested!
+         if (defined $config->{origin}) {
+            origin_onto_src($config, 'early ');
+            $cloned = 1;
+         }
+
+         # in any case, "alien-alien" mode means dibs.yml in SRC
+         my $src_dir = $config->{zone_factory}->zone_for(SRC)->host_base;
+         $cnfp = $src_dir->child($cnfp)->absolute;
+      }
+   }
+   return ($cnfp, $cloned);
+}
+
 sub initialize (@as) {
    set_logger();    # initialize with defaults
 
    my $cmdenv = get_config_cmdenv(\@as);
    set_logger($cmdenv->{logger}->@*) if $cmdenv->{logger};
 
-   # this is where we expect to find the configuration file
-   my $cnfp = path($cmdenv->{config_file});
-
    # freeze the zone factory with what available now
    my $zone_factory = $cmdenv->{zone_factory}
      = Dibs::Zone::Factory->new($cmdenv->%*);
-   my $src_dir = $zone_factory->zone_for(SRC)->host_base;
 
-   my $cloned;
-   $cloned = origin_onto_src($cmdenv, 'early ') && 1
-     if defined($cmdenv->{origin}) || $src_dir->subsumes($cnfp);
-
-   # start looking for the configuration file, refer it to the project dir
-   # if relative, otherwise leave it as is
-   $cnfp = $src_dir->child($cmdenv->{config_file})
-     if (!$cnfp->exists) && $cloned;
-
+   my ($cnfp, $has_cloned) = ensure_configuration_file($cmdenv);
    ouch 400, 'no configuration file found' unless $cnfp->exists;
    OUTPUT("base configuration from: $cnfp");
+   $cmdenv->{has_cloned} = $has_cloned;
 
    my $overall = add_config_file($cmdenv, $cnfp);
    $overall->{zone_factory} = $zone_factory;
@@ -59,7 +84,7 @@ sub initialize (@as) {
    };
 
    # clone if necessary and not already done
-   origin_onto_src($overall) if defined($overall->{origin}) && !$cloned;
+   #origin_onto_src($overall) if defined($overall->{origin}) && !$cloned;
 
    return $overall;
 } ## end sub initialize (@as)
@@ -80,11 +105,11 @@ sub main (@as) {
 sub draw ($config) {
    my $dibs = Dibs->new($config);
    my $run_variables = $config->{run_variables};
+   $dibs->append_envile($run_variables);
    my $run_tag = $run_variables->{DIBS_ID};
    my $name = $dibs->name;
 
-   $dibs->append_envile($run_variables);
-   return $dibs->sketch($config->{do})->draw(
+   my %args = (
       env_carriers => [$dibs],
       project_dir  => $dibs->project_dir,
       zone_factory => $dibs->zone_factory,
@@ -92,6 +117,18 @@ sub draw ($config) {
       to => "$name:$run_tag",
       verbose => $config->{verbose},
    );
+
+   # add a "cloner" if there's an origin and not cloned already
+   $args{cloner} = sub {
+      origin_onto_src(
+         {
+            $config->%*,
+            zone_factory => $dibs->zone_factory,
+         }
+      ) unless $config->{cloned}++;
+   } if defined($config->{origin}) && ! $config->{cloned};
+
+   return $dibs->sketch($config->{do})->draw(%args);
 }
 
 sub origin_onto_src ($config, $early = '') {
