@@ -1,2 +1,2 @@
 #!/bin/sh
-apk --no-cache add build-base git openssh-client perl perl-dev
+apk --no-cache add build-base git openssh-client perl perl-dev openssl-dev
