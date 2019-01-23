@@ -1,6 +1,6 @@
 package Dibs::Fetcher::Git;
 use 5.024;
-use Ouch;
+use Ouch ':trytiny_var';
 use Moo;
 use Log::Any qw< $log >;
 use Path::Tiny ();
