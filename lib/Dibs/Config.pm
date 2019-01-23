@@ -318,7 +318,7 @@ sub get_config_cmdenv ($args, $defaults = undef) {
    my $project_dir = $sofar->{project_dir} //
       ($is_alien ? ALIEN_PROJECT_DIR : LOCAL_PROJECT_DIR);
    $frozen{project_dir} = path($project_dir);
-   
+
    return {
       _merge(\%frozen, $sofar, $defaults)->%*,
       _sources => {
