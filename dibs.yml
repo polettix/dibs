@@ -6,35 +6,29 @@ variables:
    - &version_major           '0'
    - &version_minor           '4'
    - &version_patch           '1'
-   - function: &version
-      ['join', '.', *version_major, *version_minor, *version_patch]
-   - function: &version_maj_min
-      ['join', '.', *version_major, *version_minor]
-
+   - &version ['join', '.', *version_major, *version_minor, *version_patch]
+   - &version_maj_min ['join', '.', *version_major, *version_minor]
    - &base_image          'alpine:3.6'
    - &builder_image_name  'dibs_builder'
    - &bundler_image_name  'dibs_bundler'
    - &bases_reference_tag '0.4'
-   - function: &builder_image
-      ['join', ':', *builder_image_name, *bases_reference_tag]
-   - function: &bundler_image
-      ['join', ':', *bundler_image_name, *bases_reference_tag]
+   - &builder_image ['join', ':', *builder_image_name, *bases_reference_tag]
+   - &bundler_image ['join', ':', *bundler_image_name, *bases_reference_tag]
    - &target_image_name   'dibs'
 
-   - &version_tags ['*', 'latest', *version_maj_min, *version]
-
-   - &basic_commit
-      entrypoint: [ ]
-      cmd: [ '/bin/sh', '-l' ]
-      user: root
-      workdir: /root
+   - unexpanded:
+      tags: &version_tags ['*', 'latest', *version_maj_min, *version]
+      commit: &basic_commit
+         entrypoint: [ ]
+         cmd: [ '/bin/sh', '-l' ]
+         user: root
+         workdir: /root
 
    - &username             'user'
    - &groupname            'user'
 
    - &appdir               '/app'
-   - function: &dibspath
-      ['join', '/', *appdir, 'bin/dibs']
+   - &dibspath ['join', '/', *appdir, 'bin/dibs']
 
 packs:
    basic:
