@@ -11,7 +11,7 @@ variables:
    - &base_image          'alpine:3.6'
    - &builder_image_name  'dibs-builder'
    - &bundler_image_name  'dibs-bundler'
-   - &bases_reference_tag '0.4'
+   - &bases_reference_tag '0.5'
    - &builder_image ['join', ':', *builder_image_name, *bases_reference_tag]
    - &bundler_image ['join', ':', *bundler_image_name, *bases_reference_tag]
    - &target_image_name   'dibs'
