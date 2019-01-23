@@ -1,2 +1,2 @@
 #!/bin/sh
-apk --no-cache add perl docker git su-exec
+apk --no-cache add perl openssl docker git su-exec
