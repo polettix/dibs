@@ -12,13 +12,7 @@ sub dvf_dibs_id ($o)            { return $o->{run_variables}{DIBS_ID} }
 sub dvf_env ($o, @x)            { return @ENV{@x}                     }
 sub dvf_get_runvar ($o, $key)   { return $o->{run_variables}{$key}    }
 sub dvf_get_var ($o, $key)      { return $o->{named_variables}{$key}  }
-sub dvf_joinx ($o, $sep, @x)     { return join $sep, @x                }
-
-sub dvf_join ($o, $sep, @x)     {
-print {*STDERR} "JOIN: sep<$sep> args<@x>\n";
-
-return join $sep, @x                }
-
+sub dvf_join ($o, $sep, @x)     { return join $sep, @x                }
 sub dvf_passthrough ($o, @x)    { return @x                           }
 sub dvf_set_runvar ($o, $k, $v) { $o->{run_variables}{$k} = $v        }
 sub dvf_set_var ($o, $k, $v)    { $o->{named_variables}{$k} = $v      }

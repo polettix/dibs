@@ -120,14 +120,12 @@ sub __expand_variables ($cfg) {
 } ## end sub adjust_default_variables ($overall)
 
 sub __eval_vars ($opts, $name, @args) {
-print {*STDERR} "$name(@args)\n";
    $name = 'dvf_' . $name; # "magic value" for prefix
    for my $package ($opts->{packages}->@*) {
       my $function = $package->can($name) or next;
       my @expanded_args = map {
          ref $_ eq 'ARRAY' ? __eval_vars($opts, $_->@*) : $_
       } @args;
-print {*STDERR} " --> $name(@expanded_args)\n";
       return $function->($opts, @expanded_args);
    }
    ouch 400, "unhandled variables expansion function '$name'";
