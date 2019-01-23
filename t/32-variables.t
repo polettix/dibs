@@ -43,6 +43,7 @@ for my $sentence (
       'FOO<bar> BAR<baaaz>',
       'BAZ<whenever-you-want-two (2)>',
       'GOO<WHATEVAH-you-want-two (2)>',
+      'GOG<pippo>',
       'Hello, world! This is bar [one] [two (2)]',
       '-----> stroke bar! bar! bar!',
       '-----> stroke foo! Foo! FOO!',

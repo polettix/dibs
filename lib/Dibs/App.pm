@@ -79,8 +79,14 @@ sub initialize (@as) {
    # last touch to the logger if needed
    set_logger($overall->{logger}->@*) if $overall->{logger};
 
+   my $epoch = time();
+   my $date  = strftime '%Y%m%d', gmtime $epoch;
+   my $time  = strftime '%H%M%S', gmtime $epoch;
    $overall->{run_variables} = {
-      DIBS_ID => strftime("%Y%m%d-%H%M%S-$$", gmtime),
+      DIBS_DATE  => $date,
+      DIBS_EPOCH => $epoch,
+      DIBS_ID    => "$date-$time-$$",
+      DIBS_TIME  => $time,
    };
 
    # clone if necessary and not already done

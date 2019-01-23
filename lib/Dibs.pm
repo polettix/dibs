@@ -68,7 +68,9 @@ sub BUILDARGS ($class, @args) {
       zone_factory => $zf,
    );
 
-   $retval{variables} = __adjust_variables(\%args);
+   # variables ned expansion but some "named ones" are also saved in case
+   # of inclusion... future stuff FIXME
+   $retval{variables} = __expand_variables(\%args);
 
    return \%retval;
 } ## end sub BUILDARGS
@@ -82,35 +84,50 @@ sub instance ($self, $args) { $self->action_factory->instance($args) }
 
 sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }
 
-sub __adjust_variables ($cfg) {
-   my %opts = (
-      packages => ($cfg->{variables_evaluators} // ['Dibs::Variables']),
-      run_variables => $cfg->{run_variables},
-   );
-   for my $package ($opts{packages}->@*) {
+sub __expand_variables ($cfg) {
+   defined(my $variables = $cfg->{variables}) or return {};
+
+   # load packages with functions for variable expansion
+   my $packages = $cfg->{variables_expanders} // ['Dibs::Variables'];
+   for my $package ($packages->@*) {
       try { use_module($package) }
-      catch {
-         ouch 400, "cannot load package $package";
-      };
+      catch { ouch 400, "cannot load package $package" };
    }
-   my $variables = $cfg->{variables} // [];
+
+   # iterate through definitions
+   my $nv = $cfg->{named_variables} // {};
+   my $opts = {
+      packages => $packages,
+      run_variables => $cfg->{run_variables},
+      named_variables => $nv,
+   };
    for my $var ($variables->@*) {
-      next unless (ref($var) eq 'HASH') && (scalar(keys $var->%*) == 1);
-      my ($key, $value) = $var->%*;
-      next unless ($key eq 'function') && (ref($value) eq 'ARRAY');
-      $var->{$key} = __eval_vars(\%opts, $value->@*);
+      my $ref = ref $var;
+      if ($ref eq 'ARRAY') {
+         $var = __eval_vars($opts, $var->@*);
+      }
+      elsif ($ref eq 'HASH') {
+         for my $key (keys $var->%*) {
+            my $value = $var->{$key};
+            $value = $var->{$key} = __eval_vars($opts, $value->@*)
+              if ref $value eq 'ARRAY';
+            $nv->{$key} = $value;
+         }
+      }
    } ## end for my $var ($variables...)
 
-   return $variables;
+   return $nv;
 } ## end sub adjust_default_variables ($overall)
 
 sub __eval_vars ($opts, $name, @args) {
+print {*STDERR} "$name(@args)\n";
    $name = 'dvf_' . $name; # "magic value" for prefix
    for my $package ($opts->{packages}->@*) {
       my $function = $package->can($name) or next;
       my @expanded_args = map {
          ref $_ eq 'ARRAY' ? __eval_vars($opts, $_->@*) : $_
       } @args;
+print {*STDERR} " --> $name(@expanded_args)\n";
       return $function->($opts, @expanded_args);
    }
    ouch 400, "unhandled variables expansion function '$name'";

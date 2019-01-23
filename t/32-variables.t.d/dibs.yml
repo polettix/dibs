@@ -4,13 +4,16 @@ variables:
    - &one one
    - &two 'two (2)'
    - function: &f  [ join, '-', whenever, you, want, *two ]
-   - function: &f2
+   - whatever:
       - join
       - '-'
       - [env, WHATEVER]
       - you
       - want
       - *two
+   - &f2 [ get_var, whatever ]
+   - [set_var, whatever, pippo ]
+   - &f3 [ get_var, whatever ]
 defaults:
    envile: &common_envile
       FOO: bar
@@ -26,9 +29,11 @@ packs:
          BAR="$(cat "$env_dir/BAR")"
          BAZ="$(cat "$env_dir/BAZ")"
          GOO="$(cat "$env_dir/GOO")"
+         GOG="$(cat "$env_dir/GOG")"
          printf '%s\n' "FOO<$FOO> BAR<$BAR>"
          printf '%s\n' "BAZ<$BAZ>"
          printf '%s\n' "GOO<$GOO>"
+         printf '%s\n' "GOG<$GOG>"
    for_foo:
       run: |
          #!/bin/sh
@@ -47,6 +52,7 @@ actions:
          - BAR: baaaz
            BAZ: *f
            GOO: *f2
+           GOG: *f3
         args: [*one, *two]
    foo:
       - from: alpine:latest
