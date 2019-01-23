@@ -10,6 +10,9 @@ requires 'File::chdir',     '0.1010';
 requires 'Try::Catch',      '1.1.0';
 requires 'Module::Runtime', '0.016';
 requires 'Guard',           '1.023';
+requires 'HTTP::Tiny',      '0.076';
+requires 'IO::Socket::SSL', '1.56';
+requires 'Net::SSLeay',     '1.49';
 
 on test => sub {
    requires 'Test2::Suite',    '0.000115';

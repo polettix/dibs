@@ -19,6 +19,7 @@ sub _build__class_for ($self) {
    return {
       &GIT       => 'Dibs::Pack::Dynamic',
       &IMMEDIATE => 'Dibs::Pack::Dynamic',
+      &HTTP      => 'Dibs::Pack::Dynamic',
       &INSIDE    => 'Dibs::Pack::Static',
       &PROJECT   => 'Dibs::Pack::Static::Project',
       &SRC       => 'Dibs::Pack::Static',
