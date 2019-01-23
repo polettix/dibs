@@ -1,0 +1,55 @@
+---
+name: dibstest
+variables:
+   - &one one
+   - &two 'two (2)'
+   - function: &f  [ join, '-', whenever, you, want, *two ]
+   - function: &f2
+      - join
+      - '-'
+      - [env, WHATEVER]
+      - you
+      - want
+      - *two
+defaults:
+   envile: &common_envile
+      FOO: bar
+      BAR: baz
+packs:
+   for_bar:
+      run: |
+         #!/bin/sh
+         env_dir="$PWD"
+         exec >&2
+         printf '%s\n' "Hello, world! This is bar [$1] [$2]"
+         FOO="$(cat "$env_dir/FOO")"
+         BAR="$(cat "$env_dir/BAR")"
+         BAZ="$(cat "$env_dir/BAZ")"
+         GOO="$(cat "$env_dir/GOO")"
+         printf '%s\n' "FOO<$FOO> BAR<$BAR>"
+         printf '%s\n' "BAZ<$BAZ>"
+         printf '%s\n' "GOO<$GOO>"
+   for_foo:
+      run: |
+         #!/bin/sh
+         env_dir="$PWD"
+         exec >&2
+         printf '%s\n' "Hello, world! In foo, FOO starts as <$FOO>"
+         FOO="$(cat "$env_dir/FOO")"
+         printf '%s\n' "Hello, world! This is foo and FOO is <$FOO>"
+actions:
+   bar:
+      - from: alpine:latest
+      - name: 'bar! bar! bar!'
+        pack: for_bar
+        envile:
+         - *common_envile
+         - BAR: baaaz
+           BAZ: *f
+           GOO: *f2
+        args: [*one, *two]
+   foo:
+      - from: alpine:latest
+      - name: 'foo! Foo! FOO!'
+        pack: for_foo
+        envile: *common_envile

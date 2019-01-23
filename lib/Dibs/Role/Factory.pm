@@ -91,6 +91,7 @@ sub inflate ($self, $x, %args) {
    }
    else { ouch 500, 'something still not implemented here?'; }
 
+   # FIXME this whole breadcrumbs story is basically broken
    # save in breadcrumbs. Not sure weaken is really necessary here, but
    # whatever... something might become undef eventually
    my @crumb = ($x, $spec);

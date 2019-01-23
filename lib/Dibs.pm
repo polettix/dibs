@@ -8,6 +8,8 @@ use Try::Catch;
 use POSIX qw< strftime >;
 use Scalar::Util qw< refaddr blessed >;
 use experimental qw< postderef signatures >;
+use Storable 'dclone';
+use Module::Runtime 'use_module';
 use Moo;
 use Data::Dumper;
 local $Data::Dumper::Indent = 1;
@@ -26,10 +28,12 @@ has allow_dirty    => (is => 'ro', default  => 0);
 has name           => (is => 'lazy');
 has pack_factory   => (is => 'ro', required => 1);
 has project_dir    => (is => 'ro', required => 1);
+has variables      => (is => 'ro', default => sub { return {} });
 has zone_factory   => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, @args) {
    my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
+   %args = dclone(\%args)->%*;
    my %retval;
 
    $retval{name} = $args{name} if defined $args{name};
@@ -64,6 +68,8 @@ sub BUILDARGS ($class, @args) {
       zone_factory => $zf,
    );
 
+   $retval{variables} = __adjust_variables(\%args);
+
    return \%retval;
 } ## end sub BUILDARGS
 
@@ -75,6 +81,41 @@ sub _build_name ($self) {
 sub instance ($self, $args) { $self->action_factory->instance($args) }
 
 sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }
+
+sub __adjust_variables ($cfg) {
+   my %opts = (
+      packages => ($cfg->{variables_evaluators} // ['Dibs::Variables']),
+      run_variables => $cfg->{run_variables},
+   );
+   for my $package ($opts{packages}->@*) {
+      try { use_module($package) }
+      catch {
+         ouch 400, "cannot load package $package";
+      };
+   }
+   my $variables = $cfg->{variables} // [];
+   for my $var ($variables->@*) {
+      next unless (ref($var) eq 'HASH') && (scalar(keys $var->%*) == 1);
+      my ($key, $value) = $var->%*;
+      next unless ($key eq 'function') && (ref($value) eq 'ARRAY');
+      $var->{$key} = __eval_vars(\%opts, $value->@*);
+   } ## end for my $var ($variables...)
+
+   return $variables;
+} ## end sub adjust_default_variables ($overall)
+
+sub __eval_vars ($opts, $name, @args) {
+   $name = 'dvf_' . $name; # "magic value" for prefix
+   for my $package ($opts->{packages}->@*) {
+      my $function = $package->can($name) or next;
+      my @expanded_args = map {
+         ref $_ eq 'ARRAY' ? __eval_vars($opts, $_->@*) : $_
+      } @args;
+      return $function->($opts, @expanded_args);
+   }
+   ouch 400, "unhandled variables expansion function '$name'";
+}
+
 
 1;
 
