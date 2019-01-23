@@ -22,12 +22,23 @@ use Dibs::Zone::Factory ();
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
+sub download_configuration_file ($config) {
+   require Dibs::Pack::Factory;
+   my $uri = $config->{config_file};
+   my $pack = Dibs::Pack::Factory->new(
+      config => {}, #{ foo => $config->{config_file} },
+      zone_factory => $config->{zone_factory},
+   )->item($config->{config_file});
+   $pack->materialize;
+   return $pack->host_path;
+}
+
 sub ensure_configuration_file ($config) {
    my $cnfp = $config->{config_file};
    my $cloned = 0;
    if ($cnfp =~ m{\A https?://}imxs) {
       # download and change $cnfp into absolute path
-      ...
+      $cnfp = download_configuration_file($config);
    }
    elsif (path($cnfp)->is_relative) {
       my $alien = $config->{alien};
@@ -55,7 +66,7 @@ sub ensure_configuration_file ($config) {
          $cnfp = $src_dir->child($cnfp)->absolute;
       }
    }
-   return ($cnfp, $cloned);
+   return (path($cnfp), $cloned);
 }
 
 sub initialize (@as) {
