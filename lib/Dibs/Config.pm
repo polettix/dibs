@@ -38,6 +38,7 @@ use constant C_ENVILE          => '/tmp/envile';
 use constant H_ENVILE          => 'envile';
 use constant GIT               => 'git';
 use constant INSIDE            => 'inside';
+use constant SUBPACK           => 'subpack';
 use constant OPERATE           => 'operate';
 use constant PACK              => 'pack';
 use constant PACKS             => 'packs';
@@ -172,7 +173,7 @@ use Exporter qw< import >;
 our %EXPORT_TAGS = (
    constants => [
       qw<
-        BIN CACHE DPFILE ENVIRON GIT IMMEDIATE
+        BIN CACHE DPFILE ENVIRON GIT IMMEDIATE SUBPACK
         ENVILE INSIDE PROJECT SRC OPERATE DEFAULTS_FIELD
         DEFINITIONS DETECT_OK DETECT_SKIP STEPS WORKFLOW HTTP
         INDENT DEFAULTS FRAME

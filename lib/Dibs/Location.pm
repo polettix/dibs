@@ -24,6 +24,14 @@ has zone => (
    },
 );
 
+sub clone_with ($s, %args) {
+   for my $field (qw< base path zone >) {
+      next if exists $args{$field};
+      $args{$field} = $s->$field();
+   }
+   return ref($s)->new(%args);
+}
+
 sub container_path ($s, @p) { $s->_path($s->zone->container_base, @p) }
 sub host_path ($s, @p) { $s->_path($s->zone->host_base, @p) }
 
@@ -34,6 +42,16 @@ sub _path ($self, $zbase, @subpath) {
    unshift @subpath, $self->base if defined($self->base);
    return scalar(@subpath) ? $zbase->child(@subpath) : $zbase;
 } ## end sub _path
+
+sub sublocation ($self, @sp) {
+   my $base = $self->base;
+   my $subb = defined $base ? $base->child(@sp) : Path::Tiny::path(@sp);
+   return ref($self)->new(
+      base => $subb,
+      path => undef,
+      zone => $self->zone,
+   );
+}
 
 sub _topath ($p) { defined($p) ? Path::Tiny::path($p) : undef }
 

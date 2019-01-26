@@ -23,6 +23,7 @@ sub _build__class_for ($self) {
       &INSIDE    => 'Dibs::Pack::Static',
       &PROJECT   => 'Dibs::Pack::Static::Project',
       &SRC       => 'Dibs::Pack::Static',
+      &SUBPACK   => 'Dibs::Pack::Subpack',
    };
 }
 

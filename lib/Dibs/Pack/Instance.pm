@@ -24,6 +24,7 @@ sub host_path      ($s, @p) { $s->location->host_path(@p) }
 
 sub materialize ($self) {
    my $fetcher = $self->_fetcher or return;
+   return $fetcher->($self->location) unless blessed $fetcher;
    $fetcher->materialize_in($self->location);
 }
 
