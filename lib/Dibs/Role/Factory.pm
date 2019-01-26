@@ -103,7 +103,9 @@ sub inflate ($self, $x, %args) {
 }
 
 sub instance ($self, $x, %args) {
+   my $flags = $args{flags} //= {};
    my $spec = $self->inflate($x, %args);
+   my ($key, $guard) = $self->_no_circular_reference($x, $flags);
    $spec = $self->normalize($spec, %args);
    my $class = $self->class_for($spec, %args);
    return $class->create(%args, spec => $spec, factory => $self);
