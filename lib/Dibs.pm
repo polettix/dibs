@@ -88,6 +88,21 @@ sub instance ($self, $args) { $self->action_factory->instance($args) }
 
 sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }
 
+sub subordinate ($self, %args) {
+   my $pnv = dclone($self->variables);
+   $pnv->%* = ($pnv->%*, $args{named_variables}->%*)
+     if defined $args{named_variables};
+
+   return ref($self)->new(
+      %args,
+      allow_dirty     => $self->allow_dirty,
+      name            => $self->name,
+      project_dir     => $self->project_dir,
+      named_variables => $pnv,
+      zone_factory    => $self->zone_factory,
+   );
+}
+
 sub __expand_variables ($cfg) {
    defined(my $variables = $cfg->{variables}) or return {};
 
