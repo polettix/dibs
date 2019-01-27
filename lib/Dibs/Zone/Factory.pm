@@ -29,6 +29,7 @@ sub BUILDARGS ($class, @args) {
             $host_base = path($host_base);
             $host_base = $project_dir->child($host_base)
                if defined($project_dir) && $host_base->is_relative;
+            $host_base = $host_base->absolute if $host_base->is_relative;
          }
          $zone = Dibs::Zone->new(
             $spec->%*,
