@@ -47,13 +47,17 @@ sub BUILDARGS ($class, @args) {
    my $pd = $retval{project_dir} = path($args{project_dir})->absolute;
 
    # Zones factory
-   my $zone_specs  = $args{zone_specs} // DEFAULTS->{zone_specs_for};
-   my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
-   my $zf          = $retval{zone_factory} = Dibs::Zone::Factory->new(
-      project_dir    => $pd,
-      zone_specs_for => $zone_specs,
-      zone_names_for => $zone_groups,
-   );
+   my $zf = $iargs{zone_factory};
+   if (! blessed $zf) {
+      my $zone_specs  = $args{zone_specs} // DEFAULTS->{zone_specs_for};
+      my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
+      $zf = Dibs::Zone::Factory->new(
+         project_dir    => $pd,
+         zone_specs_for => $zone_specs,
+         zone_names_for => $zone_groups,
+      );
+   }
+   $retval{zone_factory} = $zf;
 
    # Pack factory
    my $pf = $retval{pack_factory} = Dibs::Pack::Factory->new(
