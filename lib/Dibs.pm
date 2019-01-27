@@ -32,8 +32,8 @@ has variables      => (is => 'ro', default => sub { return {} });
 has zone_factory   => (is => 'ro', required => 1);
 
 sub BUILDARGS ($class, @args) {
-   my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
-   %args = dclone(\%args)->%*;
+   my %iargs = (@args && ref $args[0]) ? $args[0]->%* : @args;
+   my %args = dclone(\%iargs)->%*;
    my %retval;
 
    $retval{name} = $args{name} if defined $args{name};
