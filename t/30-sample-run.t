@@ -34,7 +34,7 @@ my ($retval, $err, $out);
 is $retval, 0, 'main() outcome';
 
 is $out, undef, 'output of the whole thing';
-#diag Dumper $err;
+#diag $err;
 
 for my $sentence (
       'Hello, world! In foo, FOO starts as <>',
