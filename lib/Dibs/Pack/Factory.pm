@@ -7,13 +7,19 @@ use Module::Runtime 'use_module';
 use Path::Tiny 'path';
 use Dibs::Config ':constants';
 use Dibs::Pack::Instance;
+use Dibs::Context;
+use YAML::XS;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 with 'Dibs::Role::Factory';
 
+has _context_for => (is => 'lazy', init_arg => undef);
+
 has zone_factory => (is => 'ro', required => 1);
+
+sub _build__context_for ($self) { return {} }
 
 sub _build__class_for ($self) {
    return {
@@ -60,6 +66,21 @@ around pre_inflate => sub ($orig, $self, $x, %args) {
    return {type => HTTP, URI => $x}    if $x =~ m{\A https?:// }mxs;
    return $self->$orig($x, %args); # turn to regular munging
 };
+
+sub _get_context ($self, $locator, $path, %args) {
+   my $pack = $self->item($locator, dynamic_zone => PACK_HOST_ONLY, %args);
+   my $host_path = $pack->host_path(defined $path ? $path : ());
+   return $self->_context_for->{$host_path} //= do {
+      $pack->materialize;
+      Dibs::Context->new(LoadFile($host_path));
+   };
+}
+
+sub get_sub_factory ($self, $spec, %args) {
+   my $context = $self->_get_context($spec->@{qw< pack path >},
+      zone_factory => $self->zone_factory, %args);
+   return $context->factory_for->{$spec->{factory_type}};
+}
 
 1;
 __END__

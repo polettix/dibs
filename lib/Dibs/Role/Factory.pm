@@ -7,6 +7,8 @@ use Log::Any '$log';
 use Moo::Role;
 use Guard;
 use Module::Runtime 'use_module';
+use YAML::XS 'LoadFile';
+use Dibs::Config ':constants';
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
@@ -72,9 +74,8 @@ sub inflate ($self, $x, %args) {
    my $spec = $self->pre_inflate($x, %args);
    my ($ref, $rv) = (ref $spec, undef);
    if ($ref eq '') { # scalar, treat as string
-      if (my ($name, $pack) = $spec =~ m{\A (.*?) \@ (.*) \z}mxs) {
-         ouch 500, 'TRANSFER IMPLEMENTATION FROM INFLATER HERE!';
-         $rv = $self->load_from_pack($name, $spec, %args);
+      if (my ($name, $packpath) = $spec =~ m{\A (.*?) \@ (.*) \z}mxs) {
+         $rv = $self->load_from_pack($packpath, $name, %args);
       }
       else {
          my $config = $self->_config;
@@ -157,18 +158,37 @@ sub type ($self) {
    return $type;
 }
 
-1;
-__END__
-
-sub inflateXXXx ($self, $x, %args) {
-   return Dibs::Inflater::inflate(
-      $x,
-      %args,
-      config       => $self->_config,
-      pack_factory => $self->pack_factory,
-      normalizer   => sub ($v) { $self->normalize($v) },
-      parser       => sub ($v) { $self->parse($v) },
-      type         => $self->type,
-   );
+sub load_from_pack ($self, $packpath, $name, %args) {
+   my %spec = (factory_type => $self->type);
+   @spec{qw< pack path >} = split m{/}mxs, $packpath, 2;
+   my $sub_factory = $self->pack_factory->get_sub_factory(\%spec, %args);
+   return $sub_factory->inflate($name, %args);
 }
 
+sub Yload_from_pack ($self, $packpath, $name, %args) {
+   my ($packname, @path) = split m{/}mxs, $packpath, 2;
+   my $pack = $self->pack_factory->item($packname,
+      dynamic_zone => PACK_HOST_ONLY, %args);
+   my $dibsfile = $pack->host_path(@path);
+   my $subdibs = $args{dibs}->subordinate(LoadFile($dibsfile));
+}
+
+sub Xload_from_pack ($spec, %as) {
+   my $p = resolve_pack($spec, dynamic_zone => PACK_HOST_ONLY, %as);
+   my @path = defined($p->{path}) ? $p->{path} : ();
+   my $path = $p->{pack}->location->host_path(@path);
+   ouch 404, "missing file $path" unless $path->exists;
+   my $whole = LoadFile($path);
+
+   # ensure the needed data are there
+   my $data = data_in($whole, $p->{datapath});
+
+   my $zf = $as{zone_factory} // $as{pack_factory}->zone_factory;
+   my $cf = $whole->{&PACKS} // {};
+   require Dibs::Pack::Factory;
+   my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
+   return inflate($data, %as, dispack_factory => $ldps, config => $cf);
+}
+
+1;
+__END__

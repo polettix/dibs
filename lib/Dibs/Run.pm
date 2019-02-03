@@ -16,6 +16,7 @@ use Exporter 'import';
 our @EXPORT_OK = qw<
   run_command     assert_command
   run_command_out assert_command_out
+  run_command_outerr
 >;
 
 sub __indenter ($n_indent = INDENT) {
@@ -52,6 +53,17 @@ sub run_command_out ($command, $n_indent = INDENT) {
    my $out;
    my $ecode = _run_command($command, $n_indent, \$out);
    return ($ecode, $out);
+}
+
+sub run_command_outerr ($command, $in = undef) {
+   my ($out, $err);
+   try {
+      run $command, \$in, \$out, \$err;
+   }
+   catch {
+      ouch 500, "failed command (@$command) ($_)", $_;
+   };
+   return ($?, $out, $err);
 }
 
 sub assert_command ($command, $n_indent = INDENT) {

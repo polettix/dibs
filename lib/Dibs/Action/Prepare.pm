@@ -2,7 +2,7 @@ package Dibs::Action::Prepare;
 use 5.024;
 use Try::Catch;
 use Ouch ':trytiny_var';
-use Dibs::Docker qw< docker_tag >;
+use Dibs::Docker qw< docker_may_rmi docker_tag >;
 use Moo;
 use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
@@ -18,6 +18,8 @@ sub execute ($self, $args) {
    my $from = $self->from;
    defined(my $to = $args->{to})
      or ouch 400, 'no tagging target found';
+   $self->output("remove tag $to if exists");
+   docker_may_rmi($to);
    $self->output("tag $from to $to");
    try { docker_tag($from, $to) }
    catch { ouch 400, "cannot tag $from to $to. Build $from maybe?" };

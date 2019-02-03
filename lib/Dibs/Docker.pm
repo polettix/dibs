@@ -13,12 +13,14 @@ no warnings qw< experimental::postderef experimental::signatures >;
 
 use Dibs::Config ':constants';
 use Dibs::Output;
-use Dibs::Run qw< run_command_out assert_command assert_command_out >;
+use Dibs::Run qw< run_command_out run_command_outerr assert_command
+   assert_command_out >;
 
 use Exporter 'import';
 our @EXPORT_OK = qw<
   cleanup_tags
   docker_commit
+  docker_may_rmi
   docker_rm
   docker_rmi
   docker_run
@@ -52,6 +54,12 @@ sub docker_commit ($cid, $tag, $meta = undef) {
    assert_command([@command, $cid, $tag]);
    return $tag;
 } ## end sub docker_commit
+
+sub docker_may_rmi ($tag) {
+   my ($ecode, $out, $err) = run_command_outerr([qw< docker rmi >, $tag]);
+   return if $ecode == 0 || $err =~ m{no \s* such \s* image}imxs;
+   ouch 500, "removing tag $tag: $err";
+}
 
 sub docker_rm ($cid) {
    OUTPUT('removing working container', INDENT);

@@ -5,6 +5,7 @@ use Path::Tiny qw< path cwd >;
 use Dibs;
 use Dibs::Config ':all';
 use Dibs::App ();
+#use Log::Any::Adapter 'Stderr';
 use experimental qw< postderef signatures >;
 use lib path(__FILE__)->parent->stringify;
 use DibsTest;

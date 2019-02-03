@@ -17,23 +17,28 @@ no warnings qw< experimental::postderef experimental::signatures >;
 { our $VERSION = '0.001'; }
 
 use Dibs::Config ':constants';
-use Dibs::Action::Factory;
-use Dibs::Pack::Factory;
+use Dibs::Context;
 use Dibs::Zone::Factory;
 
 with 'Dibs::Role::EnvCarrier';
 
-has action_factory => (is => 'ro', required => 1);
 has allow_dirty    => (is => 'ro', default  => 0);
+has context        => (is => 'ro', required => 1);
 has name           => (is => 'lazy');
-has pack_factory   => (is => 'ro', required => 1);
 has project_dir    => (is => 'ro', required => 1);
 has variables      => (is => 'ro', default => sub { return {} });
 has zone_factory   => (is => 'ro', required => 1);
 
+sub action_factory ($self) {
+   return $self->context->factory_for('Dibs::Action::Factory');
+}
+
+sub pack_factory   ($self) {
+   return $self->context->factory_for('Dibs::Pack::Factory');
+}
+
 sub BUILDARGS ($class, @args) {
-   my %iargs = (@args && ref $args[0]) ? $args[0]->%* : @args;
-   my %args = dclone(\%iargs)->%*;
+   my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
    my %retval;
 
    $retval{name} = $args{name} if defined $args{name};
@@ -47,7 +52,7 @@ sub BUILDARGS ($class, @args) {
    my $pd = $retval{project_dir} = path($args{project_dir})->absolute;
 
    # Zones factory
-   my $zf = $iargs{zone_factory};
+   my $zf = $args{zone_factory};
    if (! blessed $zf) {
       my $zone_specs  = $args{zone_specs} // DEFAULTS->{zone_specs_for};
       my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
@@ -59,22 +64,11 @@ sub BUILDARGS ($class, @args) {
    }
    $retval{zone_factory} = $zf;
 
-   # Pack factory
-   my $pf = $retval{pack_factory} = Dibs::Pack::Factory->new(
-      config       => ($args{packs} // {}),
+   # Context
+   $retval{context} = Dibs::Context->new(
+      %args,
       zone_factory => $zf,
    );
-
-   # Action factory
-   my $af = $retval{action_factory} = Dibs::Action::Factory->new(
-      config       => ($args{actions} // {}),
-      pack_factory => $pf,
-      zone_factory => $zf,
-   );
-
-   # variables ned expansion but some "named ones" are also saved in case
-   # of inclusion... future stuff FIXME
-   $retval{variables} = __expand_variables(\%args);
 
    return \%retval;
 } ## end sub BUILDARGS
@@ -88,7 +82,8 @@ sub instance ($self, $args) { $self->action_factory->instance($args) }
 
 sub sketch ($self, $as) { $self->instance({actions => [$as->@*]}) }
 
-sub subordinate ($self, %args) {
+sub subordinate ($self, @args) {
+   my %args = (@args && ref $args[0]) ? $args[0]->%* : @args;
    my $pnv = dclone($self->variables);
    $pnv->%* = ($pnv->%*, $args{named_variables}->%*)
      if defined $args{named_variables};
