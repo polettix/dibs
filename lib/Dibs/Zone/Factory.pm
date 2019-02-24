@@ -15,8 +15,9 @@ sub BUILDARGS ($class, @args) {
    my %specs = (@args && ref($args[0])) ? $args[0]->%* : @args;
 
    my $zone_specs_for = $specs{zone_specs_for};
-   my $project_dir =
-     defined($specs{project_dir}) ? path($specs{project_dir}) : undef;
+   my ($project_dir, $host_project_dir) = map {
+      defined($specs{$_}) ? path($specs{$_}) : undef
+   } qw< project_dir host_project_dir >;
    my %map = map {
       my $spec = $zone_specs_for->{$_};
       my $zone;
@@ -25,15 +26,23 @@ sub BUILDARGS ($class, @args) {
       }
       else {
          my $host_base = $spec->{host_base};
+         my $realhost_base = undef;
          if (defined $host_base) {
             $host_base = path($host_base);
             $host_base = $project_dir->child($host_base)
-               if defined($project_dir) && $host_base->is_relative;
+               if $project_dir && $host_base->is_relative;
             $host_base = $host_base->absolute if $host_base->is_relative;
+
+            $realhost_base = $host_project_dir->child(
+               $host_base->relative($project_dir))->absolute
+               if $host_project_dir && $project_dir
+                  && $project_dir->subsumes($host_base);
+            $realhost_base //= $host_base;
          }
          $zone = Dibs::Zone->new(
             $spec->%*,
             host_base => $host_base,
+            realhost_base => $realhost_base,
             name      => $_,
          );
       }
@@ -75,12 +84,13 @@ sub items ($self, $filter = undef) {
    }
 }
 
-sub default ($class, $project_dir = undef) {
+sub default ($class, $project_dir = undef, $host_project_dir = undef) {
    require Dibs::Config;
    $project_dir //= cwd->absolute;
    my $defaults = Dibs::Config::DEFAULTS();
    return Dibs::Zone::Factory->new(
       project_dir => $project_dir,
+      host_project_dir => $host_project_dir,
       zone_specs_for => $defaults->{zone_specs_for},
       zone_names_for => $defaults->{zone_names_for},
    );

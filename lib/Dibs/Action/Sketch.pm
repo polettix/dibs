@@ -33,9 +33,15 @@ around create => sub ($orig, $class, %args) {
 
 sub draw ($self, %args) {
    my $args = \%args;
+   my ($pd, $hpd) = $args->@{qw< project_dir host_project_dir >};
    my $zf = $args->{zone_factory}
-      //= Dibs::Zone::Factory->default($args->{project_dir});
-   $self->_ensure_volumes($args->{volumes} //= $self->_volumes($zf));
+      //= Dibs::Zone::Factory->default($pd, $hpd);
+   if (! defined $args->{volumes}) {
+      $args->{volumes} = $self->_volumes($zf);
+   }
+   else {
+      $self->_ensure_volumes($args->{volumes});
+   }
    try {
       $self->execute($args);
    }
@@ -62,7 +68,8 @@ sub _ensure_volumes ($self, $groups) {
 sub _volumes ($self, $zone_factory) {
    return [
       map {
-         [$_->host_path, $_->container_path, ($_->writeable ? 'rw' : 'ro')]
+         $_->host_path->mkpath;
+         [$_->realhost_path, $_->container_path, ($_->writeable ? 'rw' : 'ro')]
       } $zone_factory->items('volumes')
    ];
 }

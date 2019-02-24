@@ -58,6 +58,7 @@ sub BUILDARGS ($class, @args) {
       my $zone_groups = $args{zone_groups} // DEFAULTS->{zone_names_for};
       $zf = Dibs::Zone::Factory->new(
          project_dir    => $pd,
+         host_project_dir => $args{host_project_dir},
          zone_specs_for => $zone_specs,
          zone_names_for => $zone_groups,
       );
