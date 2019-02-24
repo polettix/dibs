@@ -326,9 +326,9 @@ sub get_config_cmdenv ($args, $defaults = undef) {
    $frozen{project_dir} = path($project_dir);
 
    if (defined $sofar->{host_remap_dir}) {
-      my ($from, $to) = map { path($_)->absolute }
-         split m{:}mxs, $sofar->{host_remap_dir}, 2;
-      $frozen{host_project_dir} = $to->child($project_dir->relative($from))
+      my ($from, $to, $pd) = map { path($_)->absolute }
+         split(m{:}mxs, $sofar->{host_remap_dir}, 2), $project_dir;
+      $frozen{host_project_dir} = $to->child($pd->relative($from))
         if $from->subsumes($project_dir);
    }
 
