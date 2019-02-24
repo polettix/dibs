@@ -141,6 +141,11 @@ use constant OPTIONS => [
       help    => 'project base dir (dind-like)'
    ],
    [
+      'host-remap-dir|R=s',
+      default => undef,
+      help    => 'remap host dir for execution inside a container',
+   ],
+   [
       'loglevel|l=s',
       default => 'INFO',
       help => 'level of verbosity in logging',
@@ -319,6 +324,13 @@ sub get_config_cmdenv ($args, $defaults = undef) {
    my $project_dir = $sofar->{project_dir} //
       ($is_alien ? ALIEN_PROJECT_DIR : LOCAL_PROJECT_DIR);
    $frozen{project_dir} = path($project_dir);
+
+   if (defined $sofar->{host_remap_dir}) {
+      my ($from, $to) = map { path($_)->absolute }
+         split m{:}mxs, $sofar->{host_remap_dir}, 2;
+      $frozen{host_project_dir} = $to->child($project_dir->relative($from))
+        if $from->subsumes($project_dir);
+   }
 
    return {
       _merge(\%frozen, $sofar, $defaults)->%*,
