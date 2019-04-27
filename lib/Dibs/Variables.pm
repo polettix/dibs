@@ -25,10 +25,10 @@ sub dvf_dibs_date ($o)  { return $o->{run_variables}{DIBS_DATE}          }
 sub dvf_dibs_epoch ($o) { return $o->{run_variables}{DIBS_EPOCH}         }
 sub dvf_dibs_time ($o)  { return $o->{run_variables}{DIBS_TIME}          }
 sub dvf_epoch ($o)      { return time()                                  }
-sub dvf_gmtime ($o, $e = undef)    { gmtime($e // dfv_dibs_epoch($o))    }
-sub dvf_localtime ($o, $e = undef) { localtime($e // dfv_dibs_epoch($o)) }
+sub dvf_gmtime ($o, $e = undef)    { gmtime($e // dvf_dibs_epoch($o))    }
+sub dvf_localtime ($o, $e = undef) { localtime($e // dvf_dibs_epoch($o)) }
 sub dvf_strftime ($o, $format, @rest) {
-   @rest = dfv_gmtime($o) unless @rest;
+   @rest = dvf_gmtime($o) unless @rest;
    return strftime $format, @rest;
 }
 
