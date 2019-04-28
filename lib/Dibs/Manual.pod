@@ -1563,6 +1563,35 @@ to do this. This is the counterpart to C</get_runvar> above.
 explicitly set a named variable. This is the counterpart to L</get_var>
 above.
 
+=item * C<set_vars>
+
+set multiple named variables from one of possibly multiple hashes. Example:
+
+    # use environment variable SELECTOR to get one of the possible
+    # groups of definitions. This env variable is assumed to take values
+    # like 'first_group', 'second_group' and so on.
+    variables:
+      -
+         - set_vars
+         - [env, SELECTOR] # use SELECTOR env variable as... selector
+         - first_group
+         - foo: foo
+           bar: galook
+         - second_group
+         - foo: FOO
+           bar: GALOOK
+      - &foo_value [get_var, foo]
+      - &bar_value [get_var, bar]
+
+In the example above, when environment variable C<SELECTOR> is equal to
+the string C<first_group>, then the named variable C<foo> is set to C<foo>
+and the named variable C<bar> is set to C<galook>. Otherwise, if
+C<SELECTOR> is equal to C<second_group>, then the named variable C<foo> is
+set to uppercase C<FOO> and the named variable C<bar> to uppercase
+C<GALOOK>. This will eventually set YAML anchors C<&foo_value> and
+C<&bar_value> to the values that have been selected via the environment
+variable.
+
 =item * C<sprintf>
 
 just Perl's C<sprintf>, with initial format and everything else.
