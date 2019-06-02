@@ -17,7 +17,12 @@ with 'Dibs::Role::EnvCarrier';
 has '+output_char' => (default => '-');
 has args => (is => 'ro', default => sub { return [] });
 has commit => (is => 'ro', default => undef, coerce => \&_commit);
-has indent => (is => 'ro', default => 42); # FIXME understand/comment!
+
+# 'indent' is a boolean that is turned on by default, and allows indenting the
+# stroke's output to align with the overall output. Set to false to go to the
+# first column.
+has indent => (is => 'ro', default => 42);
+
 has pack => (is => 'ro', required => 1);
 has path => (is => 'ro', required => 1); # path inside container
 has user => (is => 'ro', default => undef);
