@@ -88,7 +88,6 @@ sub execute ($self, $args = undef) {
    $self->pack->materialize;
    my @carriers = ($args->{env_carriers} // [])->@*;
    my %run_args = (
-      keep => 1, # FIXME understand/comment, cargo cult
       $args->%*,
       env => $self->merge_envs(@carriers),
       envile => $self->merge_enviles(@carriers),

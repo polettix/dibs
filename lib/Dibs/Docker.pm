@@ -76,14 +76,10 @@ sub docker_run (%args) {
    ouch 400, 'no image provided' unless defined $args{image};
 
    my @command = qw< docker run >;
+
    my $cidfile = path($args{project_dir})->child("cidfile-$$.tmp");
    $cidfile->remove if $cidfile->exists;
-   if (!$args{keep}) {
-      push @command, '--rm';
-   }
-   elsif (wantarray) {
-      push @command, '--cidfile', $cidfile;
-   }
+   push @command, '--cidfile', $cidfile;
 
    push @command, '--user', $args{user} if exists $args{user};
    push @command, expand_volumes($args{volumes});
@@ -100,8 +96,11 @@ sub docker_run (%args) {
 
    return $retval unless wantarray;
 
-   my $cid = $args{keep} && $cidfile->exists ? $cidfile->slurp_raw : undef;
-   $cidfile->remove if $cidfile->exists;
+   my $cid;
+   if ($cidfile->exists) {
+      $cid = $cidfile->slurp_raw;
+      $cidfile->remove;
+   }
    return ($retval, $cid, $out);
 } ## end sub docker_run (%args)
 

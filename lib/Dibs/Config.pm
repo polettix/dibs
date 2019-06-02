@@ -367,12 +367,6 @@ sub yaml_boolean ($v) {
 } ## end sub yaml_boolean ($v)
 
 sub adjust_definitions ($overall) {
-
-   # "keep" is a boolean FIXME can we get rid of this with YAML::XS?
-   while (my ($k, $d) = each $overall->{definitions}->%*) {
-      defined($d->{keep} = yaml_boolean($d->{keep}))
-        or ouch 400, "definition for $k: 'keep' is not a boolean\n";
-   }
 } ## end sub adjust_definitions ($overall)
 
 sub get_environment ($optspecs = OPTIONS, $env = {%ENV}) {
