@@ -14,10 +14,14 @@ has _zones_for => (is => 'ro', required => 1);
 sub BUILDARGS ($class, @args) {
    my %specs = (@args && ref($args[0])) ? $args[0]->%* : @args;
 
+   # base project directory paths for container and host respectively.
+   # Each might be undefined, although it's higly unlikely for
+   # project_dir and also for host_project_dir if running dibs
+   # properly from a container itself.
+   my $project_dir = __path_or_undef($specs{project_dir});
+   my $host_project_dir = __path_or_undef($specs{host_project_dir});
+
    my $zone_specs_for = $specs{zone_specs_for};
-   my ($project_dir, $host_project_dir) = map {
-      defined($specs{$_}) ? path($specs{$_}) : undef
-   } qw< project_dir host_project_dir >;
    my %map = map {
       my $spec = $zone_specs_for->{$_};
       my $zone;
@@ -95,5 +99,7 @@ sub default ($class, $project_dir = undef, $host_project_dir = undef) {
       zone_names_for => $defaults->{zone_names_for},
    );
 }
+
+sub __path_or_undef ($x) { return defined $x ? path($x) : undef }
 
 1;
