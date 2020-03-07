@@ -5,7 +5,7 @@ logger: ['Stderr', 'log_level', 'info']
 variables:
    - &version_major           '0'
    - &version_minor           '5'
-   - &version_patch           '3'
+   - &version_patch           '4'
    - &version ['join', '.', *version_major, *version_minor, *version_patch]
    - &version_maj_min ['join', '.', *version_major, *version_minor]
    - &base_image          'alpine:3.6'
@@ -27,8 +27,9 @@ variables:
    - &username             'user'
    - &groupname            'user'
 
-   - &appdir               '/app'
+   - &appdir   '/app'
    - &dibspath ['join', '/', *appdir, 'bin/dibs']
+   - &workdir  '/mnt'
 
 packs:
    basic:
@@ -196,7 +197,7 @@ actions:
          entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
             "--", "/profilexec", *dibspath ]
          cmd: [ "--help" ]
-         workdir: *appdir
+         workdir: *workdir
 
    save-bundle:
       name: 'save bundle image'
