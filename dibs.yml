@@ -14,7 +14,7 @@ variables:
    - &bases_reference_tag '0.5'
    - &builder_image ['join', ':', *builder_image_name, *bases_reference_tag]
    - &bundler_image ['join', ':', *bundler_image_name, *bases_reference_tag]
-   - &target_image_name   'dibs'
+   - &target_image_name   'polettix/dibs'
 
    - unexpanded:
       tags: &version_tags ['*', 'latest', *version_maj_min, *version]
