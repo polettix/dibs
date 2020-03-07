@@ -196,7 +196,7 @@ actions:
       commit:
          entrypoint: [ "/suexec", "-r", ".", "-A", "/var/run/docker.sock",
             "--", "/profilexec", *dibspath ]
-         cmd: [ "--help" ]
+         cmd: [ ]
          workdir: *workdir
 
    save-bundle:
