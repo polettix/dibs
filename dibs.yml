@@ -5,7 +5,7 @@ logger: ['Stderr', 'log_level', 'info']
 variables:
    - &version_major           '0'
    - &version_minor           '5'
-   - &version_patch           '2'
+   - &version_patch           '3'
    - &version ['join', '.', *version_major, *version_minor, *version_patch]
    - &version_maj_min ['join', '.', *version_major, *version_minor]
    - &base_image          'alpine:3.6'
