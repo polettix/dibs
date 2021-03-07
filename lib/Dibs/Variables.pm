@@ -36,6 +36,10 @@ sub dvf_strftime ($o, $format, @rest) {
    return strftime $format, @rest;
 }
 
+sub dvf_path ($o, $type, @path) {
+   return $o->{zone_factory}->item($type)->container_path(@path);
+}
+
 1;
 __END__
 

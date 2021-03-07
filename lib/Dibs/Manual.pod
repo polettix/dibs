@@ -1069,6 +1069,19 @@ a single value, or an array of values, that are passed to the program
 executed inside the container. Optional, by default nothing is passed.
 Useful to reuse the same operation in different contexts.
 
+It is possible to include dynamic data in the arguments list (beyond the
+capabilities of the variables) by including an object instead of a plain
+value. Supported alternatives are in the following examples:
+
+   args:
+      - plain-value
+      - { 'path_src': 'foo' }    # sub-path "foo" inside the src directory
+      - { 'type': 'path', 'src': 'bar' } # similar, with "bar"
+      - { 'type': 'sketch_id' }   # the identifier of the sketch
+      - { 'type': 'sketch_name' } # you guess
+
+
+
 =item C<commit>
 
 this optional key points to an Associative array that helps setting
@@ -1089,6 +1102,10 @@ equivalent to the C<CMD> directive in a Dockerfile;
 =item C<entrypoint>
 
 equivalent to the C<ENTRYPOINT> directive in a Dockerfile;
+
+=item C<label>
+
+equivalent to the C<LABEL> directive in a Dockerfile;
 
 =item C<message>
 
@@ -1477,11 +1494,23 @@ described above, because it is recursive). Example:
         # this results in hash {what: ['ever', 'you', 'do']}
       - &hashref   {what: ['array_wrap', 'ever', 'you', 'do']}
 
+=item * C<dibs_date>
+
+the value of C<DIBS_DATE> as generated automatically at each run.
+
+=item * C<dibs_epoch>
+
+the value of C<DIBS_EPOCH> as recorded automatically at each run.
+
 =item * C<dibs_id>
 
 get the identifier for the specific run of C<dibs>. You might want to pass
 this explicitly to a sketch, or use it to compose a bigger identifier. Or
 generate an image name, why not!
+
+=item * C<dibs_time>
+
+the value of C<DIBS_TIME> as generated automatically at each run.
 
 =item * C<empty_default>
 
@@ -1499,6 +1528,10 @@ get environment variable(s). Example:
       - &version ['env', 'VERSION']
       - &fullname ['join', '-', ['env', 'NAME', 'SURNAME']]
 
+=item * C<epoch>
+
+just Perl's C<time>.
+
 =item * C<get_runvar>
 
 get specific variable, generated at runtime. There are a handful and they
@@ -1511,22 +1544,6 @@ variables in C<variables> that are defined as key-value pairs also end up
 as I<named variables> that you can then recall later. Why you would want
 to do this is a little beyond this documentation at the moment, stay
 tuned!
-
-=item * C<dibs_date>
-
-the value of C<DIBS_DATE> as generated automatically at each run.
-
-=item * C<dibs_epoch>
-
-the value of C<DIBS_EPOCH> as recorded automatically at each run.
-
-=item * C<dibs_time>
-
-the value of C<DIBS_TIME> as generated automatically at each run.
-
-=item * C<epoch>
-
-just Perl's C<time>.
 
 =item * C<gmtime>
 
@@ -1552,6 +1569,14 @@ on L</dibs_epoch>. Example:
 
 as the name says, just pass the rest of the array through to the upper
 layer. Still looking for the right example...
+
+=item * C<path>
+
+expand to a path in one of the L</Directories>. Examples:
+
+   variables:
+      - &prereqs_dir  [path, src, prerequisites]
+      - &cache_target [path, cache, foo, bar]
 
 =item * C<set_runvar>
 

@@ -33,7 +33,7 @@ sub BUILDARGS ($class, @args) {
    my $zf = delete $args{zone_factory}
      or ouch 400, 'no zone_factory passed to context builder';
 
-   # become owner of the stuff
+   # become owner of the stuff (why?)
    %args = dclone({%args})->%*;
    my %retval;
    my @factories;
@@ -55,7 +55,7 @@ sub BUILDARGS ($class, @args) {
 
    # variables need expansion but some "named ones" are also saved in case
    # of inclusion...
-   $retval{variables} = __expand_variables(\%args);
+   $retval{variables} = __expand_variables({%args, zone_factory => $zf});
 
    return \%retval;
 } ## end sub BUILDARGS
@@ -88,6 +88,7 @@ sub __expand_variables ($cfg) {
       packages => $packages,
       run_variables => $cfg->{run_variables},
       named_variables => $nv,
+      zone_factory => $cfg->{zone_factory},
    };
    for my $var ($variables->@*) {
       my $ref = ref $var;
