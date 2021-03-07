@@ -6,7 +6,7 @@ use experimental qw< postderef signatures >;
 no warnings qw< experimental::postderef experimental::signatures >;
 
 {
-   my @fields = qw< author cmd entrypoint message user workdir >;
+   my @fields = qw< author changes cmd entrypoint label message user workdir >;
 
    has $_ => (is => 'ro', default => undef) for @fields;
 

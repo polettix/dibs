@@ -41,12 +41,27 @@ sub cleanup_tags (@tags) {
 } ## end sub cleanup_tags
 
 sub docker_commit ($cid, $tag, $meta = undef) {
+   state $change_builder = sub ($name, $data) {
+      return uc($name) . ' ' . (ref($data) ? encode_json($data) : $data)
+   };
    my @command = qw< docker commit >;
    $meta //= {};
-   for my $c (qw< entrypoint cmd workdir user >) {
+   for my $c (qw< entrypoint cmd label user workdir >) {
       defined(my $cd = $meta->{$c}) or next;
-      my $change = uc($c) . ' ' . (ref($cd) ? encode_json($cd) : $cd);
-      push @command, -c => $change;
+      push @command, -c => $change_builder->($c, $cd)
+   }
+   for my $change (($meta->{changes} || [])->@*) {
+      if (ref($change) eq 'HASH') {
+         while (my ($name, $data) = each $change->%*) {
+            push @command, -c => $change_builder->($name, $data);
+         }
+      }
+      elsif (! ref($change)) {
+         push @command, -c => $change;
+      }
+      else {
+         ouch 400, "invalid change", $change;
+      }
    }
    push @command, -a => $meta->{author} if defined $meta->{author};
    push @command, -m => $meta->{message} if defined $meta->{message};
