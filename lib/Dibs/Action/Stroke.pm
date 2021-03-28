@@ -71,7 +71,8 @@ sub _command ($self, $args) {
               unless (ref($data) eq 'HASH')
               && (scalar(keys $data->%*) == 1);
             my ($name, $path) = $data->%*;
-            $self->zone_factory->item($name)->container_path($path);
+            my @path = defined($path) ? $path : ();
+            $self->zone_factory->item($name)->container_path(@path);
          } ## end if ($type eq 'path')
          elsif ($type eq 'sketch_id') { $args->{sketch}->id }
          elsif ($type eq 'sketch_name') { $args->{sketch}->name }
