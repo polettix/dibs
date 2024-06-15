@@ -66,6 +66,7 @@ sub docker_commit ($cid, $tag, $meta = undef) {
    push @command, -a => $meta->{author} if defined $meta->{author};
    push @command, -m => $meta->{message} if defined $meta->{message};
    OUTPUT("committing working container to $tag", INDENT);
+   OUTPUT(q{running command: ('} . join(q{', '}, @command) . q{')});
    assert_command([@command, $cid, $tag]);
    return $tag;
 } ## end sub docker_commit
