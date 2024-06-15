@@ -13,6 +13,7 @@ requires 'Guard',           '1.023';
 requires 'HTTP::Tiny',      '0.076';
 requires 'IO::Socket::SSL', '1.56';
 requires 'Net::SSLeay',     '1.49';
+requires 'Pod::Find';
 
 on test => sub {
    requires 'Test2::Suite',    '0.000115';

@@ -56,22 +56,6 @@ DISTRIBUTIONS
       Guard 1.023
     requirements:
       ExtUtils::MakeMaker 0
-  HTTP-Tiny-0.076
-    pathname: D/DA/DAGOLDEN/HTTP-Tiny-0.076.tar.gz
-    provides:
-      HTTP::Tiny 0.076
-    requirements:
-      Carp 0
-      ExtUtils::MakeMaker 6.17
-      Fcntl 0
-      IO::Socket 0
-      MIME::Base64 0
-      Socket 0
-      Time::Local 0
-      bytes 0
-      perl 5.006
-      strict 0
-      warnings 0
   IO-Socket-SSL-2.060
     pathname: S/SU/SULLR/IO-Socket-SSL-2.060.tar.gz
     provides:
@@ -304,6 +288,28 @@ DISTRIBUTIONS
       strict 0
       warnings 0
       warnings::register 0
+  Pod-Parser-1.65
+    pathname: M/MA/MAREKR/Pod-Parser-1.65.tar.gz
+    provides:
+      Pod::Cache 1.65
+      Pod::Cache::Item 1.65
+      Pod::Find 1.65
+      Pod::Hyperlink 1.65
+      Pod::InputObjects 1.65
+      Pod::InputSource 1.65
+      Pod::InteriorSequence 1.65
+      Pod::List 1.65
+      Pod::Paragraph 1.65
+      Pod::ParseTree 1.65
+      Pod::ParseUtils 1.65
+      Pod::Parser 1.65
+      Pod::PlainText 2.07
+      Pod::Select 1.65
+    requirements:
+      Cwd 0
+      ExtUtils::MakeMaker 0
+      File::Basename 0
+      Test::More 0.6
   Role-Tiny-2.000006
     pathname: H/HA/HAARG/Role-Tiny-2.000006.tar.gz
     provides:
@@ -389,91 +395,14 @@ DISTRIBUTIONS
       perl 5.006001
       strict 0
       warnings 0
-  Test-Simple-1.302140
-    pathname: E/EX/EXODIST/Test-Simple-1.302140.tar.gz
-    provides:
-      Test2 1.302140
-      Test2::API 1.302140
-      Test2::API::Breakage 1.302140
-      Test2::API::Context 1.302140
-      Test2::API::Instance 1.302140
-      Test2::API::Stack 1.302140
-      Test2::Event 1.302140
-      Test2::Event::Bail 1.302140
-      Test2::Event::Diag 1.302140
-      Test2::Event::Encoding 1.302140
-      Test2::Event::Exception 1.302140
-      Test2::Event::Fail 1.302140
-      Test2::Event::Generic 1.302140
-      Test2::Event::Note 1.302140
-      Test2::Event::Ok 1.302140
-      Test2::Event::Pass 1.302140
-      Test2::Event::Plan 1.302140
-      Test2::Event::Skip 1.302140
-      Test2::Event::Subtest 1.302140
-      Test2::Event::TAP::Version 1.302140
-      Test2::Event::V2 1.302140
-      Test2::Event::Waiting 1.302140
-      Test2::EventFacet 1.302140
-      Test2::EventFacet::About 1.302140
-      Test2::EventFacet::Amnesty 1.302140
-      Test2::EventFacet::Assert 1.302140
-      Test2::EventFacet::Control 1.302140
-      Test2::EventFacet::Error 1.302140
-      Test2::EventFacet::Hub 1.302140
-      Test2::EventFacet::Info 1.302140
-      Test2::EventFacet::Meta 1.302140
-      Test2::EventFacet::Parent 1.302140
-      Test2::EventFacet::Plan 1.302140
-      Test2::EventFacet::Render 1.302140
-      Test2::EventFacet::Trace 1.302140
-      Test2::Formatter 1.302140
-      Test2::Formatter::TAP 1.302140
-      Test2::Hub 1.302140
-      Test2::Hub::Interceptor 1.302140
-      Test2::Hub::Interceptor::Terminator 1.302140
-      Test2::Hub::Subtest 1.302140
-      Test2::IPC 1.302140
-      Test2::IPC::Driver 1.302140
-      Test2::IPC::Driver::Files 1.302140
-      Test2::Tools::Tiny 1.302140
-      Test2::Util 1.302140
-      Test2::Util::ExternalMeta 1.302140
-      Test2::Util::Facets2Legacy 1.302140
-      Test2::Util::HashBase 1.302140
-      Test2::Util::Trace 1.302140
-      Test::Builder 1.302140
-      Test::Builder::Formatter 1.302140
-      Test::Builder::IO::Scalar 2.114
-      Test::Builder::Module 1.302140
-      Test::Builder::Tester 1.302140
-      Test::Builder::Tester::Color 1.302140
-      Test::Builder::Tester::Tie 1.302140
-      Test::Builder::TodoDiag 1.302140
-      Test::More 1.302140
-      Test::Simple 1.302140
-      Test::Tester 1.302140
-      Test::Tester::Capture 1.302140
-      Test::Tester::CaptureRunner 1.302140
-      Test::Tester::Delegate 1.302140
-      Test::use::ok 1.302140
-      ok 1.302140
-    requirements:
-      ExtUtils::MakeMaker 0
-      File::Spec 0
-      File::Temp 0
-      Scalar::Util 1.13
-      Storable 0
-      perl 5.006002
-      utf8 0
   Test-Trap-v0.3.3
     pathname: E/EB/EBHANSSEN/Test-Trap-v0.3.3.tar.gz
     provides:
-      Test::Trap v0.3.3
-      Test::Trap::Builder v0.3.3
-      Test::Trap::Builder::PerlIO v0.3.3
-      Test::Trap::Builder::SystemSafe v0.3.3
-      Test::Trap::Builder::TempFile v0.3.3
+      Test::Trap 0.003003
+      Test::Trap::Builder 0.003003
+      Test::Trap::Builder::PerlIO 0.003003
+      Test::Trap::Builder::SystemSafe 0.003003
+      Test::Trap::Builder::TempFile 0.003003
     requirements:
       Carp 0
       Data::Dump 0
@@ -645,6 +574,16 @@ DISTRIBUTIONS
       URI::Split 1.74
       URI::URL 5.04
       URI::WithBase 2.20
+      URI::_foreign undef
+      URI::_generic undef
+      URI::_idna undef
+      URI::_ldap undef
+      URI::_login undef
+      URI::_punycode undef
+      URI::_query undef
+      URI::_segment undef
+      URI::_server undef
+      URI::_userpass undef
       URI::data 1.74
       URI::file 4.21
       URI::file::Base 1.74
