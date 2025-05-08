@@ -23,13 +23,13 @@ sub _build__context_for ($self) { return {} }
 
 sub _build__class_for ($self) {
    return {
-      &GIT       => 'Dibs::Pack::Dynamic',
-      &IMMEDIATE => 'Dibs::Pack::Dynamic',
-      &HTTP      => 'Dibs::Pack::Dynamic',
-      &INSIDE    => 'Dibs::Pack::Static',
-      &PROJECT   => 'Dibs::Pack::Static::Project',
-      &SRC       => 'Dibs::Pack::Static',
-      &SUBPACK   => 'Dibs::Pack::Subpack',
+      GIT()       => 'Dibs::Pack::Dynamic',
+      IMMEDIATE() => 'Dibs::Pack::Dynamic',
+      HTTP()      => 'Dibs::Pack::Dynamic',
+      INSIDE()    => 'Dibs::Pack::Static',
+      PROJECT()   => 'Dibs::Pack::Static::Project',
+      SRC()       => 'Dibs::Pack::Static',
+      SUBPACK()   => 'Dibs::Pack::Subpack',
    };
 }
 

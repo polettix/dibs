@@ -28,14 +28,14 @@ sub _add_context ($self, $feedback) {
 
 sub _build__class_for ($self) {
    return {
-      &SKETCH => 'Dibs::Action::Sketch',
-      &GIT    => 'Dibs::Action::Fetch::Git',   # FIXME implement
-      &HTTP   => 'Dibs::Action::Fetch::Http',  # FIXME implement
-      &FRAME  => 'Dibs::Action::Frame',
-      &LOG    => 'Dibs::Action::Log',
-      &FROM   => 'Dibs::Action::Prepare',
-      &PACK   => 'Dibs::Action::Stroke',
-      &STROKE => 'Dibs::Action::Stroke',
+      SKETCH() => 'Dibs::Action::Sketch',
+      GIT()    => 'Dibs::Action::Fetch::Git',   # FIXME implement
+      HTTP()   => 'Dibs::Action::Fetch::Http',  # FIXME implement
+      FRAME()  => 'Dibs::Action::Frame',
+      LOG()    => 'Dibs::Action::Log',
+      FROM()   => 'Dibs::Action::Prepare',
+      PACK()   => 'Dibs::Action::Stroke',
+      STROKE() => 'Dibs::Action::Stroke',
    };
 }
 

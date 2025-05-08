@@ -184,7 +184,7 @@ sub Xload_from_pack ($spec, %as) {
    my $data = data_in($whole, $p->{datapath});
 
    my $zf = $as{zone_factory} // $as{pack_factory}->zone_factory;
-   my $cf = $whole->{&PACKS} // {};
+   my $cf = $whole->{PACKS()} // {};
    require Dibs::Pack::Factory;
    my $ldps = Dibs::Pack::Factory->new(config => $cf, zone_factory => $zf);
    return inflate($data, %as, dispack_factory => $ldps, config => $cf);
